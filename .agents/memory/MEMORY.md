@@ -1,0 +1,5 @@
+- [Credit System Removal](credit-removal.md) — credits/redeem/buy system fully removed; credits column kept in DB but not used/displayed
+- [Broadcast Feature](broadcast-feature.md) — broadcast_messages table in Supabase; API routes /api/broadcasts (public GET), /api/admin/broadcasts (POST/DELETE); shown as banner on Dashboard, managed in AdminLogin BROADCAST_TERMINAL panel
+- [Supabase DB Priority](supabase-priority.md) — SUPABASE_DB_URL takes priority over DATABASE_URL in both drizzle.config.ts and server/db.ts; never swap this order
+- [Purple SaaS Theme](purple-theme.md) — full redesign from green cyberpunk to premium purple AI SaaS; CSS vars, all components, all pages updated; bg #050314, primary #8B5CF6; font Inter/Plus Jakarta Sans
+- [Admin Session Cookie Fix](admin-session-cookie.md) — adminAuth cookie must be SameSite=None; Secure in ALL envs; Replit canvas is an iframe, SameSite=Lax blocks cookie; isLoggedIn must start false + server-verify on mount

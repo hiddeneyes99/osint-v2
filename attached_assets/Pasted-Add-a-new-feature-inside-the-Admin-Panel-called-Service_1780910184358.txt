@@ -1,0 +1,94 @@
+Add a new feature inside the Admin Panel called "Service Availability Management".
+
+Purpose:
+
+Allow administrators to mark any service as "Coming Soon" without disabling or removing the service from the system.
+
+Requirements:
+
+1. Create a new Admin Panel section similar to the existing Service Management feature.
+
+2. This section should allow administrators to:
+
+   * Mark a service as Available
+   * Mark a service as Coming Soon
+   * View the current availability state of each service
+
+3. Supported services should include:
+
+   * Number Search
+   * Vehicle Search
+   * Email Search
+   * Aadhaar Search
+   * Any existing services
+   * Any future services added to the platform
+
+4. Frontend Behavior:
+
+   * When a service is marked as "Coming Soon", users should not access the actual service.
+   * Instead, the existing Coming Soon page/card/component should be displayed.
+   * The service name must automatically change based on the selected service.
+   * Example:
+
+     * Vehicle Search → "Vehicle Search Coming Soon"
+     * Email Search → "Email Search Coming Soon"
+     * Aadhaar Search → "Aadhaar Search Coming Soon"
+
+5. Design Requirements:
+
+   * Use the exact same existing Coming Soon design already present in the application.
+   * Do NOT create a new Coming Soon UI.
+   * Reuse the current Coming Soon component/template.
+   * Only the service name should change dynamically.
+
+6. Admin Panel UI Requirements:
+
+   * Match the exact Admin Panel design language.
+   * Same cards
+   * Same spacing
+   * Same typography
+   * Same colors
+   * Same shadows
+   * Same border radius
+   * Same animations
+   * Same responsive behavior
+   * Same mobile layout structure
+
+7. Do NOT:
+
+   * Redesign the Admin Panel
+   * Change existing layouts
+   * Change navigation
+   * Change existing Service Management functionality
+   * Modify existing service pages
+
+8. Functionality:
+
+   * Service Status Management (ON/OFF) and Service Availability Management (Available/Coming Soon) must work independently.
+   * A service can be:
+
+     * Enabled + Available
+     * Enabled + Coming Soon
+     * Disabled + Available
+     * Disabled + Coming Soon
+
+9. Backend Requirements:
+
+   * Store Coming Soon status in the centralized settings/configuration system.
+   * Persist after deployments and server restarts.
+   * Add proper logging for status changes.
+
+10. Real-Time Sync:
+
+* When a service is marked as Coming Soon in Admin Panel, the frontend should immediately show the existing Coming Soon screen for that service.
+* When Coming Soon is removed, the service should become accessible immediately.
+* No page refresh should be required.
+
+11. Future-Proofing:
+
+* Any newly added service should automatically appear in this management section.
+* No major code changes should be required when new services are added.
+
+Goal:
+
+Create a Service Availability Management feature that allows admins to mark any service as Coming Soon while reusing the existing Coming Soon design, keeping the Admin Panel design identical to existing sections, and preserving the overall UI, UX, structure, and styling without any changes.

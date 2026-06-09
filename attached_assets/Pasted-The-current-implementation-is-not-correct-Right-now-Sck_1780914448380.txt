@@ -1,0 +1,85 @@
+The current implementation is not correct.
+
+Right now, Sckeptic (Prince) is only mentioned in the footer. That is NOT what was requested.
+
+Requirements:
+
+1. Create a dedicated profile section for Sckeptic (Prince) inside the /twh page similar to how Technical White Hat (Afsar Ali) has dedicated sections.
+
+2. Do NOT place the profile only in the footer.
+
+3. Create a proper section with:
+
+   * Profile Heading
+   * Professional Introduction
+   * Role Description
+   * Responsibilities
+   * Skills & Expertise
+   * Contributions to the Platform
+
+4. Follow the exact same design language already used throughout the page:
+
+   * Same cards
+   * Same spacing
+   * Same typography
+   * Same colors
+   * Same responsive behavior
+   * Same animation style
+
+5. Suggested Section Title:
+
+   Platform Administration & Support
+
+   Sckeptic (Prince)
+
+   Senior Administrator · Support Team Member · Ethical Hacker · Web Developer
+
+6. Create detailed content explaining that Sckeptic (Prince) contributes to:
+
+   * Platform Administration
+   * Technical Support
+   * Community Assistance
+   * Web Development
+   * System Management
+   * Security-Oriented Operations
+   * User Support
+   * Troubleshooting
+   * Platform Maintenance
+
+7. Add a dedicated Skills section similar to existing profile sections:
+
+   * Ethical Hacking
+   * OSINT
+   * Web Development
+   * Node.js
+   * React
+   * System Administration
+   * Linux
+   * Security Research
+   * Technical Support
+   * Automation
+   * Cybersecurity
+
+8. SEO Requirements:
+
+   * Add proper semantic headings.
+   * Add structured data where appropriate.
+   * Ensure profile content is indexable.
+   * Integrate naturally into existing metadata.
+   * Improve discoverability using ethical SEO practices.
+
+9. IMPORTANT:
+
+   The profile should NOT be larger than or compete with the main TWH profile.
+
+   Technical White Hat (Afsar Ali) remains the primary profile of the page.
+
+   Sckeptic (Prince) should be presented as a key platform administrator, support member, and contributor.
+
+10. Footer:
+
+Keep the footer mention, but do NOT rely on the footer as the main profile placement.
+
+Goal:
+
+Create a genuine profile section for Sckeptic (Prince) within the /twh page that feels similar in quality and structure to other major sections on the page, while accurately representing his role as a Senior Administrator, Support Team Member, Ethical Hacker, and Web Developer.

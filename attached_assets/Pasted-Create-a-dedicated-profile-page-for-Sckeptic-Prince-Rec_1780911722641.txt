@@ -1,0 +1,80 @@
+Create a dedicated profile page for:
+
+Sckeptic (Prince)
+
+Recommended URL:
+
+* /sckeptic
+
+Role:
+
+* Senior Administrator
+* Support Team Member
+* Ethical Hacker & Web Developer
+
+Purpose:
+
+Add Sckeptic (Prince) as an official administrator, support team member, and contributor to the project without presenting him as the founder or owner.
+
+Requirements:
+
+1. Create a dedicated profile page:
+
+   * /sckeptic
+
+2. Integrate the profile where appropriate:
+
+   * About Page
+   * Team Section
+   * Support Section
+   * Contributors Section
+   * Credits Section
+   * Administration-related pages (where applicable)
+
+3. Profile Description:
+
+   Sckeptic (Prince) is a Senior Administrator, Support Team Member, Ethical Hacker, and Web Developer involved in platform operations, user support, technical troubleshooting, security-focused tasks, system management, automation, and web technologies.
+
+4. Design Requirements:
+
+   * Follow the exact existing website design system.
+   * Same UI language
+   * Same typography
+   * Same spacing
+   * Same colors
+   * Same shadows
+   * Same responsiveness
+   * Same animation style
+   * No redesigns
+
+5. SEO Requirements:
+
+   * Create SEO-friendly page metadata.
+   * Add proper title tags and descriptions.
+   * Implement Person structured data.
+   * Add internal linking opportunities where appropriate.
+   * Include the page in sitemap generation.
+   * Ensure the page is crawlable and indexable.
+
+6. Search Optimization:
+
+   * Optimize the page for discoverability using ethical SEO practices.
+   * Use semantic HTML structure.
+   * Ensure proper heading hierarchy.
+   * Improve indexing readiness and structured data quality.
+   * Avoid keyword stuffing or misleading claims.
+
+7. Do NOT:
+
+   * Present the profile as Founder.
+   * Present the profile as Website Owner.
+   * Add false, exaggerated, or unverifiable achievements.
+   * Modify existing branding or layouts.
+
+8. Replit Analysis Requirement:
+
+   Analyze the website architecture and identify all appropriate places where administrator, contributor, support, or team information is displayed. Add references to the profile where relevant while maintaining the current UI and UX.
+
+Goal:
+
+Create a professional profile page at /sckeptic and integrate it naturally throughout the platform as an administrator, support team member, and contributor while preserving the existing design, structure, functionality, and credibility of the website.

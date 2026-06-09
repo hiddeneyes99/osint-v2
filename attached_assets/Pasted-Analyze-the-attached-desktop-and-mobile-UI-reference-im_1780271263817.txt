@@ -1,0 +1,322 @@
+Analyze the attached desktop and mobile UI reference images.
+
+Your task is to redesign and optimize the existing platform for BOTH desktop and mobile while preserving all current functionality, APIs, workflows, forms, routes, and business logic.
+
+IMPORTANT:
+
+DO NOT change:
+
+- Backend logic
+- API integrations
+- Search functionality
+- Authentication
+- Database structure
+- User workflows
+- Existing features
+
+Only improve:
+
+- UI
+- UX
+- Layout
+- Responsiveness
+- Visual hierarchy
+- Mobile experience
+
+────────────────────────────
+
+GOAL
+
+Create a premium AI-powered SaaS experience.
+
+The platform should feel like:
+
+- Linear
+- Stripe
+- Arc Browser
+- Raycast
+- Notion
+- Modern AI startups
+
+NOT:
+
+- Old hacker dashboard
+- Terminal interface
+- Generic admin panel
+- Traditional Bootstrap dashboard
+
+────────────────────────────
+
+DESKTOP EXPERIENCE
+
+Desktop should use:
+
+- Multi-layer glassmorphism
+- Soft purple glow
+- Premium shadows
+- Large border radius
+- Better spacing
+- Modern cards
+- Floating effects
+- Cleaner typography
+
+Result sections should look like premium intelligence reports.
+
+Information should be grouped into:
+
+1. Identity Information
+2. Contact Information
+3. Location Information
+4. Network Information
+5. Metadata
+
+Use visual cards instead of long tables.
+
+────────────────────────────
+
+MOBILE EXPERIENCE
+
+Mobile should NOT be a compressed desktop layout.
+
+Create a dedicated mobile-first experience.
+
+Requirements:
+
+- Fully responsive
+- Thumb-friendly
+- Large touch targets
+- Better spacing
+- Fast scrolling
+- Native app feeling
+
+────────────────────────────
+
+MOBILE RESULT DESIGN
+
+Convert result data into stacked cards.
+
+Example:
+
+━━━━━━━━━━━
+
+PERSONAL INFO
+
+👤 Name
+👤 Father
+📱 Mobile
+📞 Alternate
+
+━━━━━━━━━━━
+
+LOCATION
+
+📍 Address
+🌎 Location
+🗺 View Map
+
+━━━━━━━━━━━
+
+NETWORK INFO
+
+📡 Circle
+📶 Operator
+🕒 Last Updated
+
+━━━━━━━━━━━
+
+IDENTIFIERS
+
+🪪 Aadhaar
+🆔 Record ID
+
+━━━━━━━━━━━
+
+Each section should be displayed inside premium glass cards.
+
+────────────────────────────
+
+RESPONSIVE BREAKPOINTS
+
+Mobile:
+320px – 767px
+
+Tablet:
+768px – 1024px
+
+Desktop:
+1025px+
+
+Large Desktop:
+1440px+
+
+Ensure perfect scaling on all sizes.
+
+────────────────────────────
+
+CARDS
+
+Use:
+
+background:
+rgba(255,255,255,0.03)
+
+backdrop-filter:
+blur(20px)
+
+border:
+1px solid rgba(255,255,255,0.08)
+
+border-radius:
+24px
+
+────────────────────────────
+
+BUTTONS
+
+Primary:
+
+Purple gradient
+
+background:
+linear-gradient(
+135deg,
+#8B5CF6,
+#C084FC
+);
+
+Soft glow
+
+Hover lift effect
+
+Mobile:
+
+Minimum height:
+48px
+
+────────────────────────────
+
+INPUTS
+
+Premium glass inputs
+
+Large spacing
+
+Mobile optimized keyboard support
+
+Better focus states
+
+────────────────────────────
+
+RESULT SECTION
+
+Current result section feels like a database dump.
+
+Transform it into:
+
+A premium intelligence report.
+
+Use:
+
+- Section cards
+- Icons
+- Status indicators
+- Verification badges
+- Copy buttons
+- Expandable sections
+- Better hierarchy
+
+Make information easier to scan.
+
+────────────────────────────
+
+ICONS
+
+Replace all flat icons.
+
+Use:
+
+- Premium 3D icons
+- Soft lighting
+- Purple-blue gradients
+- Consistent visual family
+
+Apply across:
+
+- Home
+- Dashboard
+- Search
+- History
+- Telegram
+- Mobile
+- Aadhaar
+- Vehicle
+- IP
+- Settings
+- Admin
+
+────────────────────────────
+
+SIDEBAR
+
+Desktop:
+
+Premium glass sidebar
+
+Collapsible
+
+Hover effects
+
+Active item glow
+
+Mobile:
+
+Convert into:
+
+Slide-out navigation drawer
+
+Smooth animations
+
+Native app feel
+
+────────────────────────────
+
+ANIMATIONS
+
+Add:
+
+- Hover lift
+- Glow transitions
+- Smooth page transitions
+- Loading skeletons
+- Card reveal animations
+- Live status pulse
+
+Avoid excessive flashy animations.
+
+────────────────────────────
+
+PERFORMANCE
+
+Maintain:
+
+- Fast loading
+- Lightweight rendering
+- Mobile optimization
+
+Do not add unnecessary heavy effects.
+
+────────────────────────────
+
+FINAL OBJECTIVE
+
+The final platform should feel like a premium enterprise OSINT intelligence platform used by professional investigators and analysts.
+
+When users open the website they should think:
+
+"Premium AI Intelligence Platform"
+
+instead of:
+
+"Hacker Dashboard"
+
+Use the attached reference images as the visual target and improve upon them further while maintaining perfect responsiveness on desktop, tablet, and mobile devices.

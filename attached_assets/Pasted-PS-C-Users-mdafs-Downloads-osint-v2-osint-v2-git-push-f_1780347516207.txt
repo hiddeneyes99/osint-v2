@@ -1,0 +1,44 @@
+PS C:\Users\mdafs\Downloads\osint-v2\osint-v2> git push -f origin main
+Enumerating objects: 25, done.
+Counting objects: 100% (25/25), done.
+Delta compression using up to 4 threads
+Compressing objects: 100% (17/17), done.
+Writing objects: 100% (18/18), 567.58 KiB | 11.82 MiB/s, done.
+Total 18 (delta 13), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (13/13), completed with 5 local objects.
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: 
+remote: - GITHUB PUSH PROTECTION
+remote:   ΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇö
+remote:     Resolve the following violations before pushing again
+remote: 
+remote:     - Push cannot contain secrets
+remote: 
+remote:     
+remote:      (?) Learn how to resolve a blocked push
+remote:      https://docs.github.com/code-security/secret-scanning/working-with-secret-scanning-and-push-protection/working-with-push-protection-from-the-command-line#resolving-a-blocked-push
+remote:     
+remote:     
+remote:       ΓÇöΓÇö Google Cloud Service Account Credentials ΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇö
+remote:        locations:
+remote:          - commit: 2779b3c5f27251ad9adac0c83b31b22b6b0bb7cc
+remote:            path: attached_assets/Pasted--type-service-account-project-id-osint-platform-d6b9b-p_1780345707655.txt:1
+remote:     
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.
+remote:        https://github.com/hiddeneyes99/osint-v2/security/secret-scanning/unblock-secret/3EYF6USIUz6aYlRDNMjT78eNk4N
+remote:     
+remote:     
+remote:       ΓÇöΓÇö Google Cloud Service Account Credentials ΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇöΓÇö
+remote:        locations:
+remote:          - commit: 1ed1fb8248c055f6dbcc50cf485ed8542ec99de1
+remote:            path: .replit:60
+remote:     
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.
+remote:        https://github.com/hiddeneyes99/osint-v2/security/secret-scanning/unblock-secret/3EYF6VXr6iUizv9lXv6TMDUtbLJ
+remote:     
+remote: 
+remote: 
+To https://github.com/hiddeneyes99/osint-v2
+ ! [remote rejected] main -> main (push declined due to repository rule violations)
+error: failed to push some refs to 'https://github.com/hiddeneyes99/osint-v2'
+PS C:\Users\mdafs\Downloads\osint-v2\osint-v2> 

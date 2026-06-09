@@ -1,0 +1,374 @@
+Yeh prompt tum kisi bhi AI website builder, Figma AI, Cursor, Claude, Lovable, Bolt, Replit AI ya v0 ko de sakte ho:
+
+---
+
+# MASTER WEBSITE REDESIGN PROMPT
+
+Analyze the attached reference image and use it only as inspiration for visual style, color palette, spacing, button design, glow effects, glassmorphism, card styling, typography hierarchy, and premium SaaS aesthetics.
+
+IMPORTANT:
+Do NOT change any functionality, business logic, routes, backend integration, API connections, user flows, dashboard features, admin capabilities, forms, permissions, databases, or page structure.
+
+The website is already fully developed.
+
+Your task is ONLY to redesign the UI/UX and visual theme across the entire platform.
+
+---
+
+## OBJECTIVE
+
+Transform the existing cyber-security / hacker-themed website into a premium AI-powered SaaS platform appearance.
+
+The final result should feel like:
+
+* Modern AI Startup
+* Enterprise SaaS Product
+* Premium Technology Company
+* High-End Software Platform
+* Professional B2B Service
+
+NOT:
+
+* Hacker Website
+* Matrix Theme
+* Green Terminal UI
+* Cyber Attack Style
+* Dark Web Aesthetics
+
+---
+
+## GLOBAL DESIGN SYSTEM
+
+### Primary Colors
+
+```css
+#8B5CF6
+#A855F7
+#C084FC
+```
+
+### Secondary Colors
+
+```css
+#6366F1
+#7C3AED
+```
+
+### Backgrounds
+
+```css
+#050314
+#09051A
+#0F0728
+```
+
+### Text
+
+```css
+#FFFFFF
+#E4E4E7
+#A1A1AA
+```
+
+### Borders
+
+```css
+rgba(255,255,255,0.08)
+```
+
+---
+
+## DESIGN STYLE
+
+Use:
+
+* Glassmorphism
+* Soft Purple Glow
+* AI SaaS Visual Language
+* Modern Enterprise Design
+* Large Border Radius
+* Floating Elements
+* Gradient Lighting
+* Premium Animations
+* Professional Spacing
+
+Avoid:
+
+* Green Colors
+* Terminal Windows
+* Matrix Effects
+* Hacker Icons
+* Binary Backgrounds
+* Aggressive Cyber Graphics
+
+---
+
+## BUTTON SYSTEM
+
+Primary Buttons:
+
+* Purple Gradient
+* Soft Glow
+* Rounded Corners
+* Premium Hover Effects
+
+Style:
+
+```css
+background:
+linear-gradient(
+135deg,
+#8B5CF6,
+#C084FC
+);
+
+border-radius:12px;
+
+box-shadow:
+0 0 30px rgba(168,85,247,.4);
+```
+
+Hover:
+
+```css
+translateY(-3px)
+```
+
+---
+
+## CARD DESIGN
+
+All cards should use:
+
+```css
+background:
+rgba(255,255,255,.03);
+
+backdrop-filter:
+blur(12px);
+
+border:
+1px solid rgba(255,255,255,.08);
+```
+
+Hover:
+
+```css
+translateY(-8px);
+```
+
+---
+
+## NAVIGATION
+
+* Transparent Navigation Bar
+* Glass Blur Effect
+* Premium Active State
+* Purple Glow Indicator
+* Smooth Transitions
+
+---
+
+## HOME PAGE
+
+Redesign the entire homepage.
+
+Hero Section:
+
+Left Side:
+
+* Strong Headline
+* Professional Value Proposition
+* CTA Buttons
+
+Right Side:
+
+* AI Brain Illustration
+* Neural Network Graphics
+* Floating Gradient Orbs
+* Premium 3D Elements
+
+Background:
+
+* Dark Purple Space Theme
+* Animated Gradient Lighting
+* Floating Particles
+* Soft Glow Effects
+
+---
+
+## DASHBOARD
+
+Convert current dashboard into modern SaaS analytics dashboard.
+
+Use:
+
+* KPI Cards
+* Analytics Widgets
+* Modern Charts
+* Activity Feed
+* User Statistics
+* Performance Metrics
+
+Style:
+
+* Glassmorphism
+* Purple Accent Colors
+* Enterprise Layout
+
+---
+
+## ADMIN PANEL
+
+Redesign complete admin area.
+
+Style:
+
+* Premium Enterprise Control Center
+* Dark Purple Theme
+* Modern Sidebar
+* Professional Tables
+* Advanced Analytics Layout
+
+Sidebar:
+
+```css
+#09051A
+```
+
+Active Menu:
+
+```css
+rgba(139,92,246,.15)
+```
+
+Indicator:
+
+```css
+4px solid #8B5CF6
+```
+
+---
+
+## TABLES
+
+Replace terminal-style tables with:
+
+* Enterprise Data Tables
+* Glassmorphism Containers
+* Modern Sorting UI
+* Better Readability
+
+Hover:
+
+```css
+rgba(255,255,255,.04)
+```
+
+---
+
+## FORMS
+
+All forms should be redesigned.
+
+Inputs:
+
+```css
+background:
+rgba(255,255,255,.03);
+
+border:
+1px solid rgba(255,255,255,.08);
+
+height:
+52px;
+```
+
+Focus:
+
+```css
+border-color:#8B5CF6;
+```
+
+Glow:
+
+```css
+0 0 20px rgba(139,92,246,.3);
+```
+
+---
+
+## ICON SYSTEM
+
+Remove:
+
+* Hacker Icons
+* Terminal Icons
+* Matrix Symbols
+* Skull Graphics
+* Cyber Attack Graphics
+
+Replace with:
+
+* Artificial Intelligence
+* Neural Networks
+* Automation
+* Analytics
+* Cloud Computing
+* Data Intelligence
+* Workflow Management
+* Productivity
+* Enterprise Technology
+
+---
+
+## ANIMATIONS
+
+Use subtle premium animations:
+
+* Floating Elements
+* Glow Pulsing
+* Smooth Hover Effects
+* Scroll Reveal
+* Micro Interactions
+* Loading Skeletons
+* Smooth Transitions
+
+Avoid flashy hacker effects.
+
+---
+
+## RESPONSIVENESS
+
+Ensure complete responsiveness for:
+
+* Desktop
+* Laptop
+* Tablet
+* Mobile Devices
+
+Maintain visual consistency across all screen sizes.
+
+---
+
+## FINAL GOAL
+
+The redesigned platform should look like a premium AI company worth hundreds of millions of dollars.
+
+Users should immediately think:
+
+"Professional AI Platform"
+"Enterprise SaaS Product"
+"Modern Technology Company"
+
+and never think:
+
+"Hacking Website"
+"Cyber Attack Tool"
+"Terminal Dashboard"
+
+Maintain every existing feature and functionality exactly as it currently works. Only redesign the visual experience and theme across the entire platform including Home Page, Dashboard, User Panel, Admin Panel, Settings Pages, Authentication Pages, Forms, Tables, Analytics Sections, and Navigation Components.
+
+---
+
+Is prompt ke end me apni current website ka screenshot aur yeh reference image dono upload kar dena. AI ko difference aur bhi clearly samajh aa jayega. 🚀✨

@@ -1,0 +1,100 @@
+IMPORTANT: Previous implementation was incomplete. Please fully implement this request instead of adding only a basic mention.
+
+Profile Name:
+Sckeptic (Prince)
+
+Role:
+Senior Administrator | Support Team Member | Ethical Hacker | Web Developer
+
+Placement Requirements:
+
+1. Add the profile naturally to:
+
+   * /twh page
+   * About sections
+   * Team/Contributors sections (if available)
+   * Footer
+   * Any existing admin/support/contributor references
+
+2. Do NOT create a separate URL or standalone profile page.
+
+3. The profile should be presented as a key member of the platform team and not as the founder or owner.
+
+Profile Content:
+
+Sckeptic (Prince) is a Senior Administrator and Support Team Member actively involved in platform operations, user assistance, technical troubleshooting, web development, security-focused tasks, system management, automation, and technology-related initiatives.
+
+With a strong interest in cybersecurity, ethical hacking, OSINT, digital infrastructure, and modern web technologies, he contributes to maintaining platform stability, improving user experience, supporting community members, and assisting with technical operations across the project.
+
+His responsibilities include administrative oversight, support coordination, platform monitoring, technical assistance, workflow improvements, and helping ensure smooth day-to-day operations.
+
+SEO & Discoverability Requirements:
+
+1. Fully review and improve:
+
+   * Page titles
+   * Meta descriptions
+   * Open Graph tags
+   * Twitter/X cards
+   * Canonical tags
+   * Internal linking
+   * Structured data
+   * Sitemap coverage
+   * Semantic HTML
+   * Heading hierarchy
+
+2. Implement structured data where appropriate:
+
+   * Person Schema
+   * Organization Schema
+   * Website Schema
+   * Breadcrumb Schema (if applicable)
+
+3. Ensure all profile-related content is:
+
+   * Crawlable
+   * Indexable
+   * Properly linked
+   * Search-engine friendly
+
+4. Analyze the entire website and identify additional SEO opportunities related to:
+
+   * Team members
+   * Contributors
+   * Administrators
+   * Support staff
+   * Technical project members
+
+5. Improve discoverability using ethical SEO practices only.
+
+6. Do NOT:
+
+   * Add fake achievements
+   * Add unverifiable claims
+   * Use keyword stuffing
+   * Create misleading content
+
+7. Keep the existing:
+
+   * UI
+   * UX
+   * Design
+   * Layout
+   * Branding
+   * Functionality
+
+Final Verification Required:
+
+After implementation, provide a detailed report containing:
+
+* Where the profile was added
+* Exact SEO improvements made
+* Structured data implemented
+* Metadata implemented
+* Internal links added
+* Indexing improvements made
+* Any remaining recommendations
+
+Goal:
+
+Create a professional, detailed, and well-integrated profile for Sckeptic (Prince) throughout the existing website while implementing the strongest possible SEO, indexing, metadata, structured data, and discoverability improvements that fit the current architecture without changing the site's design or functionality.

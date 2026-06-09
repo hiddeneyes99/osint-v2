@@ -1,0 +1,55 @@
+User-agent: *
+Allow: /
+Allow: /twh
+Allow: /sckeptic
+Disallow: /admin
+Disallow: /secret
+Disallow: /api/
+
+User-agent: Googlebot
+Allow: /
+Allow: /twh
+Allow: /sckeptic
+Disallow: /admin
+Disallow: /secret
+Disallow: /api/
+
+User-agent: GPTBot
+Allow: /
+Allow: /twh
+Allow: /sckeptic
+
+User-agent: Google-Extended
+Allow: /
+Allow: /twh
+Allow: /sckeptic
+
+User-agent: anthropic-ai
+Allow: /
+Allow: /twh
+Allow: /sckeptic
+
+User-agent: PerplexityBot
+Allow: /
+Allow: /twh
+Allow: /sckeptic
+
+User-agent: Bingbot
+Allow: /
+Allow: /twh
+Allow: /sckeptic
+
+User-agent: DuckDuckBot
+Allow: /
+Allow: /twh
+Allow: /sckeptic
+
+User-agent: CCBot
+Allow: /twh
+Allow: /sckeptic
+
+User-agent: ChatGPT-User
+Allow: /twh
+Allow: /sckeptic
+
+Sitemap: https://twh-osint.vercel.app/sitemap.xml

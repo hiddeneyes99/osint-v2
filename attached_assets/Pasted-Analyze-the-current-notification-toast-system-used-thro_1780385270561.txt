@@ -1,0 +1,398 @@
+Analyze the current notification/toast system used throughout the platform.
+
+IMPORTANT:
+
+Do NOT change any functionality.
+
+Do NOT modify event handlers.
+
+Do NOT modify backend logic.
+
+Do NOT change toast triggers.
+
+Do NOT change notification conditions.
+
+Only redesign the entire notification experience.
+
+Replace every existing toast across the platform with a premium unified TWH OSINT V2 notification system.
+
+This includes:
+
+- Error Toasts
+- Success Toasts
+- Warning Toasts
+- Information Toasts
+- Telegram Notifications
+- Validation Messages
+- Login Messages
+- Registration Messages
+- Search Results Messages
+- Export Messages
+- Download Messages
+- Copy Messages
+- Admin Messages
+- System Messages
+
+All notifications should follow one consistent design language.
+
+━━━━━━━━━━━━━━━━━━━━
+
+DESIGN LANGUAGE
+
+Style:
+
+- Dark Purple Theme
+- Premium Glassmorphism
+- AI SaaS Aesthetic
+- Enterprise Grade
+- Floating Cards
+- Soft Neon Glow
+- Layered Depth
+- Rounded Corners
+
+Inspired by:
+
+- Linear
+- Stripe
+- Raycast
+- Arc Browser
+- Modern AI Platforms
+
+━━━━━━━━━━━━━━━━━━━━
+
+OPENING ANIMATION
+
+When toast appears:
+
+Step 1
+
+Small glow particle burst
+
+↓
+
+Step 2
+
+Toast scales from 95% to 100%
+
+↓
+
+Step 3
+
+Slides smoothly into position
+
+↓
+
+Step 4
+
+Icon pulse animation
+
+↓
+
+Step 5
+
+Progress bar starts
+
+Animation duration:
+
+300-450ms
+
+Should feel premium and smooth.
+
+━━━━━━━━━━━━━━━━━━━━
+
+CLOSING ANIMATION
+
+When toast closes:
+
+- Fade out
+- Slight scale down
+- Slide away
+- Glow disappears smoothly
+
+No sudden disappearance.
+
+━━━━━━━━━━━━━━━━━━━━
+
+SOUND EFFECTS
+
+Add subtle notification sounds.
+
+ERROR
+
+Soft warning tone
+
+Not harsh.
+
+SUCCESS
+
+Clean futuristic confirmation sound.
+
+INFO
+
+Gentle notification ping.
+
+WARNING
+
+Soft alert sound.
+
+TELEGRAM
+
+Telegram-inspired subtle message sound.
+
+ADMIN
+
+Professional control-center notification sound.
+
+All sounds should be:
+
+- Short
+- Clean
+- Premium
+- Non-annoying
+
+Respect browser audio policies.
+
+━━━━━━━━━━━━━━━━━━━━
+
+PROGRESS BAR
+
+Every toast should contain:
+
+Animated auto-dismiss progress bar.
+
+Located at bottom.
+
+Progress bar color must match notification type.
+
+━━━━━━━━━━━━━━━━━━━━
+
+ERROR TOAST
+
+Color:
+
+#FF5E7A
+
+Style:
+
+Glass card
+Red glow
+Animated warning icon
+
+Example:
+
+Validation Required
+
+Please accept the Terms & Conditions before continuing.
+
+Animation:
+
+Warning icon pulses every few seconds.
+
+━━━━━━━━━━━━━━━━━━━━
+
+SUCCESS TOAST
+
+Color:
+
+#00E676
+
+Style:
+
+Green glow
+Animated checkmark
+
+Example:
+
+Search Completed Successfully
+
+Data retrieved and validated.
+
+Animation:
+
+Checkmark draws itself.
+
+━━━━━━━━━━━━━━━━━━━━
+
+INFO TOAST
+
+Color:
+
+#60A5FA
+
+Style:
+
+Blue glow
+Animated information icon
+
+Example:
+
+Telegram Connected
+
+Notifications enabled successfully.
+
+━━━━━━━━━━━━━━━━━━━━
+
+WARNING TOAST
+
+Color:
+
+#FFB020
+
+Style:
+
+Orange glow
+Animated warning icon
+
+Example:
+
+Storage Expiring Soon
+
+Search history will be removed after 7 days.
+
+━━━━━━━━━━━━━━━━━━━━
+
+TELEGRAM TOAST
+
+Color:
+
+#2AABEE
+
+Style:
+
+Telegram branding inspired
+
+Animated Telegram icon
+
+Example:
+
+Search Results Delivered
+
+Results have been sent to Telegram.
+
+━━━━━━━━━━━━━━━━━━━━
+
+DOWNLOAD TOAST
+
+Color:
+
+#8B5CF6
+
+Example:
+
+Report Download Ready
+
+━━━━━━━━━━━━━━━━━━━━
+
+COPY TOAST
+
+Color:
+
+#A855F7
+
+Example:
+
+Copied Successfully
+
+━━━━━━━━━━━━━━━━━━━━
+
+ADMIN TOAST
+
+Color:
+
+#C084FC
+
+Style:
+
+Premium command-center notification
+
+━━━━━━━━━━━━━━━━━━━━
+
+ICON ANIMATIONS
+
+Every notification type should have its own animation.
+
+ERROR
+
+Pulse
+
+SUCCESS
+
+Check draw animation
+
+INFO
+
+Glow pulse
+
+WARNING
+
+Attention pulse
+
+TELEGRAM
+
+Paper plane launch animation
+
+DOWNLOAD
+
+Arrow drop animation
+
+COPY
+
+Duplicate animation
+
+━━━━━━━━━━━━━━━━━━━━
+
+INTERACTION
+
+Hover:
+
+- Pause timer
+- Increase glow
+- Slight lift effect
+
+Close Button:
+
+- Circular glass button
+- Smooth hover animation
+- Rotation effect
+
+━━━━━━━━━━━━━━━━━━━━
+
+STACKING SYSTEM
+
+Multiple notifications should stack beautifully.
+
+Use:
+
+- Smart spacing
+- Smooth repositioning
+- Physics-like movement
+
+No overlapping.
+
+━━━━━━━━━━━━━━━━━━━━
+
+MOBILE SUPPORT
+
+Notifications must be:
+
+- Mobile optimized
+- Responsive
+- Touch friendly
+
+Desktop:
+
+Top Right
+
+Mobile:
+
+Top Center
+
+━━━━━━━━━━━━━━━━━━━━
+
+FINAL GOAL
+
+Notifications should feel like premium components from a million-dollar AI SaaS platform.
+
+Users should enjoy seeing notifications.
+
+The entire notification system should feel alive, animated, modern, intelligent, and fully integrated with the TWH OSINT V2 design language.

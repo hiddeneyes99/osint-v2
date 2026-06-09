@@ -1,0 +1,446 @@
+Bilkul. Sabse important line prompt ke start me likho:
+
+> **"Do not modify any existing functionality, APIs, backend logic, event handlers, database queries, permissions, routes, calculations, charts data, or admin workflows. Only improve UI, UX, layout, styling, visual hierarchy, responsiveness, animations, and information presentation."**
+
+Phir yeh prompt do:
+
+---
+
+# TWH OSINT V2 ADMIN PANEL REDESIGN
+
+Analyze the current Admin Panel.
+
+The system is already working correctly.
+
+Do NOT break anything.
+
+Do NOT change functionality.
+
+Do NOT remove existing features.
+
+Do NOT modify backend logic.
+
+Do NOT change database operations.
+
+Do NOT alter event handlers.
+
+Do NOT change chart calculations.
+
+Do NOT change API calls.
+
+Do NOT change routes.
+
+Do NOT change permissions.
+
+Only redesign the visual experience.
+
+---
+
+## GOAL
+
+Transform the current admin panel into a premium intelligence command center.
+
+The dashboard should feel like:
+
+* Linear
+* Stripe
+* Raycast
+* Vercel
+* Modern AI SaaS
+* Intelligence Operations Center
+
+NOT:
+
+* Basic admin dashboard
+* Bootstrap panel
+* Generic CMS
+
+---
+
+# GENERAL DESIGN LANGUAGE
+
+Keep:
+
+* Dark theme
+* Purple branding
+* Existing colors
+
+Improve:
+
+* Depth
+* Hierarchy
+* Visual structure
+* Readability
+* Animations
+
+Use:
+
+* Glassmorphism
+* Soft purple glow
+* Smooth shadows
+* Layered cards
+* Better spacing
+
+---
+
+# HEADER REDESIGN
+
+Current header feels empty.
+
+Convert it into:
+
+### Welcome Section
+
+Example:
+
+Welcome Back, Admin
+
+System Status: Operational
+
+Active Intelligence Platform
+
+Show:
+
+* Current date
+* Last refresh
+* Admin status badge
+
+Right side:
+
+* Refresh button
+* Generate report button
+* Notification center
+
+---
+
+# STATISTICS CARDS
+
+Current cards look like simple boxes.
+
+Convert them into premium KPI cards.
+
+Each card should contain:
+
+* Large icon
+* Main number
+* Label
+* Trend indicator
+* Mini chart
+
+Example:
+
+Users
+
+12,842
+
++18%
+
+7-day trend graph
+
+---
+
+Blocked Users
+
+232
+
++8%
+
+mini graph
+
+---
+
+Protected Data
+
+98.7%
+
+trend graph
+
+---
+
+Telegram Users
+
+2,195
+
+Connected
+
+mini activity graph
+
+---
+
+Cards should have:
+
+* hover animation
+* glow effect
+* floating feel
+
+---
+
+# LIVE QUERY FEED
+
+This section should become one of the most attractive sections.
+
+Current version feels empty.
+
+Redesign:
+
+Show live activity cards.
+
+Each entry should show:
+
+* User
+* Query type
+* Time
+* Status
+
+Examples:
+
+Mobile Lookup
+
+Completed
+
+2 sec ago
+
+IP Intelligence
+
+Completed
+
+5 sec ago
+
+Email Lookup
+
+Completed
+
+10 sec ago
+
+Vehicle Lookup
+
+Completed
+
+15 sec ago
+
+Add:
+
+* Status colors
+* Country flags
+* Icons
+* Smooth update animations
+
+Do not change functionality.
+
+Only presentation.
+
+---
+
+# QUERY ANALYTICS
+
+Keep current chart.
+
+Do NOT change data source.
+
+Do NOT change calculations.
+
+Only improve appearance.
+
+Add:
+
+* Better chart styling
+* Modern legends
+* Smooth animations
+* Hover tooltips
+* Cleaner labels
+
+Make chart feel premium.
+
+---
+
+# SERVICE DISTRIBUTION
+
+Current donut chart feels outdated.
+
+Keep data.
+
+Keep logic.
+
+Only redesign.
+
+Improve:
+
+* Colors
+* Labels
+* Layout
+* Hover states
+
+Add:
+
+Animated percentage indicators.
+
+---
+
+# TOP USERS SECTION
+
+Current ranking feels basic.
+
+Convert into:
+
+Premium leaderboard.
+
+Each user should have:
+
+* Rank badge
+* Activity score
+* Progress visualization
+* Better spacing
+
+Top user should have:
+
+Special highlighted card.
+
+---
+
+# TELEGRAM SECTION
+
+Since Telegram is a major V2 feature:
+
+Create a dedicated Telegram Overview Card.
+
+Show:
+
+Bot Status
+
+Connected Users
+
+Alerts Sent
+
+Today's Deliveries
+
+Success Rate
+
+Recent Telegram Activity
+
+Do not change backend.
+
+Only improve UI.
+
+---
+
+# SYSTEM HEALTH SECTION
+
+Add a premium health monitoring card.
+
+Show existing system data.
+
+Use:
+
+* Green operational indicators
+* Pulse effects
+* Health badges
+
+Examples:
+
+API Status
+
+Operational
+
+Database
+
+Healthy
+
+Telegram
+
+Online
+
+Validation Engine
+
+Operational
+
+---
+
+# SIDEBAR REDESIGN
+
+Keep existing navigation.
+
+Do NOT add or remove routes.
+
+Only redesign appearance.
+
+Use:
+
+* 3D icons
+* Active glow
+* Better spacing
+* Premium hover effects
+
+Active item:
+
+Purple illuminated state.
+
+---
+
+# MICRO ANIMATIONS
+
+Add:
+
+Card hover lift
+
+Glow pulse
+
+Chart reveal
+
+Counter animations
+
+Smooth loading states
+
+Status pulse
+
+Button ripple
+
+Page transitions
+
+Keep animations smooth.
+
+No excessive motion.
+
+---
+
+# ADMIN EXPERIENCE
+
+The admin should feel like:
+
+An intelligence operations center.
+
+Not a standard dashboard.
+
+When the admin logs in, they should instantly understand:
+
+* Platform growth
+* Query activity
+* Telegram performance
+* System health
+* User engagement
+
+without scrolling through boring tables.
+
+---
+
+# FINAL REQUIREMENT
+
+Preserve 100% of current functionality.
+
+Improve only:
+
+* Visual design
+* User experience
+* Information hierarchy
+* Responsiveness
+* Animations
+* Layout quality
+
+The result should look like a premium enterprise intelligence platform worth millions of dollars while behaving exactly the same as the current system.
+
+---
+
+Aur last me ek line aur add kar dena:
+
+> **"Use the attached screenshot as the functional reference. Improve the design dramatically, but do not remove, rename, or break any existing admin features."**
+
+Yeh line bahut important hai, warna AI redesign karte waqt aadhe widgets uda deta hai. 🚀

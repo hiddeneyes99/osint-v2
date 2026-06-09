@@ -1,0 +1,91 @@
+STOP.
+
+You misunderstood the request.
+
+I DO NOT want a footer mention.
+I DO NOT want a one-line credit.
+I DO NOT want a small reference.
+
+REMOVE THIS:
+
+"Platform Team: Sckeptic (Prince) — Senior Administrator · Support Team Member · Ethical Hacker & Web Developer"
+
+from being the primary implementation.
+
+What I actually want:
+
+Create a FULL DEDICATED SECTION inside the /twh page similar to how the page contains large sections for Technical White Hat.
+
+The section must appear inside the main page content.
+
+It should have:
+
+* Large heading
+* Profile introduction
+* Detailed description
+* Responsibilities
+* Skills
+* Contributions
+* Professional summary
+
+The section should be visually comparable to existing sections such as:
+
+* About
+* Expertise
+* Philosophy
+* Journey
+* Identity
+
+I want an actual content block on the page.
+
+Example structure:
+
+---
+
+Platform Administration & Support
+
+Sckeptic (Prince)
+
+Senior Administrator · Support Team Member · Ethical Hacker · Web Developer
+
+[Multiple paragraphs describing role, responsibilities, technical work, support activities, platform contributions, administration tasks, security interests, development work, community assistance, troubleshooting, and operations.]
+
+Skills & Expertise
+
+[Skill badges/cards]
+
+Contributions
+
+[Contribution cards/list]
+
+---
+
+IMPORTANT:
+
+The section must be visible in the page body.
+
+Users should see it while scrolling through the page.
+
+It must NOT be hidden in:
+
+* Footer
+* Credits
+* Copyright text
+* Keywords section
+* Metadata only
+
+I want a REAL SECTION on the page.
+
+Use the same design system already used by the website.
+
+Do not create a new design.
+
+Do not remove the footer mention if it already exists.
+
+Just create a proper section inside the page content itself.
+
+Also update SEO and structured data so this section is recognized as a team member / administrator profile and not merely a footer credit.
+
+Goal:
+
+When someone opens the /twh page and scrolls through it, they should clearly see a dedicated section for Sckeptic (Prince), not just a small footer mention.
