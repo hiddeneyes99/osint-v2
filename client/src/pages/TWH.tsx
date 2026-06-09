@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { ExternalLink, Github, Music, Shield, Zap, Star, Smartphone, Globe, Car, Search, Lock, Send, Bell, LayoutDashboard, CheckCircle, AtSign } from "lucide-react";
+import { ExternalLink, Github, Music, Shield, Zap, Star, Smartphone, Globe, Car, Search, Lock, Send, Bell, LayoutDashboard, CheckCircle, AtSign, Database } from "lucide-react";
 import { useSEO } from "@/hooks/use-seo";
 
 const logoPath = "/twh-logo-shield.png";
