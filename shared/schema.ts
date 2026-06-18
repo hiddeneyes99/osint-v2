@@ -78,6 +78,8 @@ export const ads = pgTable("ads", {
   linkUrl: text("link_url"),
   duration: integer("duration").notNull().default(15),
   isActive: boolean("is_active").notNull().default(true),
+  views: integer("views").notNull().default(0),
+  clicks: integer("clicks").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

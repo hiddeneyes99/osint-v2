@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, MonitorPlay, ExternalLink, AlertCircle, Youtube, Wifi } from "lucide-react";
+import { X, ExternalLink, AlertCircle, Wifi } from "lucide-react";
 
 export interface Ad {
   id: number;
@@ -11,6 +11,8 @@ export interface Ad {
   linkUrl: string | null;
   duration: number;
   isActive: boolean;
+  views?: number;
+  clicks?: number;
 }
 
 interface AdOverlayProps {
@@ -23,6 +25,14 @@ function getYoutubeId(url: string): string | null {
   return m ? m[1] : null;
 }
 
+function trackView(id: number) {
+  fetch(`/api/ads/${id}/view`, { method: "POST" }).catch(() => {});
+}
+
+function trackClick(id: number) {
+  fetch(`/api/ads/${id}/click`, { method: "POST" }).catch(() => {});
+}
+
 export function AdOverlay({ open, onComplete }: AdOverlayProps) {
   const [ad, setAd] = useState<Ad | null>(null);
   const [countdown, setCountdown] = useState(0);
@@ -30,6 +40,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
   const [imgError, setImgError] = useState(false);
   const [loading, setLoading] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const trackedRef = useRef(false);
 
   useEffect(() => {
     if (!open) {
@@ -38,6 +49,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
       setCountdown(0);
       setImgError(false);
       setLoading(false);
+      trackedRef.current = false;
       if (timerRef.current) clearInterval(timerRef.current);
       return;
     }
@@ -52,14 +64,15 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
         const dur = fetchedAd.duration || 15;
         setCountdown(dur);
         setDone(false);
+        // Track view once
+        if (!trackedRef.current) {
+          trackedRef.current = true;
+          trackView(fetchedAd.id);
+        }
         if (timerRef.current) clearInterval(timerRef.current);
         timerRef.current = setInterval(() => {
           setCountdown(c => {
-            if (c <= 1) {
-              clearInterval(timerRef.current!);
-              setDone(true);
-              return 0;
-            }
+            if (c <= 1) { clearInterval(timerRef.current!); setDone(true); return 0; }
             return c - 1;
           });
         }, 1000);
@@ -75,6 +88,15 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
   const ytId = ad?.type === "VIDEO" && ad.mediaUrl ? getYoutubeId(ad.mediaUrl) : null;
   const isYoutube = !!ytId;
 
+  const handleCtaClick = () => {
+    if (!done || !ad) return;
+    onComplete();
+  };
+
+  const handleLinkClick = (e: React.MouseEvent, adId: number) => {
+    trackClick(adId);
+  };
+
   return (
     <AnimatePresence>
       {open && (
@@ -82,93 +104,91 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center"
-          style={{ background: "rgba(0,0,0,0.92)", backdropFilter: "blur(8px)" }}
+          transition={{ duration: 0.25 }}
+          className="fixed inset-0 z-[9999]"
+          style={{ background: "rgba(0,0,0,0.96)" }}
         >
-          {/* Loading state */}
+          {/* Loading */}
           {loading && (
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center justify-center h-full gap-4">
               <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-white/40 text-sm">Loading ad...</p>
+              <p className="text-white/30 text-sm">Loading...</p>
             </div>
           )}
 
-          {/* Ad card */}
+          {/* Ad full-screen */}
           {!loading && ad && (
             <motion.div
-              initial={{ scale: 0.94, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.94, opacity: 0, y: 20 }}
-              transition={{ type: "spring", damping: 24, stiffness: 320 }}
-              className="w-full flex flex-col overflow-hidden"
-              style={{
-                maxWidth: "480px",
-                maxHeight: "90dvh",
-                margin: "0 16px",
-                background: "linear-gradient(180deg, #0d0820 0%, #08051a 100%)",
-                border: "1px solid rgba(139,92,246,0.4)",
-                borderRadius: "20px",
-                boxShadow: "0 0 60px rgba(139,92,246,0.15), 0 24px 48px rgba(0,0,0,0.6)",
-              }}
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-col h-full w-full"
+              style={{ maxWidth: "520px", margin: "0 auto" }}
             >
-              {/* Top bar */}
-              <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "1px solid rgba(139,92,246,0.2)", background: "rgba(139,92,246,0.08)" }}>
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest" style={{ background: "rgba(139,92,246,0.2)", color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.3)" }}>
-                    <MonitorPlay className="w-3 h-3" /> Advertisement
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {done ? (
-                    <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Ad complete
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-white/30 font-mono">Wait {countdown}s</span>
-                  )}
-                </div>
+              {/* ─── TOP BAR ─── */}
+              <div className="flex items-center justify-between px-4 pt-safe pt-3 pb-3 shrink-0">
+                <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
+                  style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                  Advertisement
+                </span>
+                <span
+                  className="text-[11px] font-bold px-3 py-1 rounded-full"
+                  style={done
+                    ? { background: "rgba(52,211,153,0.15)", color: "#34d399", border: "1px solid rgba(52,211,153,0.3)" }
+                    : { background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.3)" }
+                  }
+                >
+                  {done ? "✓ Ad complete" : `Reward in ${countdown}s`}
+                </span>
               </div>
 
-              {/* Ad title */}
-              {ad.title && (
-                <div className="px-4 pt-3 pb-0 shrink-0">
-                  <p className="text-sm font-semibold text-white/80 truncate">{ad.title}</p>
-                </div>
-              )}
-
-              {/* Media area */}
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              {/* ─── MEDIA AREA (fills all available space) ─── */}
+              <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-4 py-2">
 
                 {/* IMAGE */}
                 {ad.type === "IMAGE" && ad.mediaUrl && !imgError && (
-                  <a
-                    href={ad.linkUrl || undefined}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center justify-center flex-1 min-h-0 ${ad.linkUrl ? "cursor-pointer" : "pointer-events-none"}`}
-                    style={{ background: "#000", margin: "12px", borderRadius: "12px", overflow: "hidden" }}
-                  >
-                    <img
-                      src={ad.mediaUrl}
-                      alt="Advertisement"
-                      className="w-full object-contain"
-                      style={{ maxHeight: "340px", display: "block" }}
-                      onError={() => setImgError(true)}
-                    />
-                  </a>
+                  ad.linkUrl ? (
+                    <a
+                      href={ad.linkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => handleLinkClick(e, ad.id)}
+                      className="w-full flex items-center justify-center"
+                      style={{ maxHeight: "calc(100dvh - 200px)" }}
+                    >
+                      <img
+                        src={ad.mediaUrl}
+                        alt="Ad"
+                        className="w-full rounded-2xl object-contain"
+                        style={{ maxHeight: "calc(100dvh - 200px)", display: "block" }}
+                        onError={() => setImgError(true)}
+                      />
+                    </a>
+                  ) : (
+                    <div className="w-full flex items-center justify-center" style={{ maxHeight: "calc(100dvh - 200px)" }}>
+                      <img
+                        src={ad.mediaUrl}
+                        alt="Ad"
+                        className="w-full rounded-2xl object-contain"
+                        style={{ maxHeight: "calc(100dvh - 200px)", display: "block" }}
+                        onError={() => setImgError(true)}
+                      />
+                    </div>
+                  )
                 )}
 
-                {/* IMAGE error */}
+                {/* IMAGE error / no URL */}
                 {ad.type === "IMAGE" && (imgError || !ad.mediaUrl) && (
-                  <div className="flex flex-col items-center justify-center flex-1 gap-3 py-10" style={{ color: "rgba(255,255,255,0.15)" }}>
-                    <AlertCircle className="w-10 h-10" />
-                    <p className="text-sm">{imgError ? "Image could not be loaded" : "No image set"}</p>
+                  <div className="flex flex-col items-center gap-4 py-16" style={{ color: "rgba(255,255,255,0.15)" }}>
+                    <AlertCircle className="w-14 h-14" />
+                    <p className="text-base">{imgError ? "Image failed to load" : "No image URL"}</p>
                     {ad.linkUrl && (
                       <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl"
-                        style={{ background: "rgba(139,92,246,0.3)", color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.4)" }}>
-                        <ExternalLink className="w-3.5 h-3.5" /> Visit Advertiser
+                        onClick={(e) => handleLinkClick(e, ad.id)}
+                        className="flex items-center gap-2 text-sm font-bold px-6 py-3 rounded-2xl"
+                        style={{ background: "rgba(139,92,246,0.25)", color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.4)" }}>
+                        <ExternalLink className="w-4 h-4" /> Visit Advertiser
                       </a>
                     )}
                   </div>
@@ -176,9 +196,9 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
 
                 {/* VIDEO — YouTube */}
                 {ad.type === "VIDEO" && ad.mediaUrl && isYoutube && (
-                  <div className="mx-3 my-3 rounded-xl overflow-hidden flex-shrink-0" style={{ aspectRatio: "16/9", background: "#000" }}>
+                  <div className="w-full rounded-2xl overflow-hidden" style={{ aspectRatio: "9/16", maxHeight: "calc(100dvh - 200px)", background: "#000" }}>
                     <iframe
-                      src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&rel=0&modestbranding=1`}
+                      src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1`}
                       className="w-full h-full border-0"
                       allow="autoplay; encrypted-media"
                       allowFullScreen
@@ -189,94 +209,91 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
 
                 {/* VIDEO — direct */}
                 {ad.type === "VIDEO" && ad.mediaUrl && !isYoutube && (
-                  <div className="mx-3 my-3 rounded-xl overflow-hidden flex-shrink-0" style={{ background: "#000" }}>
+                  <div className="w-full rounded-2xl overflow-hidden" style={{ background: "#000", maxHeight: "calc(100dvh - 200px)" }}>
                     <video
                       src={ad.mediaUrl}
                       autoPlay
                       muted
                       playsInline
                       className="w-full object-contain"
-                      style={{ maxHeight: "300px", display: "block" }}
+                      style={{ maxHeight: "calc(100dvh - 200px)", display: "block" }}
                     />
                   </div>
                 )}
 
                 {/* VIDEO — no URL */}
                 {ad.type === "VIDEO" && !ad.mediaUrl && (
-                  <div className="flex flex-col items-center justify-center flex-1 gap-2 py-10" style={{ color: "rgba(255,255,255,0.15)" }}>
-                    <Youtube className="w-10 h-10" />
-                    <p className="text-sm">No video URL set</p>
+                  <div className="flex flex-col items-center gap-3 py-16" style={{ color: "rgba(255,255,255,0.15)" }}>
+                    <AlertCircle className="w-12 h-12" />
+                    <p>No video URL set</p>
                   </div>
                 )}
 
                 {/* HTML */}
                 {ad.type === "HTML" && ad.htmlContent && (
-                  <div className="mx-3 my-3 rounded-xl overflow-hidden flex-shrink-0" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="w-full rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)", height: "calc(100dvh - 220px)" }}>
                     <iframe
                       srcDoc={ad.htmlContent}
                       sandbox="allow-scripts allow-same-origin allow-popups"
-                      className="w-full border-0"
-                      style={{ height: "240px" }}
+                      className="w-full h-full border-0"
                       title="Ad"
                     />
                   </div>
                 )}
-
-                {/* Visit link button for non-image types */}
-                {ad.linkUrl && ad.type !== "IMAGE" && (
-                  <div className="px-4 pb-3 shrink-0">
-                    <a
-                      href={ad.linkUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold transition-all"
-                      style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#c4b5fd" }}
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" /> Visit Advertiser
-                    </a>
-                  </div>
-                )}
               </div>
 
-              {/* Bottom bar — progress + action */}
-              <div className="shrink-0 px-4 pb-4 pt-3 space-y-3" style={{ borderTop: "1px solid rgba(139,92,246,0.12)" }}>
+              {/* ─── BOTTOM BAR ─── */}
+              <div className="shrink-0 px-4 pb-safe pb-6 pt-3 space-y-3">
+
+                {/* Ad title (if set) */}
+                {ad.title && (
+                  <p className="text-center text-sm font-semibold text-white/60 truncate">{ad.title}</p>
+                )}
+
+                {/* Visit link (for non-image types) */}
+                {ad.linkUrl && ad.type !== "IMAGE" && (
+                  <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer"
+                    onClick={(e) => handleLinkClick(e, ad.id)}
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-bold"
+                    style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#c4b5fd" }}>
+                    <ExternalLink className="w-4 h-4" /> Visit Advertiser
+                  </a>
+                )}
+
                 {/* Progress bar */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-white/25">
-                      {done ? "You can now close this ad" : `Ad ends in ${countdown} second${countdown !== 1 ? "s" : ""}`}
-                    </span>
-                    <span className="text-[10px] font-mono font-bold" style={{ color: done ? "#34d399" : "#8B5CF6" }}>
-                      {done ? "✓ Done" : `${countdown}s`}
-                    </span>
-                  </div>
-                  <div className="relative h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(139,92,246,0.15)" }}>
-                    <motion.div
-                      className="absolute inset-y-0 left-0 rounded-full"
-                      style={{ background: done ? "#34d399" : "linear-gradient(90deg, #7C3AED, #A78BFA)" }}
-                      animate={{ width: `${progress * 100}%` }}
-                      transition={{ duration: 0.9, ease: "linear" }}
-                    />
-                  </div>
+                <div className="relative h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                  <motion.div
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{ background: done ? "#34d399" : "linear-gradient(90deg, #7C3AED, #A78BFA)" }}
+                    animate={{ width: `${progress * 100}%` }}
+                    transition={{ duration: 0.9, ease: "linear" }}
+                  />
                 </div>
 
-                {/* Action button */}
+                {/* CTA button */}
                 <button
-                  onClick={done ? onComplete : undefined}
+                  onClick={handleCtaClick}
                   disabled={!done}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
+                  className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-bold transition-all"
                   style={done
-                    ? { background: "linear-gradient(135deg, #7C3AED, #6D28D9)", color: "#fff", cursor: "pointer", boxShadow: "0 4px 20px rgba(124,58,237,0.4)" }
-                    : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.2)", cursor: "not-allowed", border: "1px solid rgba(255,255,255,0.06)" }
+                    ? {
+                        background: "linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)",
+                        color: "#fff",
+                        cursor: "pointer",
+                        boxShadow: "0 8px 32px rgba(124,58,237,0.45)",
+                      }
+                    : {
+                        background: "rgba(255,255,255,0.05)",
+                        color: "rgba(255,255,255,0.2)",
+                        cursor: "not-allowed",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                      }
                   }
                 >
                   {done ? (
-                    <><X className="w-4 h-4" /> Close Ad & View Results</>
+                    <><X className="w-5 h-5" /> Close Ad &amp; Continue</>
                   ) : (
-                    <>
-                      <Wifi className="w-4 h-4 opacity-40" />
-                      Please wait {countdown} second{countdown !== 1 ? "s" : ""}...
-                    </>
+                    <><Wifi className="w-4 h-4 opacity-30" /> Please wait {countdown} second{countdown !== 1 ? "s" : ""}…</>
                   )}
                 </button>
               </div>

@@ -1940,6 +1940,22 @@ ${urls.map(u => `  <url>
     res.json(random);
   });
 
+  // Public — track ad view
+  app.post("/api/ads/:id/view", async (req, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid id" });
+    await storage.incrementAdViews(id);
+    res.json({ success: true });
+  });
+
+  // Public — track ad click
+  app.post("/api/ads/:id/click", async (req, res) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid id" });
+    await storage.incrementAdClicks(id);
+    res.json({ success: true });
+  });
+
   app.post("/api/admin/broadcasts", requireAdminSession, async (req, res) => {
     const { title, message, type, mediaUrl, mediaType, actionLink, buttonText, durationMinutes, startsAt } = req.body;
     if (!message) return res.status(400).json({ message: "Message is required" });

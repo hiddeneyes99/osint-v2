@@ -83,6 +83,8 @@ export interface IStorage {
   createAd(data: { title: string; type: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; duration: number }): Promise<Ad>;
   deleteAd(id: number): Promise<void>;
   toggleAd(id: number): Promise<Ad>;
+  incrementAdViews(id: number): Promise<void>;
+  incrementAdClicks(id: number): Promise<void>;
 
   // Cleanup
   fetchLogsBeforeCleanup(days: number): Promise<LogWithUser[]>;
@@ -403,6 +405,14 @@ export class DatabaseStorage implements IStorage {
     const [current] = await db.select().from(ads).where(eq(ads.id, id));
     const [updated] = await db.update(ads).set({ isActive: !current.isActive }).where(eq(ads.id, id)).returning();
     return updated;
+  }
+
+  async incrementAdViews(id: number): Promise<void> {
+    await db.update(ads).set({ views: sql`${ads.views} + 1` }).where(eq(ads.id, id));
+  }
+
+  async incrementAdClicks(id: number): Promise<void> {
+    await db.update(ads).set({ clicks: sql`${ads.clicks} + 1` }).where(eq(ads.id, id));
   }
 
   async cleanupAllRequestLogs(): Promise<{ deletedLogs: number }> {
