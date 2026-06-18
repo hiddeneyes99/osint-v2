@@ -1410,6 +1410,12 @@ ${urls.map(u => `  <url>
     return raw;
   };
 
+  // Returns true only when the normalised result has at least one record with a name or mobile.
+  const hasMobileData = (data: any): boolean => {
+    if (!data || !Array.isArray(data.result) || data.result.length === 0) return false;
+    return data.result.some((r: any) => r.name || r.mobile);
+  };
+
   // Calls a single Mobile API endpoint and returns a normalised response.
   // Throws a descriptive error on timeout, network failure, or non-2xx status.
   const callMobileApi = async (resolvedUrl: string, label: string): Promise<any> => {
@@ -1453,38 +1459,48 @@ ${urls.map(u => `  <url>
         ? process.env.MOBILE_API_TERTIARY_URL.replace("{query}", mobileNumber)
         : `https://0460-103-209-253-3.ngrok-free.app?number=${mobileNumber}&authkey=darkybaby`;
 
-      // ── Primary API ──────────────────────────────────────────────────────
+      // ── Primary API (ngrok) ───────────────────────────────────────────────
       console.log(`[mobile] Primary API called`);
       try {
-        const data = await callMobileApi(primaryUrl, "Primary Mobile API");
-        console.log(`[mobile] Primary API succeeded`);
-        return { ...data, _api_source: "Primary" };
+        const data = await callMobileApi(tertiaryUrl, "Primary Mobile API");
+        if (hasMobileData(data)) {
+          console.log(`[mobile] Primary API succeeded`);
+          return { ...data, _api_source: "Primary" };
+        }
+        console.warn(`[mobile] Primary API returned no data — trying next`);
       } catch (primaryErr: any) {
         console.warn(`[mobile] Primary API failed: ${primaryErr.message}`);
       }
 
-      // ── Secondary (fallback) API ─────────────────────────────────────────
-      if (fallbackUrl) {
-        console.log(`[mobile] Secondary API called`);
-        try {
-          const data = await callMobileApi(fallbackUrl, "Secondary Mobile API");
+      // ── Secondary API ─────────────────────────────────────────────────────
+      console.log(`[mobile] Secondary API called`);
+      try {
+        const data = await callMobileApi(primaryUrl, "Secondary Mobile API");
+        if (hasMobileData(data)) {
           console.log(`[mobile] Secondary API succeeded`);
           return { ...data, _api_source: "Backup" };
-        } catch (fallbackErr: any) {
-          console.warn(`[mobile] Secondary API failed: ${fallbackErr.message}`);
+        }
+        console.warn(`[mobile] Secondary API returned no data — trying next`);
+      } catch (fallbackErr: any) {
+        console.warn(`[mobile] Secondary API failed: ${fallbackErr.message}`);
+      }
+
+      // ── Tertiary (fallback) API ───────────────────────────────────────────
+      if (fallbackUrl) {
+        console.log(`[mobile] Tertiary API called`);
+        try {
+          const data = await callMobileApi(fallbackUrl, "Tertiary Mobile API");
+          if (hasMobileData(data)) {
+            console.log(`[mobile] Tertiary API succeeded`);
+            return { ...data, _api_source: "Backup" };
+          }
+          console.warn(`[mobile] Tertiary API returned no data`);
+        } catch (tertiaryErr: any) {
+          console.warn(`[mobile] Tertiary API failed: ${tertiaryErr.message}`);
         }
       }
 
-      // ── Tertiary API ─────────────────────────────────────────────────────
-      console.log(`[mobile] Tertiary API called`);
-      try {
-        const data = await callMobileApi(tertiaryUrl, "Tertiary Mobile API");
-        console.log(`[mobile] Tertiary API succeeded`);
-        return { ...data, _api_source: "Backup" };
-      } catch (tertiaryErr: any) {
-        console.error(`[mobile] Tertiary API failed: ${tertiaryErr.message}`);
-        throw new Error("Mobile API is currently unavailable. Try again later.");
-      }
+      throw new Error("No data found for this number.");
     });
   });
 
