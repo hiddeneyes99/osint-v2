@@ -1892,9 +1892,9 @@ ${urls.map(u => `  <url>
   });
 
   app.post("/api/admin/ads", requireAdminSession, async (req, res) => {
-    const { title, type, mediaUrl, htmlContent, linkUrl, duration } = req.body;
+    const { title, type, mediaUrl, htmlContent, linkUrl, logoUrl, description, buttonText, forceRedirect, duration } = req.body;
     if (!type) return res.status(400).json({ message: "type is required" });
-    const ad = await storage.createAd({ title: title || "", type, mediaUrl, htmlContent, linkUrl, duration: duration || 15 });
+    const ad = await storage.createAd({ title: title || "", type, mediaUrl, htmlContent, linkUrl, logoUrl, description, buttonText: buttonText || "Learn More", forceRedirect: !!forceRedirect, duration: duration || 15 });
     res.json(ad);
   });
 

@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   MonitorPlay, Plus, Trash2, ToggleLeft, ToggleRight, RefreshCw,
   Image, Video, Code2, ExternalLink, Clock, Eye, X, ChevronRight,
-  Activity, MousePointerClick, Youtube, AlertCircle, TrendingUp,
+  Activity, MousePointerClick, Youtube, AlertCircle, TrendingUp, Lock,
 } from "lucide-react";
 import type { Ad } from "@shared/schema";
 
@@ -18,7 +18,10 @@ const AD_TYPES = [
 
 const DURATIONS = [5, 10, 15, 20, 30];
 
-const emptyForm = { title: "", type: "IMAGE", mediaUrl: "", htmlContent: "", linkUrl: "", duration: 15 };
+const emptyForm = {
+  title: "", type: "IMAGE", mediaUrl: "", htmlContent: "", linkUrl: "",
+  logoUrl: "", description: "", buttonText: "Learn More", forceRedirect: false, duration: 15,
+};
 
 function getYoutubeId(url: string): string | null {
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?/]+)/);
@@ -71,7 +74,11 @@ export function AdsManagerSection() {
       const res = await fetch(`/api/admin/ads/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
     },
-    onSuccess: () => { toast({ title: "Ad deleted" }); setSelectedAd(null); queryClient.invalidateQueries({ queryKey: ["/api/admin/ads"] }); },
+    onSuccess: () => {
+      toast({ title: "Ad deleted" });
+      setSelectedAd(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/ads"] });
+    },
     onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
   });
 
@@ -88,9 +95,9 @@ export function AdsManagerSection() {
     onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
   });
 
-  const activeCount = adsData.filter(a => a.isActive).length;
   const totalViews = adsData.reduce((s, a) => s + (a.views ?? 0), 0);
   const totalClicks = adsData.reduce((s, a) => s + (a.clicks ?? 0), 0);
+  const activeCount = adsData.filter(a => a.isActive).length;
 
   return (
     <div className="space-y-5">
@@ -100,7 +107,7 @@ export function AdsManagerSection() {
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <MonitorPlay className="w-5 h-5 text-violet-400" /> Ads Manager
           </h2>
-          <p className="text-xs text-white/30 mt-0.5">Full-screen ad shown before each search</p>
+          <p className="text-xs text-white/30 mt-0.5">Full-screen rewarded ad before each search</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => refetch()} className="p-2 rounded-xl border border-white/10 text-white/40 hover:text-white/70 hover:border-white/20 transition-all">
@@ -137,13 +144,7 @@ export function AdsManagerSection() {
         <div className="rounded-2xl p-5 space-y-4" style={{ background: "rgba(139,92,246,0.06)", border: "1px solid rgba(139,92,246,0.22)" }}>
           <h3 className="text-sm font-bold text-violet-300 uppercase tracking-widest">Create New Ad</h3>
 
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase text-white/30 tracking-widest">Ad Title</label>
-            <Input placeholder="e.g. Exclusive offer — watch to continue" value={form.title}
-              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-              className="bg-black/40 border-violet-500/20 text-white text-sm h-10" />
-          </div>
-
+          {/* Ad Type */}
           <div className="space-y-1.5">
             <label className="text-[10px] uppercase text-white/30 tracking-widest">Ad Type</label>
             <div className="flex gap-2">
@@ -160,17 +161,54 @@ export function AdsManagerSection() {
             </div>
           </div>
 
+          {/* Title */}
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase text-white/30 tracking-widest">Title (shown in ad header)</label>
+            <Input placeholder="e.g. TWH OSINT Premium" value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              className="bg-black/40 border-violet-500/20 text-white text-sm h-10" />
+          </div>
+
+          {/* Logo URL */}
+          {form.type !== "HTML" && (
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-white/30 tracking-widest">Logo URL (optional — square image)</label>
+              <div className="flex gap-2">
+                <Input placeholder="https://example.com/logo.png" value={form.logoUrl}
+                  onChange={e => setForm(f => ({ ...f, logoUrl: e.target.value }))}
+                  className="bg-black/40 border-violet-500/20 text-white text-sm h-10 flex-1" />
+                {form.logoUrl && (
+                  <img src={form.logoUrl} alt="" className="w-10 h-10 rounded-xl object-cover shrink-0"
+                    style={{ border: "1px solid rgba(139,92,246,0.3)" }}
+                    onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Description */}
+          {form.type !== "HTML" && (
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-white/30 tracking-widest">Description (shown below title)</label>
+              <Input placeholder="e.g. The best OSINT tool in India" value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                className="bg-black/40 border-violet-500/20 text-white text-sm h-10" />
+            </div>
+          )}
+
+          {/* Media URL */}
           {(form.type === "IMAGE" || form.type === "VIDEO") && (
             <div className="space-y-1">
               <label className="text-[10px] uppercase text-white/30 tracking-widest">
                 {form.type === "IMAGE" ? "Image URL" : "Video / YouTube URL"}
               </label>
-              <Input placeholder={form.type === "IMAGE" ? "https://example.com/image.jpg" : "https://youtube.com/watch?v=... or direct .mp4 URL"}
+              <Input placeholder={form.type === "IMAGE" ? "https://example.com/image.jpg" : "https://youtube.com/watch?v=... or direct .mp4"}
                 value={form.mediaUrl} onChange={e => setForm(f => ({ ...f, mediaUrl: e.target.value }))}
                 className="bg-black/40 border-violet-500/20 text-white text-sm h-10" />
+              {/* Live preview */}
               {form.mediaUrl && form.type === "IMAGE" && (
                 <div className="mt-2 rounded-xl overflow-hidden" style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(139,92,246,0.15)" }}>
-                  <img src={form.mediaUrl} alt="Preview" className="w-full object-contain" style={{ maxHeight: "160px" }}
+                  <img src={form.mediaUrl} alt="Preview" className="w-full object-contain" style={{ maxHeight: "140px" }}
                     onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 </div>
               )}
@@ -183,9 +221,10 @@ export function AdsManagerSection() {
             </div>
           )}
 
+          {/* HTML content */}
           {form.type === "HTML" && (
             <div className="space-y-1">
-              <label className="text-[10px] uppercase text-white/30 tracking-widest">HTML Content</label>
+              <label className="text-[10px] uppercase text-white/30 tracking-widest">HTML Content (fills full screen)</label>
               <textarea placeholder="<div style='...'>Your ad HTML here</div>" value={form.htmlContent}
                 onChange={e => setForm(f => ({ ...f, htmlContent: e.target.value }))} rows={5}
                 className="w-full rounded-xl text-sm text-white resize-none px-3 py-2.5 font-mono"
@@ -193,16 +232,52 @@ export function AdsManagerSection() {
             </div>
           )}
 
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase text-white/30 tracking-widest">Click URL (optional)</label>
-            <div className="relative">
-              <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20" />
-              <Input placeholder="https://..." value={form.linkUrl}
-                onChange={e => setForm(f => ({ ...f, linkUrl: e.target.value }))}
-                className="bg-black/40 border-violet-500/20 text-white text-sm h-10 pl-8" />
-            </div>
-          </div>
+          {/* Link URL + Button Text (not for HTML) */}
+          {form.type !== "HTML" && (
+            <>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase text-white/30 tracking-widest">CTA Link URL (button redirects here)</label>
+                <div className="relative">
+                  <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20" />
+                  <Input placeholder="https://..." value={form.linkUrl}
+                    onChange={e => setForm(f => ({ ...f, linkUrl: e.target.value }))}
+                    className="bg-black/40 border-violet-500/20 text-white text-sm h-10 pl-8" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase text-white/30 tracking-widest">CTA Button Text</label>
+                <Input placeholder="e.g. Install, Subscribe, Learn More" value={form.buttonText}
+                  onChange={e => setForm(f => ({ ...f, buttonText: e.target.value }))}
+                  className="bg-black/40 border-violet-500/20 text-white text-sm h-10" />
+              </div>
+            </>
+          )}
 
+          {/* Force Redirect toggle */}
+          {form.type !== "HTML" && form.linkUrl && (
+            <div
+              onClick={() => setForm(f => ({ ...f, forceRedirect: !f.forceRedirect }))}
+              className="flex items-center gap-3 p-3.5 rounded-xl cursor-pointer transition-all select-none"
+              style={{
+                background: form.forceRedirect ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.02)",
+                border: `1px solid ${form.forceRedirect ? "rgba(239,68,68,0.25)" : "rgba(255,255,255,0.08)"}`,
+              }}
+            >
+              <Lock className="w-4 h-4 shrink-0" style={{ color: form.forceRedirect ? "#f87171" : "rgba(255,255,255,0.25)" }} />
+              <div className="flex-1">
+                <p className="text-xs font-bold" style={{ color: form.forceRedirect ? "#f87171" : "rgba(255,255,255,0.5)" }}>Force Redirect</p>
+                <p className="text-[10px] text-white/25 mt-0.5">User must click the link button before they can close the ad</p>
+              </div>
+              {/* Toggle dot */}
+              <div className="w-10 h-5 rounded-full transition-all relative shrink-0"
+                style={{ background: form.forceRedirect ? "rgba(239,68,68,0.4)" : "rgba(255,255,255,0.1)", border: `1px solid ${form.forceRedirect ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)"}` }}>
+                <div className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
+                  style={{ background: form.forceRedirect ? "#f87171" : "rgba(255,255,255,0.35)", left: form.forceRedirect ? "calc(100% - 18px)" : "2px" }} />
+              </div>
+            </div>
+          )}
+
+          {/* Duration */}
           <div className="space-y-1.5">
             <label className="text-[10px] uppercase text-white/30 tracking-widest">Display Duration</label>
             <div className="flex gap-2">
@@ -287,7 +362,10 @@ function AdRow({ ad, isSelected, onClick }: { ad: Ad; isSelected: boolean; onCli
       {/* Thumbnail */}
       <div className="shrink-0 w-14 h-14 rounded-lg overflow-hidden flex items-center justify-center"
         style={{ background: `${ti.color}12`, border: `1px solid ${ti.color}25` }}>
-        {ad.type === "IMAGE" && ad.mediaUrl ? (
+        {ad.logoUrl ? (
+          <img src={ad.logoUrl} alt="" className="w-full h-full object-cover"
+            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        ) : ad.type === "IMAGE" && ad.mediaUrl ? (
           <img src={ad.mediaUrl} alt="" className="w-full h-full object-cover"
             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : ytId ? (
@@ -299,21 +377,16 @@ function AdRow({ ad, isSelected, onClick }: { ad: Ad; isSelected: boolean; onCli
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-white truncate">{ad.title || <span className="text-white/30 italic">Untitled</span>}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-semibold text-white truncate">{ad.title || <span className="text-white/30 italic">Untitled</span>}</p>
+          {(ad as any).forceRedirect && <Lock className="w-3 h-3 shrink-0 text-red-400/60" />}
+        </div>
         <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-          <span className="flex items-center gap-1 text-[10px] text-white/30">
-            <Eye className="w-3 h-3" /> {views.toLocaleString()}
-          </span>
-          <span className="flex items-center gap-1 text-[10px] text-white/30">
-            <MousePointerClick className="w-3 h-3" /> {clicks.toLocaleString()}
-          </span>
-          <span className="flex items-center gap-1 text-[10px] text-white/30">
-            <TrendingUp className="w-3 h-3" /> {ctr(views, clicks)} CTR
-          </span>
-          <span className="flex items-center gap-1 text-[10px] text-white/30">
-            <Clock className="w-3 h-3" /> {ad.duration}s
-          </span>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full`}
+          <span className="flex items-center gap-1 text-[10px] text-white/30"><Eye className="w-3 h-3" /> {views.toLocaleString()}</span>
+          <span className="flex items-center gap-1 text-[10px] text-white/30"><MousePointerClick className="w-3 h-3" /> {clicks.toLocaleString()}</span>
+          <span className="flex items-center gap-1 text-[10px] text-white/30"><TrendingUp className="w-3 h-3" /> {ctr(views, clicks)}</span>
+          <span className="flex items-center gap-1 text-[10px] text-white/30"><Clock className="w-3 h-3" /> {ad.duration}s</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
             style={ad.isActive
               ? { background: "rgba(16,185,129,0.1)", color: "#34d399", border: "1px solid rgba(16,185,129,0.2)" }
               : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.08)" }
@@ -334,10 +407,10 @@ function AdDetailPanel({ ad, imgError, setImgError, onClose, onToggle, onDelete,
   const ytId = ad.type === "VIDEO" && ad.mediaUrl ? getYoutubeId(ad.mediaUrl) : null;
   const views = ad.views ?? 0;
   const clicks = ad.clicks ?? 0;
+  const forceRedirect = (ad as any).forceRedirect;
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(10,6,30,0.98)", border: "1px solid rgba(139,92,246,0.35)" }}>
-      {/* Panel header */}
       <div className="flex items-center justify-between px-4 py-3" style={{ background: "rgba(139,92,246,0.1)", borderBottom: "1px solid rgba(139,92,246,0.2)" }}>
         <div className="flex items-center gap-2">
           <Eye className="w-4 h-4 text-violet-400" />
@@ -348,7 +421,7 @@ function AdDetailPanel({ ad, imgError, setImgError, onClose, onToggle, onDelete,
         </button>
       </div>
 
-      {/* Analytics stats */}
+      {/* Analytics */}
       <div className="grid grid-cols-3 gap-2 px-4 pt-4">
         {[
           { label: "Views", value: views.toLocaleString(), icon: <Eye className="w-4 h-4" />, color: "#60a5fa" },
@@ -363,52 +436,40 @@ function AdDetailPanel({ ad, imgError, setImgError, onClose, onToggle, onDelete,
         ))}
       </div>
 
-      {/* Media Preview */}
-      <div className="relative mx-4 mt-4 rounded-xl overflow-hidden" style={{ background: "#000", minHeight: "160px" }}>
+      {/* Preview */}
+      <div className="relative mx-4 mt-4 rounded-xl overflow-hidden" style={{ background: "#000", minHeight: "120px" }}>
         {ad.type === "IMAGE" && ad.mediaUrl && !imgError && (
-          <a href={ad.linkUrl || undefined} target="_blank" rel="noopener noreferrer"
-            className={ad.linkUrl ? "block" : "pointer-events-none block"}>
-            <img src={ad.mediaUrl} alt="Ad preview" className="w-full object-contain"
-              style={{ maxHeight: "260px", display: "block" }}
-              onError={() => setImgError(true)} />
-          </a>
+          <img src={ad.mediaUrl} alt="Ad preview" className="w-full object-contain"
+            style={{ maxHeight: "200px", display: "block" }} onError={() => setImgError(true)} />
         )}
         {ad.type === "IMAGE" && (imgError || !ad.mediaUrl) && (
-          <div className="flex flex-col items-center justify-center h-32 gap-2" style={{ color: "rgba(255,255,255,0.15)" }}>
-            <AlertCircle className="w-8 h-8" />
-            <p className="text-xs">{imgError ? "Image failed to load" : "No image URL set"}</p>
+          <div className="flex flex-col items-center justify-center h-24 gap-2" style={{ color: "rgba(255,255,255,0.15)" }}>
+            <AlertCircle className="w-7 h-7" />
+            <p className="text-xs">{imgError ? "Image failed to load" : "No image URL"}</p>
           </div>
         )}
         {ad.type === "VIDEO" && ad.mediaUrl && (
           ytId ? (
             <div style={{ aspectRatio: "16/9" }}>
-              <iframe src={`https://www.youtube.com/embed/${ytId}?autoplay=0`}
-                className="w-full h-full border-0" allowFullScreen title="YouTube Ad" />
+              <iframe src={`https://www.youtube.com/embed/${ytId}`} className="w-full h-full border-0" allowFullScreen title="YouTube Ad" />
             </div>
           ) : (
-            <video src={ad.mediaUrl} controls className="w-full object-contain bg-black" style={{ maxHeight: "200px" }} />
+            <video src={ad.mediaUrl} controls className="w-full bg-black" style={{ maxHeight: "180px" }} />
           )
         )}
         {ad.type === "HTML" && ad.htmlContent && (
           <iframe srcDoc={ad.htmlContent} sandbox="allow-scripts allow-same-origin allow-popups"
-            className="w-full border-0" style={{ height: "180px" }} title="HTML Ad" />
+            className="w-full border-0" style={{ height: "160px" }} title="HTML Ad" />
         )}
         {ytId && (
           <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold" style={{ background: "#ff0000cc", color: "#fff" }}>
             <Youtube className="w-3 h-3" /> YouTube
           </div>
         )}
-        {ad.linkUrl && (
-          <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer"
-            className="absolute bottom-2 right-2 flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-lg"
-            style={{ background: "rgba(139,92,246,0.9)", color: "#fff" }}>
-            <ExternalLink className="w-3 h-3" /> Open Link
-          </a>
-        )}
       </div>
 
-      {/* Meta info */}
-      <div className="px-4 py-4 space-y-3">
+      {/* Meta */}
+      <div className="px-4 py-4 space-y-2">
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-xl px-3 py-2" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
             <p className="text-[10px] text-white/30">Type</p>
@@ -419,34 +480,24 @@ function AdDetailPanel({ ad, imgError, setImgError, onClose, onToggle, onDelete,
             <p className="text-xs font-bold text-white mt-0.5">{ad.duration}s</p>
           </div>
           <div className="rounded-xl px-3 py-2" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <p className="text-[10px] text-white/30">Status</p>
-            <p className="text-xs font-bold mt-0.5" style={{ color: ad.isActive ? "#34d399" : "rgba(255,255,255,0.25)" }}>
-              {ad.isActive ? "Active" : "Paused"}
-            </p>
+            <p className="text-[10px] text-white/30">Force Redirect</p>
+            <p className="text-xs font-bold mt-0.5" style={{ color: forceRedirect ? "#f87171" : "rgba(255,255,255,0.25)" }}>{forceRedirect ? "ON" : "OFF"}</p>
           </div>
         </div>
-
-        {ad.title && (
-          <div>
-            <p className="text-[10px] text-white/30 mb-0.5">Title</p>
-            <p className="text-sm text-white">{ad.title}</p>
-          </div>
-        )}
-        {ad.mediaUrl && (
-          <div>
-            <p className="text-[10px] text-white/30 mb-0.5">Media URL</p>
-            <p className="text-xs text-white/40 font-mono break-all">{ad.mediaUrl}</p>
-          </div>
-        )}
         {ad.linkUrl && (
-          <div>
-            <p className="text-[10px] text-white/30 mb-0.5">Click URL</p>
+          <div className="rounded-xl px-3 py-2" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <p className="text-[10px] text-white/30 mb-0.5">CTA Link</p>
             <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer"
               className="text-xs text-violet-400 hover:text-violet-300 break-all font-mono transition-colors">{ad.linkUrl}</a>
           </div>
         )}
+        {(ad as any).description && (
+          <div className="rounded-xl px-3 py-2" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <p className="text-[10px] text-white/30 mb-0.5">Description</p>
+            <p className="text-xs text-white/60">{(ad as any).description}</p>
+          </div>
+        )}
 
-        {/* Actions */}
         <div className="flex gap-2 pt-1">
           <button onClick={onToggle} disabled={isToggling}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold border transition-all"

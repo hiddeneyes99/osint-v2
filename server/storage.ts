@@ -80,7 +80,7 @@ export interface IStorage {
   // Ads
   getAllAds(): Promise<Ad[]>;
   getActiveAds(): Promise<Ad[]>;
-  createAd(data: { title: string; type: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; duration: number }): Promise<Ad>;
+  createAd(data: { title: string; type: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; logoUrl?: string; description?: string; buttonText?: string; forceRedirect?: boolean; duration: number }): Promise<Ad>;
   deleteAd(id: number): Promise<void>;
   toggleAd(id: number): Promise<Ad>;
   incrementAdViews(id: number): Promise<void>;
@@ -392,7 +392,7 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(ads).where(eq(ads.isActive, true));
   }
 
-  async createAd(data: { title: string; type: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; duration: number }): Promise<Ad> {
+  async createAd(data: { title: string; type: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; logoUrl?: string; description?: string; buttonText?: string; forceRedirect?: boolean; duration: number }): Promise<Ad> {
     const [ad] = await db.insert(ads).values(data).returning();
     return ad;
   }
