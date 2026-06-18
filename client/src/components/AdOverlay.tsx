@@ -71,15 +71,25 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
     };
     document.addEventListener("keydown", blockKeys, true);
 
-    // 4. Block touch swipe / pull-to-refresh
+    // 4. Block touch swipe / pull-to-refresh on mobile
     const blockTouch = (e: TouchEvent) => e.preventDefault();
     document.addEventListener("touchmove", blockTouch, { passive: false });
+    document.addEventListener("touchstart", blockTouch, { passive: false });
+
+    // 5. Extra: prevent iOS overscroll / bounce
+    document.documentElement.style.overflow = "hidden";
+    document.documentElement.style.position = "fixed";
+    document.documentElement.style.width = "100%";
 
     return () => {
       document.body.style.overflow = prevOverflow;
+      document.documentElement.style.overflow = "";
+      document.documentElement.style.position = "";
+      document.documentElement.style.width = "";
       document.removeEventListener("contextmenu", blockContext);
       document.removeEventListener("keydown", blockKeys, true);
-      document.removeEventListener("touchmove", blockTouch);
+      document.removeEventListener("touchmove", blockTouch, { passive: false } as any);
+      document.removeEventListener("touchstart", blockTouch, { passive: false } as any);
     };
   }, [open]);
 
@@ -294,10 +304,10 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                           <span className="text-2xl shrink-0">⚠️</span>
                           <div className="flex-1">
                             <p className="text-sm font-bold" style={{ color: "#fca5a5" }}>
-                              Pehle neeche button pe click karo!
+                              Click the button below first!
                             </p>
                             <p className="text-xs mt-0.5" style={{ color: "rgba(252,165,165,0.65)" }}>
-                              Ad close karne ke liye link visit karna zaruri hai
+                              You must visit the link to close this ad
                             </p>
                           </div>
                         </div>
@@ -307,7 +317,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                         <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl"
                           style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)" }}>
                           <span className="text-lg">✅</span>
-                          <p className="text-xs font-bold text-emerald-400">Ab ✕ button se ad band kar sakte ho</p>
+                          <p className="text-xs font-bold text-emerald-400">Now you can close the ad with the ✕ button</p>
                         </div>
                       )}
 
@@ -361,7 +371,7 @@ function CloseBtn({ done, needsLinkFirst, onClick }: { done: boolean; needsLinkF
   return (
     <button
       onClick={onClick}
-      title={!done ? "Ad dekho pehle" : needsLinkFirst ? "Pehle link visit karo" : "Close ad"}
+      title={!done ? "Watch the ad first" : needsLinkFirst ? "Visit the link first" : "Close ad"}
       className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
       style={
         !done
