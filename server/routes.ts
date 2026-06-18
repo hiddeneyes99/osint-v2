@@ -1423,7 +1423,7 @@ ${urls.map(u => `  <url>
     const t = setTimeout(() => ctrl.abort(), 8000);
     let response: Response;
     try {
-      response = await fetch(resolvedUrl, { method: "GET", headers: { "Accept": "application/json" }, signal: ctrl.signal });
+      response = await fetch(resolvedUrl, { method: "GET", headers: { "Accept": "application/json", "ngrok-skip-browser-warning": "true" }, signal: ctrl.signal });
       clearTimeout(t);
     } catch (e: any) {
       clearTimeout(t);

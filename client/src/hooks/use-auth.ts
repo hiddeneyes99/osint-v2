@@ -6,7 +6,7 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut, 
-  onAuthStateChanged,
+  onIdTokenChanged,
   type FirebaseUser
 } from "@/lib/firebase";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -19,7 +19,9 @@ export function useAuth() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    // onIdTokenChanged fires on login, logout AND every time Firebase auto-refreshes
+    // the token (every ~1 hour), keeping window.firebaseToken always fresh.
+    const unsubscribe = onIdTokenChanged(auth, async (user) => {
       if (user) {
         const idToken = await user.getIdToken();
         setToken(idToken);
