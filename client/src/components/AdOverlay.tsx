@@ -46,6 +46,55 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const trackedRef = useRef(false);
 
+  // ── Anti-bypass: block all escape routes while ad is open ──
+  useEffect(() => {
+    if (!open) return;
+
+    // 1. Block scroll on body
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    // 2. Block right-click (context menu)
+    const blockContext = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener("contextmenu", blockContext);
+
+    // 3. Block keyboard shortcuts (F12, Ctrl+Shift+I/J/C/U, Ctrl+S)
+    const blockKeys = (e: KeyboardEvent) => {
+      if (e.key === "F12") { e.preventDefault(); e.stopPropagation(); return; }
+      if (e.ctrlKey && e.shiftKey && ["I","i","J","j","C","c"].includes(e.key)) {
+        e.preventDefault(); e.stopPropagation(); return;
+      }
+      if (e.ctrlKey && ["u","U","s","S"].includes(e.key)) {
+        e.preventDefault(); e.stopPropagation(); return;
+      }
+    };
+    document.addEventListener("keydown", blockKeys, true);
+
+    // 4. Block touch swipe / pull-to-refresh
+    const blockTouch = (e: TouchEvent) => e.preventDefault();
+    document.addEventListener("touchmove", blockTouch, { passive: false });
+
+    // 5. DevTools size detection — reload if devtools open
+    const devtoolsCheck = setInterval(() => {
+      const threshold = 160;
+      if (
+        window.outerWidth - window.innerWidth > threshold ||
+        window.outerHeight - window.innerHeight > threshold
+      ) {
+        // DevTools detected — close devtools and force full reload
+        window.location.reload();
+      }
+    }, 1000);
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("contextmenu", blockContext);
+      document.removeEventListener("keydown", blockKeys, true);
+      document.removeEventListener("touchmove", blockTouch);
+      clearInterval(devtoolsCheck);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) {
       setAd(null); setDone(false); setCountdown(0); setImgError(false);
@@ -105,7 +154,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
           className="fixed inset-0 z-[9999] flex items-stretch justify-center overflow-hidden"
-          style={{ background: "rgba(0,0,0,0.92)" }}
+          style={{ background: "rgba(0,0,0,0.92)", userSelect: "none", pointerEvents: "all" }}
         >
           {/* Card — takes full height, max-width phone-style */}
           <div
