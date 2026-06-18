@@ -189,7 +189,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                 {/* ═══════════════════════════════════════
                     MAIN MEDIA — flex-1, fills remaining space, no black bars
                 ═══════════════════════════════════════ */}
-                <div className="flex-1 min-h-0 relative overflow-hidden"
+                <div className="relative w-full aspect-video overflow-hidden"
                   style={{ background: "#000" }}>
 
                   {loading && (
