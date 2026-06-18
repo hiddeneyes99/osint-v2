@@ -258,7 +258,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                       />
                     )}
                     {!loading && ad?.type === "VIDEO" && ad?.mediaUrl && !ytId && (
-                      <video src={ad.mediaUrl} autoPlay muted playsInline
+                      <video src={ad.mediaUrl} autoPlay playsInline
                         className="absolute inset-0 w-full h-full object-contain block" />
                     )}
                     {!loading && ad?.type === "VIDEO" && !ad?.mediaUrl && (
