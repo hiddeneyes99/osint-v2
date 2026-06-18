@@ -186,23 +186,6 @@ export default function TWHPage() {
               ))}
             </div>
           </div>
-
-          {/* URL + deployment */}
-          <div className="mt-4 rounded-2xl p-5 flex flex-wrap gap-4 items-center" style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.18)" }}>
-            <div className="flex-1 min-w-0">
-              <div className="text-emerald-400 font-bold text-sm">🌐 Live Platform</div>
-              <div className="text-slate-400 text-xs mt-1">
-                URL: <strong className="text-emerald-300">https://twh-osint.vercel.app</strong><br />
-                GitHub: <strong className="text-emerald-300">github.com/darkpandat/osint</strong><br />
-                Hosted on Vercel · Backend on Replit · Database on Supabase (PostgreSQL)
-              </div>
-            </div>
-            <Link href="/">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all" style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)", color: "#6EE7B7" }}>
-                <Shield className="w-3.5 h-3.5" /> Open Platform
-              </button>
-            </Link>
-          </div>
         </section>
 
         {/* ABOUT */}
