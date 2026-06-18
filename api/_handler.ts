@@ -71,7 +71,49 @@ app.use((req, res, next) => {
   next();
 });
 
-const initPromise = registerRoutes(null, app)
+// Auto-create required tables that may not exist in the production DB
+async function ensureTables() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ads (
+        id serial PRIMARY KEY,
+        title text NOT NULL DEFAULT '',
+        type text NOT NULL DEFAULT 'IMAGE',
+        media_url text,
+        html_content text,
+        link_url text,
+        logo_url text,
+        description text,
+        button_text text DEFAULT 'Learn More',
+        force_redirect boolean NOT NULL DEFAULT false,
+        duration integer NOT NULL DEFAULT 15,
+        is_active boolean NOT NULL DEFAULT true,
+        views integer NOT NULL DEFAULT 0,
+        clicks integer NOT NULL DEFAULT 0,
+        created_at timestamp DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS broadcast_messages (
+        id serial PRIMARY KEY,
+        title text NOT NULL,
+        message text NOT NULL,
+        type text NOT NULL DEFAULT 'INFO',
+        media_url text,
+        media_type text,
+        action_link text,
+        button_text text DEFAULT 'Learn More',
+        is_active boolean NOT NULL DEFAULT true,
+        starts_at timestamp,
+        expires_at timestamp,
+        created_at timestamp DEFAULT now()
+      );
+    `);
+    console.log("[handler] Tables verified/created");
+  } catch (err) {
+    console.error("[handler] Table creation warning:", err);
+  }
+}
+
+const initPromise = ensureTables().then(() => registerRoutes(null, app))
   .then(() => {
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;

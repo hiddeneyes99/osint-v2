@@ -1890,31 +1890,57 @@ ${urls.map(u => `  <url>
   });
 
   // ── Media upload for ads ─────────────────────────────────────────────────
-  const uploadsDir = path.resolve(process.cwd(), "uploads/ads");
-  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+  const isVercel = !!process.env.VERCEL;
 
-  const adMediaStorage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadsDir),
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname);
-      cb(null, `ad_${Date.now()}${ext}`);
-    },
-  });
-  const adUpload = multer({
-    storage: adMediaStorage,
-    limits: { fileSize: 200 * 1024 * 1024 }, // 200MB
-    fileFilter: (_req, file, cb) => {
-      const ok = /^(video|image)\//.test(file.mimetype);
-      cb(null, ok);
-    },
-  });
+  let adUpload: multer.Multer;
+  if (isVercel) {
+    // On Vercel (serverless): use memory storage, return base64 data URL
+    adUpload = multer({
+      storage: multer.memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max on Vercel
+      fileFilter: (_req, file, cb) => {
+        if (/^video\//.test(file.mimetype)) {
+          return cb(new Error("Video file uploads are not supported on Vercel. Please use a YouTube link or external video URL instead."));
+        }
+        const ok = /^image\//.test(file.mimetype);
+        cb(null, ok);
+      },
+    });
+  } else {
+    const uploadsDir = path.resolve(process.cwd(), "uploads/ads");
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+    app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
+    adUpload = multer({
+      storage: multer.diskStorage({
+        destination: (_req, _file, cb) => cb(null, uploadsDir),
+        filename: (_req, file, cb) => {
+          const ext = path.extname(file.originalname);
+          cb(null, `ad_${Date.now()}${ext}`);
+        },
+      }),
+      limits: { fileSize: 200 * 1024 * 1024 }, // 200MB
+      fileFilter: (_req, file, cb) => {
+        const ok = /^(video|image)\//.test(file.mimetype);
+        cb(null, ok);
+      },
+    });
+  }
 
-  app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
+  app.post("/api/admin/ads/upload-media", requireAdminSession, (req, res, next) => {
+    adUpload.single("file")(req, res, (err) => {
+      if (err) return res.status(400).json({ message: err.message || "Upload failed" });
+      if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-  app.post("/api/admin/ads/upload-media", requireAdminSession, adUpload.single("file"), (req, res) => {
-    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
-    const url = `/uploads/ads/${req.file.filename}`;
-    res.json({ url });
+      if (isVercel) {
+        // Return base64 data URL — stored directly in DB, no filesystem needed
+        const b64 = req.file.buffer.toString("base64");
+        const url = `data:${req.file.mimetype};base64,${b64}`;
+        return res.json({ url });
+      }
+
+      const url = `/uploads/ads/${(req.file as Express.Multer.File & { filename: string }).filename}`;
+      res.json({ url });
+    });
   });
 
   // Ads management
