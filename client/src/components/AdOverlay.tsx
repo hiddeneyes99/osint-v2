@@ -140,12 +140,12 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
-          className="fixed inset-0 z-[9999] flex items-stretch justify-center overflow-hidden"
+          className="fixed inset-0 z-[9999] flex items-stretch md:items-center justify-center overflow-hidden"
           style={{ background: "rgba(0,0,0,0.92)", userSelect: "none", pointerEvents: "all" }}
         >
-          {/* Card — takes full height, max-width phone-style */}
+          {/* Card — full screen on mobile, centered card on desktop */}
           <div
-            className="relative w-full h-full flex flex-col overflow-hidden"
+            className="relative w-full h-full md:h-auto md:max-h-[90vh] md:max-w-[480px] md:rounded-2xl flex flex-col overflow-hidden"
             style={{
               background: "#0d0b18",
             }}
