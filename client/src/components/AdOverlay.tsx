@@ -104,14 +104,15 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
-          className="fixed inset-0 z-[9999] flex items-stretch justify-center overflow-hidden"
+          className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden p-4"
           style={{ background: "rgba(0,0,0,0.92)" }}
         >
-          {/* Card — takes full height, max-width phone-style */}
+          {/* Card — centered, max-width phone-style, max-height so it fits screen */}
           <div
-            className="relative w-full flex flex-col overflow-hidden"
+            className="relative w-full flex flex-col overflow-hidden rounded-2xl"
             style={{
               maxWidth: "480px",
+              maxHeight: "90vh",
               background: "#0d0b18",
             }}
           >
@@ -200,7 +201,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
 
                   {!loading && ad?.type === "IMAGE" && ad.mediaUrl && !imgError && (
                     <img src={ad.mediaUrl} alt="Ad"
-                      className="absolute inset-0 w-full h-full object-cover block"
+                      className="absolute inset-0 w-full h-full object-contain block"
                       onError={() => setImgError(true)}
                     />
                   )}
