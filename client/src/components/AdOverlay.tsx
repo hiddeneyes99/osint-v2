@@ -74,24 +74,11 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
     const blockTouch = (e: TouchEvent) => e.preventDefault();
     document.addEventListener("touchmove", blockTouch, { passive: false });
 
-    // 5. DevTools size detection — reload if devtools open
-    const devtoolsCheck = setInterval(() => {
-      const threshold = 160;
-      if (
-        window.outerWidth - window.innerWidth > threshold ||
-        window.outerHeight - window.innerHeight > threshold
-      ) {
-        // DevTools detected — close devtools and force full reload
-        window.location.reload();
-      }
-    }, 1000);
-
     return () => {
       document.body.style.overflow = prevOverflow;
       document.removeEventListener("contextmenu", blockContext);
       document.removeEventListener("keydown", blockKeys, true);
       document.removeEventListener("touchmove", blockTouch);
-      clearInterval(devtoolsCheck);
     };
   }, [open]);
 
