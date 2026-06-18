@@ -187,10 +187,10 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                 )}
 
                 {/* ═══════════════════════════════════════
-                    MAIN MEDIA — 16:9 fixed ratio, no black bars
+                    MAIN MEDIA — flex-1, fills remaining space, no black bars
                 ═══════════════════════════════════════ */}
-                <div className="w-full shrink-0 relative overflow-hidden"
-                  style={{ aspectRatio: "16/9", background: "#000" }}>
+                <div className="flex-1 min-h-0 relative overflow-hidden"
+                  style={{ background: "#000" }}>
 
                   {loading && (
                     <div className="absolute inset-0 flex items-center justify-center">
