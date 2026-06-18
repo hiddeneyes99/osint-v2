@@ -200,7 +200,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
 
                   {!loading && ad?.type === "IMAGE" && ad.mediaUrl && !imgError && (
                     <img src={ad.mediaUrl} alt="Ad"
-                      className="absolute inset-0 w-full h-full object-cover block"
+                      className="absolute inset-0 w-full h-full object-contain block"
                       onError={() => setImgError(true)}
                     />
                   )}
@@ -222,7 +222,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                   )}
                   {!loading && ad?.type === "VIDEO" && ad.mediaUrl && !ytId && (
                     <video src={ad.mediaUrl} autoPlay muted playsInline
-                      className="absolute inset-0 w-full h-full object-cover block" />
+                      className="absolute inset-0 w-full h-full object-contain block" />
                   )}
                   {!loading && ad?.type === "VIDEO" && !ad?.mediaUrl && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ color: "rgba(255,255,255,0.18)" }}>
