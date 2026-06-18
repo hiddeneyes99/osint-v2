@@ -1898,6 +1898,12 @@ ${urls.map(u => `  <url>
     res.json(ad);
   });
 
+  app.put("/api/admin/ads/:id", requireAdminSession, async (req, res) => {
+    const { title, type, mediaUrl, htmlContent, linkUrl, logoUrl, description, buttonText, forceRedirect, duration } = req.body;
+    const ad = await storage.updateAd(Number(req.params.id), { title, type, mediaUrl, htmlContent, linkUrl, logoUrl, description, buttonText, forceRedirect: !!forceRedirect, duration: duration ? Number(duration) : undefined });
+    res.json(ad);
+  });
+
   app.delete("/api/admin/ads/:id", requireAdminSession, async (req, res) => {
     await storage.deleteAd(Number(req.params.id));
     res.json({ success: true });
