@@ -294,37 +294,44 @@ export function AdOverlay({ open, onComplete, shownAdIds = [] }: AdOverlayProps)
                         <video
                           ref={videoRef}
                           src={ad.mediaUrl}
-                          autoPlay
                           playsInline
+                          preload="auto"
                           className="absolute inset-0 w-full h-full object-contain block"
-                          onCanPlay={() => {
+                          onLoadedMetadata={() => {
                             const v = videoRef.current;
                             if (!v) return;
+                            // Try with sound first (no muted)
                             v.muted = false;
                             v.play().then(() => {
                               setVideoBlocked(false);
                               setIsMuted(false);
                             }).catch(() => {
+                              // Browser blocked sound — try muted autoplay
                               v.muted = true;
-                              setIsMuted(true);
-                              setVideoBlocked(true);
-                              v.play().catch(() => {});
+                              v.play().then(() => {
+                                setVideoBlocked(false);
+                                setIsMuted(true);
+                              }).catch(() => {
+                                // Completely blocked — show tap-to-play
+                                setVideoBlocked(true);
+                                setIsMuted(false);
+                              });
                             });
                           }}
                         />
-                        {/* Unmute button — shown when auto-muted */}
-                        {isMuted && (
+                        {/* Unmute button — browser allowed play but muted it */}
+                        {isMuted && !videoBlocked && (
                           <button
                             onClick={toggleMute}
                             className="absolute bottom-2 right-2 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold"
                             style={{ background: "rgba(0,0,0,0.75)", color: "#fff", border: "1px solid rgba(255,255,255,0.25)", zIndex: 10 }}
                           >
                             <VolumeX className="w-3.5 h-3.5" />
-                            Muted — Tap to unmute
+                            Tap to unmute
                           </button>
                         )}
-                        {/* Tap-to-play overlay — shown when browser blocks autoplay entirely */}
-                        {videoBlocked && !isMuted && (
+                        {/* Tap-to-play overlay — browser blocked autoplay entirely */}
+                        {videoBlocked && (
                           <button
                             onClick={handleVideoPlay}
                             className="absolute inset-0 flex flex-col items-center justify-center gap-3"
