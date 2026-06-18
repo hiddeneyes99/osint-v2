@@ -1950,15 +1950,15 @@ ${urls.map(u => `  <url>
   });
 
   app.post("/api/admin/ads", requireAdminSession, async (req, res) => {
-    const { title, type, mediaUrl, htmlContent, linkUrl, logoUrl, description, buttonText, forceRedirect, duration } = req.body;
+    const { title, type, mediaUrl, htmlContent, linkUrl, logoUrl, description, buttonText, buttonColor, forceRedirect, duration } = req.body;
     if (!type) return res.status(400).json({ message: "type is required" });
-    const ad = await storage.createAd({ title: title || "", type, mediaUrl, htmlContent, linkUrl, logoUrl, description, buttonText: buttonText || "Learn More", forceRedirect: !!forceRedirect, duration: duration || 15 });
+    const ad = await storage.createAd({ title: title || "", type, mediaUrl, htmlContent, linkUrl, logoUrl, description, buttonText: buttonText || "Learn More", buttonColor: buttonColor || "#7c3aed", forceRedirect: !!forceRedirect, duration: duration || 15 });
     res.json(ad);
   });
 
   app.put("/api/admin/ads/:id", requireAdminSession, async (req, res) => {
-    const { title, type, mediaUrl, htmlContent, linkUrl, logoUrl, description, buttonText, forceRedirect, duration } = req.body;
-    const ad = await storage.updateAd(Number(req.params.id), { title, type, mediaUrl, htmlContent, linkUrl, logoUrl, description, buttonText, forceRedirect: !!forceRedirect, duration: duration ? Number(duration) : undefined });
+    const { title, type, mediaUrl, htmlContent, linkUrl, logoUrl, description, buttonText, buttonColor, forceRedirect, duration } = req.body;
+    const ad = await storage.updateAd(Number(req.params.id), { title, type, mediaUrl, htmlContent, linkUrl, logoUrl, description, buttonText, buttonColor, forceRedirect: !!forceRedirect, duration: duration ? Number(duration) : undefined });
     res.json(ad);
   });
 

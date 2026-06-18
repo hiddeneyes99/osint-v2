@@ -81,8 +81,8 @@ export interface IStorage {
   getAllAds(): Promise<Ad[]>;
   getActiveAds(): Promise<Ad[]>;
   getAd(id: number): Promise<Ad | undefined>;
-  createAd(data: { title: string; type: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; logoUrl?: string; description?: string; buttonText?: string; forceRedirect?: boolean; duration: number }): Promise<Ad>;
-  updateAd(id: number, data: { title?: string; type?: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; logoUrl?: string; description?: string; buttonText?: string; forceRedirect?: boolean; duration?: number }): Promise<Ad>;
+  createAd(data: { title: string; type: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; logoUrl?: string; description?: string; buttonText?: string; buttonColor?: string; forceRedirect?: boolean; duration: number }): Promise<Ad>;
+  updateAd(id: number, data: { title?: string; type?: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; logoUrl?: string; description?: string; buttonText?: string; buttonColor?: string; forceRedirect?: boolean; duration?: number }): Promise<Ad>;
   deleteAd(id: number): Promise<void>;
   toggleAd(id: number): Promise<Ad>;
   incrementAdViews(id: number): Promise<void>;
@@ -399,12 +399,12 @@ export class DatabaseStorage implements IStorage {
     return ad;
   }
 
-  async createAd(data: { title: string; type: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; logoUrl?: string; description?: string; buttonText?: string; forceRedirect?: boolean; duration: number }): Promise<Ad> {
+  async createAd(data: { title: string; type: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; logoUrl?: string; description?: string; buttonText?: string; buttonColor?: string; forceRedirect?: boolean; duration: number }): Promise<Ad> {
     const [ad] = await db.insert(ads).values(data).returning();
     return ad;
   }
 
-  async updateAd(id: number, data: { title?: string; type?: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; logoUrl?: string; description?: string; buttonText?: string; forceRedirect?: boolean; duration?: number }): Promise<Ad> {
+  async updateAd(id: number, data: { title?: string; type?: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; logoUrl?: string; description?: string; buttonText?: string; buttonColor?: string; forceRedirect?: boolean; duration?: number }): Promise<Ad> {
     const [updated] = await db.update(ads).set(data).where(eq(ads.id, id)).returning();
     return updated;
   }

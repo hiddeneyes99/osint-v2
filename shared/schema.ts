@@ -79,6 +79,7 @@ export const ads = pgTable("ads", {
   logoUrl: text("logo_url"),
   description: text("description"),
   buttonText: text("button_text").default("Learn More"),
+  buttonColor: text("button_color").default("#7c3aed"),
   forceRedirect: boolean("force_redirect").notNull().default(false),
   duration: integer("duration").notNull().default(15),
   isActive: boolean("is_active").notNull().default(true),

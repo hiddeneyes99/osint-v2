@@ -85,6 +85,7 @@ async function ensureTables() {
         logo_url text,
         description text,
         button_text text DEFAULT 'Learn More',
+        button_color text DEFAULT '#7c3aed',
         force_redirect boolean NOT NULL DEFAULT false,
         duration integer NOT NULL DEFAULT 15,
         is_active boolean NOT NULL DEFAULT true,

@@ -12,6 +12,7 @@ export interface Ad {
   logoUrl: string | null;
   description: string | null;
   buttonText: string | null;
+  buttonColor: string | null;
   forceRedirect: boolean;
   duration: number;
   isActive: boolean;
@@ -329,10 +330,14 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                           borderRadius: "30px",
                           fontSize: "17px",
                           letterSpacing: "0.01em",
-                          background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+                          background: ad.buttonColor
+                            ? `linear-gradient(135deg, ${ad.buttonColor} 0%, ${ad.buttonColor}cc 100%)`
+                            : "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
                           color: "#ffffff",
                           cursor: "pointer",
-                          boxShadow: "0 8px 32px rgba(124,58,237,0.55), 0 2px 8px rgba(0,0,0,0.4)",
+                          boxShadow: ad.buttonColor
+                            ? `0 8px 32px ${ad.buttonColor}88, 0 2px 8px rgba(0,0,0,0.4)`
+                            : "0 8px 32px rgba(124,58,237,0.55), 0 2px 8px rgba(0,0,0,0.4)",
                           border: "none",
                         }}
                       >

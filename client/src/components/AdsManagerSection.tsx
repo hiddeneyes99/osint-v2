@@ -19,9 +19,15 @@ const AD_TYPES = [
 
 const DURATIONS = [5, 10, 15, 20, 30];
 
+const PRESET_COLORS = [
+  "#7c3aed", "#4f46e5", "#0ea5e9", "#10b981", "#f59e0b",
+  "#ef4444", "#ec4899", "#f97316", "#ffffff", "#000000",
+];
+
 const emptyForm = {
   title: "", type: "IMAGE", mediaUrl: "", htmlContent: "", linkUrl: "",
-  logoUrl: "", description: "", buttonText: "Learn More", forceRedirect: false, duration: 15,
+  logoUrl: "", description: "", buttonText: "Learn More", buttonColor: "#7c3aed",
+  forceRedirect: false, duration: 15,
 };
 
 type FormState = typeof emptyForm;
@@ -46,6 +52,7 @@ function adToForm(ad: Ad): FormState {
     logoUrl: (ad as any).logoUrl || "",
     description: (ad as any).description || "",
     buttonText: (ad as any).buttonText || "Learn More",
+    buttonColor: (ad as any).buttonColor || "#7c3aed",
     forceRedirect: !!(ad as any).forceRedirect,
     duration: ad.duration || 15,
   };
@@ -250,6 +257,44 @@ function AdFormFields({ form, setForm }: { form: FormState; setForm: (fn: (f: Fo
             <Input placeholder="e.g. Install, Subscribe, Learn More" value={form.buttonText}
               onChange={e => setForm(f => ({ ...f, buttonText: e.target.value }))}
               className="bg-black/40 border-violet-500/20 text-white text-sm h-10" />
+          </div>
+
+          {/* Button Color Picker */}
+          <div className="space-y-2">
+            <label className="text-[10px] uppercase text-white/30 tracking-widest">Button Color</label>
+            {/* Preset swatches */}
+            <div className="flex gap-2 flex-wrap">
+              {PRESET_COLORS.map(c => (
+                <button key={c} onClick={() => setForm(f => ({ ...f, buttonColor: c }))}
+                  title={c}
+                  className="w-7 h-7 rounded-full transition-all shrink-0"
+                  style={{
+                    background: c,
+                    border: form.buttonColor === c ? "2px solid #fff" : "2px solid rgba(255,255,255,0.12)",
+                    boxShadow: form.buttonColor === c ? `0 0 0 2px ${c}` : "none",
+                    transform: form.buttonColor === c ? "scale(1.18)" : "scale(1)",
+                  }}
+                />
+              ))}
+              {/* Native color wheel for any custom color */}
+              <label title="Custom color" className="w-7 h-7 rounded-full overflow-hidden cursor-pointer shrink-0 flex items-center justify-center relative"
+                style={{ border: "2px dashed rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.06)" }}>
+                <span className="text-[9px] text-white/40 font-bold select-none">+</span>
+                <input type="color" value={form.buttonColor} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                  onChange={e => setForm(f => ({ ...f, buttonColor: e.target.value }))} />
+              </label>
+            </div>
+            {/* Live preview */}
+            <div className="flex items-center gap-3 pt-1">
+              <button className="flex items-center justify-center gap-2 px-5 h-9 rounded-full text-white font-bold text-sm pointer-events-none"
+                style={{
+                  background: `linear-gradient(135deg, ${form.buttonColor} 0%, ${form.buttonColor}cc 100%)`,
+                  boxShadow: `0 4px 18px ${form.buttonColor}77`,
+                }}>
+                {form.buttonText || "Learn More"}
+              </button>
+              <span className="text-[10px] text-white/25 font-mono">{form.buttonColor}</span>
+            </div>
           </div>
         </>
       )}
