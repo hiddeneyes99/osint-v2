@@ -145,7 +145,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
         >
           {/* Card — full screen on mobile, centered card on desktop */}
           <div
-            className="relative w-full h-full md:h-auto md:max-h-[90vh] md:max-w-[480px] md:rounded-2xl flex flex-col overflow-hidden"
+            className="relative w-full h-full md:h-[88vh] md:max-w-[480px] md:rounded-2xl flex flex-col overflow-hidden"
             style={{
               background: "#0d0b18",
             }}
