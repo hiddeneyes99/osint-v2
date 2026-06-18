@@ -107,8 +107,24 @@ async function ensureTables() {
         expires_at timestamp,
         created_at timestamp DEFAULT now()
       );
+
+      ALTER TABLE ads ADD COLUMN IF NOT EXISTS logo_url text;
+      ALTER TABLE ads ADD COLUMN IF NOT EXISTS description text;
+      ALTER TABLE ads ADD COLUMN IF NOT EXISTS button_text text DEFAULT 'Learn More';
+      ALTER TABLE ads ADD COLUMN IF NOT EXISTS button_color text DEFAULT '#7c3aed';
+      ALTER TABLE ads ADD COLUMN IF NOT EXISTS force_redirect boolean NOT NULL DEFAULT false;
+      ALTER TABLE ads ADD COLUMN IF NOT EXISTS views integer NOT NULL DEFAULT 0;
+      ALTER TABLE ads ADD COLUMN IF NOT EXISTS clicks integer NOT NULL DEFAULT 0;
+      ALTER TABLE ads ADD COLUMN IF NOT EXISTS created_at timestamp DEFAULT now();
+
+      ALTER TABLE broadcast_messages ADD COLUMN IF NOT EXISTS media_url text;
+      ALTER TABLE broadcast_messages ADD COLUMN IF NOT EXISTS media_type text;
+      ALTER TABLE broadcast_messages ADD COLUMN IF NOT EXISTS action_link text;
+      ALTER TABLE broadcast_messages ADD COLUMN IF NOT EXISTS button_text text DEFAULT 'Learn More';
+      ALTER TABLE broadcast_messages ADD COLUMN IF NOT EXISTS starts_at timestamp;
+      ALTER TABLE broadcast_messages ADD COLUMN IF NOT EXISTS expires_at timestamp;
     `);
-    console.log("[handler] Tables verified/created");
+    console.log("[handler] Tables verified/created — all columns ensured");
   } catch (err) {
     console.error("[handler] Table creation warning:", err);
   }
