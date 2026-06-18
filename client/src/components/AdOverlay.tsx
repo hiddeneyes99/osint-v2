@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, MonitorPlay, ExternalLink } from "lucide-react";
+import { X, MonitorPlay, ExternalLink, AlertCircle, Youtube, Wifi } from "lucide-react";
 
 export interface Ad {
   id: number;
@@ -19,22 +18,17 @@ interface AdOverlayProps {
   onComplete: () => void;
 }
 
-export function useAdsConfig() {
-  return useQuery<Ad | null>({
-    queryKey: ["/api/ads/random"],
-    queryFn: async () => {
-      const res = await fetch("/api/ads/random");
-      return res.json();
-    },
-    staleTime: 0,
-    enabled: false,
-  });
+function getYoutubeId(url: string): string | null {
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/]+)/);
+  return m ? m[1] : null;
 }
 
 export function AdOverlay({ open, onComplete }: AdOverlayProps) {
   const [ad, setAd] = useState<Ad | null>(null);
   const [countdown, setCountdown] = useState(0);
   const [done, setDone] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -42,15 +36,19 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
       setAd(null);
       setDone(false);
       setCountdown(0);
+      setImgError(false);
+      setLoading(false);
       if (timerRef.current) clearInterval(timerRef.current);
       return;
     }
-    // Fetch a fresh random ad each time search is triggered
+    setLoading(true);
     fetch("/api/ads/random")
       .then(r => r.json())
       .then((fetchedAd: Ad | null) => {
+        setLoading(false);
         if (!fetchedAd) { onComplete(); return; }
         setAd(fetchedAd);
+        setImgError(false);
         const dur = fetchedAd.duration || 15;
         setCountdown(dur);
         setDone(false);
@@ -66,137 +64,224 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
           });
         }, 1000);
       })
-      .catch(() => onComplete());
+      .catch(() => { setLoading(false); onComplete(); });
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [open]);
 
-  if (!open || !ad) return null;
+  if (!open) return null;
 
-  const dur = ad.duration || 15;
-  const progress = done ? 1 : 1 - countdown / dur;
-  const circumference = 2 * Math.PI * 20;
+  const dur = ad?.duration || 15;
+  const progress = done ? 1 : ad ? 1 - countdown / dur : 0;
+  const ytId = ad?.type === "VIDEO" && ad.mediaUrl ? getYoutubeId(ad.mediaUrl) : null;
+  const isYoutube = !!ytId;
 
   return (
     <AnimatePresence>
-      {open && ad && (
+      {open && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm"
-          style={{ padding: "0" }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.92)", backdropFilter: "blur(8px)" }}
         >
-          <motion.div
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ type: "spring", damping: 22, stiffness: 300 }}
-            className="w-full sm:max-w-sm flex flex-col overflow-hidden"
-            style={{
-              background: "#0d0a2e",
-              border: "1px solid rgba(139,92,246,0.35)",
-              borderRadius: "20px 20px 0 0",
-              maxHeight: "92dvh",
-            }}
-          >
-            {/* Header bar */}
-            <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ background: "rgba(139,92,246,0.12)", borderBottom: "1px solid rgba(139,92,246,0.2)" }}>
-              <div className="flex items-center gap-2">
-                <MonitorPlay className="w-4 h-4 text-violet-400 shrink-0" />
-                <span className="text-violet-300 text-xs font-bold uppercase tracking-widest truncate max-w-[200px]">
-                  {ad.title || "Watch ad to continue"}
-                </span>
-              </div>
-              <span className="text-violet-400/50 text-[10px] font-mono shrink-0 ml-2">
-                {done ? "Done" : `${countdown}s`}
-              </span>
+          {/* Loading state */}
+          {loading && (
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-white/40 text-sm">Loading ad...</p>
             </div>
+          )}
 
-            {/* Ad content */}
-            <div className="relative overflow-hidden flex-1 min-h-0">
-              {ad.type === "IMAGE" && ad.mediaUrl && (
-                <a href={ad.linkUrl || undefined} target="_blank" rel="noopener noreferrer"
-                  className={ad.linkUrl ? "block" : "pointer-events-none block"}>
-                  <img src={ad.mediaUrl} alt="Ad" className="w-full object-contain" style={{ maxHeight: "55dvh" }} />
-                </a>
-              )}
+          {/* Ad card */}
+          {!loading && ad && (
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.94, opacity: 0, y: 20 }}
+              transition={{ type: "spring", damping: 24, stiffness: 320 }}
+              className="w-full flex flex-col overflow-hidden"
+              style={{
+                maxWidth: "480px",
+                maxHeight: "90dvh",
+                margin: "0 16px",
+                background: "linear-gradient(180deg, #0d0820 0%, #08051a 100%)",
+                border: "1px solid rgba(139,92,246,0.4)",
+                borderRadius: "20px",
+                boxShadow: "0 0 60px rgba(139,92,246,0.15), 0 24px 48px rgba(0,0,0,0.6)",
+              }}
+            >
+              {/* Top bar */}
+              <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: "1px solid rgba(139,92,246,0.2)", background: "rgba(139,92,246,0.08)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest" style={{ background: "rgba(139,92,246,0.2)", color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.3)" }}>
+                    <MonitorPlay className="w-3 h-3" /> Advertisement
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {done ? (
+                    <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Ad complete
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-white/30 font-mono">Wait {countdown}s</span>
+                  )}
+                </div>
+              </div>
 
-              {ad.type === "VIDEO" && ad.mediaUrl && (
-                <video
-                  src={ad.mediaUrl}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full object-contain bg-black"
-                  style={{ maxHeight: "55dvh" }}
-                  onEnded={() => {}}
-                />
-              )}
-
-              {ad.type === "HTML" && ad.htmlContent && (
-                <iframe
-                  srcDoc={ad.htmlContent}
-                  sandbox="allow-scripts allow-same-origin allow-popups"
-                  className="w-full border-0"
-                  style={{ height: "50dvh" }}
-                  title="Ad"
-                />
-              )}
-
-              {!ad.mediaUrl && !ad.htmlContent && (
-                <div className="flex items-center justify-center h-48" style={{ background: "rgba(139,92,246,0.05)" }}>
-                  <MonitorPlay className="w-14 h-14 text-violet-500/20" />
+              {/* Ad title */}
+              {ad.title && (
+                <div className="px-4 pt-3 pb-0 shrink-0">
+                  <p className="text-sm font-semibold text-white/80 truncate">{ad.title}</p>
                 </div>
               )}
 
-              {ad.linkUrl && ad.type !== "IMAGE" && (
-                <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer"
-                  className="absolute bottom-3 right-3 flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-lg"
-                  style={{ background: "rgba(139,92,246,0.85)", color: "#fff" }}>
-                  <ExternalLink className="w-3 h-3" /> Visit
-                </a>
-              )}
-            </div>
+              {/* Media area */}
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
 
-            {/* Footer — timer + close button */}
-            <div className="flex items-center justify-between px-4 py-4 shrink-0" style={{ borderTop: "1px solid rgba(139,92,246,0.15)" }}>
-              <div className="flex items-center gap-3">
-                <svg width="46" height="46" viewBox="0 0 46 46">
-                  <circle cx="23" cy="23" r="20" fill="none" stroke="rgba(139,92,246,0.2)" strokeWidth="3.5" />
-                  <circle
-                    cx="23" cy="23" r="20"
-                    fill="none"
-                    stroke={done ? "#A78BFA" : "#7C3AED"}
-                    strokeWidth="3.5"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={circumference * (1 - progress)}
-                    strokeLinecap="round"
-                    transform="rotate(-90 23 23)"
-                    style={{ transition: "stroke-dashoffset 0.9s linear" }}
-                  />
-                  <text x="23" y="23" textAnchor="middle" dominantBaseline="central"
-                    fill={done ? "#A78BFA" : "#8B5CF6"} fontSize="11" fontWeight="bold">
-                    {done ? "✓" : countdown}
-                  </text>
-                </svg>
-                <span className="text-slate-500 text-xs">
-                  {done ? "Ad complete!" : `Wait ${countdown}s...`}
-                </span>
+                {/* IMAGE */}
+                {ad.type === "IMAGE" && ad.mediaUrl && !imgError && (
+                  <a
+                    href={ad.linkUrl || undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-center justify-center flex-1 min-h-0 ${ad.linkUrl ? "cursor-pointer" : "pointer-events-none"}`}
+                    style={{ background: "#000", margin: "12px", borderRadius: "12px", overflow: "hidden" }}
+                  >
+                    <img
+                      src={ad.mediaUrl}
+                      alt="Advertisement"
+                      className="w-full object-contain"
+                      style={{ maxHeight: "340px", display: "block" }}
+                      onError={() => setImgError(true)}
+                    />
+                  </a>
+                )}
+
+                {/* IMAGE error */}
+                {ad.type === "IMAGE" && (imgError || !ad.mediaUrl) && (
+                  <div className="flex flex-col items-center justify-center flex-1 gap-3 py-10" style={{ color: "rgba(255,255,255,0.15)" }}>
+                    <AlertCircle className="w-10 h-10" />
+                    <p className="text-sm">{imgError ? "Image could not be loaded" : "No image set"}</p>
+                    {ad.linkUrl && (
+                      <a href={ad.linkUrl} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl"
+                        style={{ background: "rgba(139,92,246,0.3)", color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.4)" }}>
+                        <ExternalLink className="w-3.5 h-3.5" /> Visit Advertiser
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* VIDEO — YouTube */}
+                {ad.type === "VIDEO" && ad.mediaUrl && isYoutube && (
+                  <div className="mx-3 my-3 rounded-xl overflow-hidden flex-shrink-0" style={{ aspectRatio: "16/9", background: "#000" }}>
+                    <iframe
+                      src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&rel=0&modestbranding=1`}
+                      className="w-full h-full border-0"
+                      allow="autoplay; encrypted-media"
+                      allowFullScreen
+                      title="Ad Video"
+                    />
+                  </div>
+                )}
+
+                {/* VIDEO — direct */}
+                {ad.type === "VIDEO" && ad.mediaUrl && !isYoutube && (
+                  <div className="mx-3 my-3 rounded-xl overflow-hidden flex-shrink-0" style={{ background: "#000" }}>
+                    <video
+                      src={ad.mediaUrl}
+                      autoPlay
+                      muted
+                      playsInline
+                      className="w-full object-contain"
+                      style={{ maxHeight: "300px", display: "block" }}
+                    />
+                  </div>
+                )}
+
+                {/* VIDEO — no URL */}
+                {ad.type === "VIDEO" && !ad.mediaUrl && (
+                  <div className="flex flex-col items-center justify-center flex-1 gap-2 py-10" style={{ color: "rgba(255,255,255,0.15)" }}>
+                    <Youtube className="w-10 h-10" />
+                    <p className="text-sm">No video URL set</p>
+                  </div>
+                )}
+
+                {/* HTML */}
+                {ad.type === "HTML" && ad.htmlContent && (
+                  <div className="mx-3 my-3 rounded-xl overflow-hidden flex-shrink-0" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <iframe
+                      srcDoc={ad.htmlContent}
+                      sandbox="allow-scripts allow-same-origin allow-popups"
+                      className="w-full border-0"
+                      style={{ height: "240px" }}
+                      title="Ad"
+                    />
+                  </div>
+                )}
+
+                {/* Visit link button for non-image types */}
+                {ad.linkUrl && ad.type !== "IMAGE" && (
+                  <div className="px-4 pb-3 shrink-0">
+                    <a
+                      href={ad.linkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-bold transition-all"
+                      style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#c4b5fd" }}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Visit Advertiser
+                    </a>
+                  </div>
+                )}
               </div>
 
-              <button
-                onClick={done ? onComplete : undefined}
-                disabled={!done}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
-                style={done
-                  ? { background: "#7C3AED", color: "#fff", cursor: "pointer" }
-                  : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.2)", cursor: "not-allowed" }
-                }
-              >
-                {done ? <><X className="w-4 h-4" />View Results</> : "Please wait..."}
-              </button>
-            </div>
-          </motion.div>
+              {/* Bottom bar — progress + action */}
+              <div className="shrink-0 px-4 pb-4 pt-3 space-y-3" style={{ borderTop: "1px solid rgba(139,92,246,0.12)" }}>
+                {/* Progress bar */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-white/25">
+                      {done ? "You can now close this ad" : `Ad ends in ${countdown} second${countdown !== 1 ? "s" : ""}`}
+                    </span>
+                    <span className="text-[10px] font-mono font-bold" style={{ color: done ? "#34d399" : "#8B5CF6" }}>
+                      {done ? "✓ Done" : `${countdown}s`}
+                    </span>
+                  </div>
+                  <div className="relative h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(139,92,246,0.15)" }}>
+                    <motion.div
+                      className="absolute inset-y-0 left-0 rounded-full"
+                      style={{ background: done ? "#34d399" : "linear-gradient(90deg, #7C3AED, #A78BFA)" }}
+                      animate={{ width: `${progress * 100}%` }}
+                      transition={{ duration: 0.9, ease: "linear" }}
+                    />
+                  </div>
+                </div>
+
+                {/* Action button */}
+                <button
+                  onClick={done ? onComplete : undefined}
+                  disabled={!done}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
+                  style={done
+                    ? { background: "linear-gradient(135deg, #7C3AED, #6D28D9)", color: "#fff", cursor: "pointer", boxShadow: "0 4px 20px rgba(124,58,237,0.4)" }
+                    : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.2)", cursor: "not-allowed", border: "1px solid rgba(255,255,255,0.06)" }
+                  }
+                >
+                  {done ? (
+                    <><X className="w-4 h-4" /> Close Ad & View Results</>
+                  ) : (
+                    <>
+                      <Wifi className="w-4 h-4 opacity-40" />
+                      Please wait {countdown} second{countdown !== 1 ? "s" : ""}...
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          )}
         </motion.div>
       )}
     </AnimatePresence>
