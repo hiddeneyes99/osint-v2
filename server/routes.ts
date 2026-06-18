@@ -1937,7 +1937,20 @@ ${urls.map(u => `  <url>
   });
 
   app.delete("/api/admin/ads/:id", requireAdminSession, async (req, res) => {
-    await storage.deleteAd(Number(req.params.id));
+    const id = Number(req.params.id);
+
+    // Fetch the ad first so we can clean up its uploaded file (if any)
+    const existing = await storage.getAd(id);
+    if (existing?.mediaUrl && existing.mediaUrl.startsWith("/uploads/")) {
+      const filePath = path.resolve(process.cwd(), existing.mediaUrl.replace(/^\//, ""));
+      try {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      } catch (e) {
+        console.warn("[ads] Could not delete media file:", filePath, e);
+      }
+    }
+
+    await storage.deleteAd(id);
     res.json({ success: true });
   });
 

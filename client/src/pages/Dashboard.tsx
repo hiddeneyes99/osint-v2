@@ -247,13 +247,15 @@ export default function Dashboard() {
     defaultValues: { ip: "" },
   });
 
-  // Ad-aware search helper — checks for active ads, shows overlay if any exist
+  // Ad-aware search helper — starts API fetch immediately in background,
+  // shows ad overlay at the same time so results are ready when ad finishes
   const withAd = async (searchFn: () => void) => {
     try {
       const res = await fetch("/api/ads/random");
       const ad = await res.json();
       if (ad) {
-        pendingSearchRef.current = searchFn;
+        // Fire the actual API call right now (runs behind the ad overlay)
+        searchFn();
         setShowAdOverlay(true);
       } else {
         searchFn();
@@ -265,10 +267,7 @@ export default function Dashboard() {
 
   const handleAdComplete = () => {
     setShowAdOverlay(false);
-    if (pendingSearchRef.current) {
-      pendingSearchRef.current();
-      pendingSearchRef.current = null;
-    }
+    // Results already fetching / ready in background — nothing more to trigger
   };
 
   // Handlers
