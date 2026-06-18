@@ -64,6 +64,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { AuthModal } from "@/components/AuthModal";
 import sirenSound from "@assets/siren_1768712570112_1780125705439.mp3";
+import { AdOverlay, useAdsConfig } from "@/components/AdOverlay";
 
 function ServiceComingSoon({ emoji, tileClass, label }: { emoji: string; tileClass: string; label: string }) {
   return (
@@ -92,6 +93,11 @@ export default function Dashboard() {
   const [showProtectedAlert, setShowProtectedAlert] = useState(false);
   const [protectionReason, setProtectionReason] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Ad overlay state
+  const { data: adsConfig } = useAdsConfig();
+  const [showAdOverlay, setShowAdOverlay] = useState(false);
+  const pendingSearchRef = useRef<(() => void) | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [telegramInput, setTelegramInput] = useState("");
@@ -242,19 +248,38 @@ export default function Dashboard() {
     defaultValues: { ip: "" },
   });
 
+  // Ad-aware search helper — shows ad if enabled, then runs the actual search
+  const withAd = (searchFn: () => void) => {
+    if (adsConfig?.enabled) {
+      pendingSearchRef.current = searchFn;
+      setShowAdOverlay(true);
+    } else {
+      searchFn();
+    }
+  };
+
+  const handleAdComplete = () => {
+    setShowAdOverlay(false);
+    if (pendingSearchRef.current) {
+      pendingSearchRef.current();
+      pendingSearchRef.current = null;
+    }
+  };
+
   // Handlers
   const onMobileSubmit = (data: z.infer<typeof mobileInfoSchema>) =>
-    mobileMutation.mutate(data);
+    withAd(() => mobileMutation.mutate(data));
   const onAadharSubmit = (data: z.infer<typeof aadharInfoSchema>) =>
-    aadharMutation.mutate(data);
+    withAd(() => aadharMutation.mutate(data));
   const onVehicleSubmit = (data: z.infer<typeof vehicleInfoSchema>) =>
-    vehicleMutation.mutate(data);
+    withAd(() => vehicleMutation.mutate(data));
   const onEmailSubmit = (data: z.infer<typeof emailInfoSchema>) =>
-    emailMutation.mutate(data);
+    withAd(() => emailMutation.mutate(data));
   const onIpSubmit = (data: z.infer<typeof ipInfoSchema>) => {
-    // Force reset mutation state before new request to fix "double click" issue
-    ipMutation.reset();
-    ipMutation.mutate(data);
+    withAd(() => {
+      ipMutation.reset();
+      ipMutation.mutate(data);
+    });
   };
 
   if (!isAuthenticated) {
@@ -1337,6 +1362,7 @@ export default function Dashboard() {
           })}
         </div>
       </div>
+      <AdOverlay open={showAdOverlay} onComplete={handleAdComplete} />
     </div>
   );
 }

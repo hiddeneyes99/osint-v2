@@ -8,7 +8,8 @@ import {
   History as HistoryIcon, Terminal, Lock, ShieldAlert, Megaphone, Trash2,
   Activity, FileText, Gauge, MessageSquare, LogIn, TrendingUp, Zap,
   Wifi, WifiOff, Send, StickyNote, Clock, Bot, Plus, X, ChevronDown,
-  Power, Smartphone, Car, Globe, Mail, ToggleLeft, ToggleRight
+  Power, Smartphone, Car, Globe, Mail, ToggleLeft, ToggleRight,
+  Bell, MonitorPlay
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect, useRef } from "react";
@@ -92,6 +93,14 @@ export default function AdminLogin() {
   const [tgBroadcastMediaType, setTgBroadcastMediaType] = useState("IMAGE");
   const [tgManualUserId, setTgManualUserId] = useState("");
   const [tgManualChatId, setTgManualChatId] = useState("");
+
+  // Broadcast notification to all users
+  const [isBroadcastNotifOpen, setIsBroadcastNotifOpen] = useState(false);
+  const [broadcastNotifInput, setBroadcastNotifInput] = useState({ title: "", message: "" });
+
+  // Ads config
+  const [isAdsOpen, setIsAdsOpen] = useState(false);
+  const [adsConfig, setAdsConfig] = useState({ enabled: false, adDuration: 15, adTitle: "", adImageUrl: "", adLinkUrl: "" });
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -364,6 +373,51 @@ export default function AdminLogin() {
       setNotifInput({ title: "", message: "" });
       toast({ title: "Notification sent to operative" });
     },
+  });
+
+  const sendBroadcastNotifMutation = useMutation({
+    mutationFn: async ({ title, message }: { title: string; message: string }) => {
+      const res = await fetch("/api/admin/notifications/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, message }),
+      });
+      if (!res.ok) throw new Error("Failed to broadcast");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setIsBroadcastNotifOpen(false);
+      setBroadcastNotifInput({ title: "", message: "" });
+      toast({ title: `Notification sent to ${data.sent} users` });
+    },
+    onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
+  });
+
+  const { data: adsConfigData, refetch: refetchAdsConfig } = useQuery<typeof adsConfig>({
+    queryKey: ["/api/admin/ads-config"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/ads-config");
+      return res.json();
+    },
+    enabled: isAdsOpen,
+  });
+
+  useEffect(() => {
+    if (adsConfigData) setAdsConfig(adsConfigData);
+  }, [adsConfigData]);
+
+  const saveAdsConfigMutation = useMutation({
+    mutationFn: async (cfg: typeof adsConfig) => {
+      const res = await fetch("/api/admin/ads-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cfg),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      return res.json();
+    },
+    onSuccess: () => { refetchAdsConfig(); toast({ title: "Ads config saved" }); },
+    onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
   });
 
   const saveTgSettingsMutation = useMutation({
@@ -786,6 +840,8 @@ export default function AdminLogin() {
             { icon: <ShieldAlert className="w-3.5 h-3.5" />, label: "IP Management", section: null, action: () => setIsIpBlockedOpen(true) },
             { icon: <Bot className="w-3.5 h-3.5" />, label: "Telegram", section: null, action: () => setIsTelegramOpen(true) },
             { icon: <Megaphone className="w-3.5 h-3.5" />, label: "Broadcasts", section: null, action: () => setIsBroadcastOpen(true) },
+            { icon: <Bell className="w-3.5 h-3.5" />, label: "Notify All", section: null, action: () => setIsBroadcastNotifOpen(true) },
+            { icon: <MonitorPlay className="w-3.5 h-3.5" />, label: "Ads Config", section: null, action: () => { setIsAdsOpen(true); if (adsConfigData) setAdsConfig(adsConfigData); } },
             { icon: <ShieldCheck className="w-3.5 h-3.5" />, label: "Protected", section: null, action: () => setIsProtectedModalOpen(true) },
             { icon: <Ban className="w-3.5 h-3.5" />, label: "Blocked Users", section: null, action: () => setIsBlockedUsersOpen(true) },
             { icon: <TrendingUp className="w-3.5 h-3.5" />, label: "Reports", section: "reports", action: () => { setActiveSection("reports"); setSelectedUserForDetail(null); } },
@@ -3379,6 +3435,140 @@ export default function AdminLogin() {
                 </div>
               )}
             </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── BROADCAST NOTIFICATION TO ALL USERS ── */}
+      <Dialog open={isBroadcastNotifOpen} onOpenChange={(v) => { if (!v) { setIsBroadcastNotifOpen(false); setBroadcastNotifInput({ title: "", message: "" }); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader className="border-b border-violet-500/10 pb-4">
+            <DialogTitle className="flex items-center gap-2 text-violet-400 uppercase tracking-widest">
+              <Bell className="w-5 h-5" /> NOTIFY ALL USERS
+            </DialogTitle>
+            <DialogDescription className="text-violet-400/40 uppercase text-[10px] tracking-widest">
+              Sends a notification to every registered user
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-3">
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-primary/40 tracking-widest">TITLE</label>
+              <Input
+                placeholder="Notification title..."
+                value={broadcastNotifInput.title}
+                onChange={(e) => setBroadcastNotifInput({ ...broadcastNotifInput, title: e.target.value })}
+                className="bg-black/50 border-violet-500/20 font-mono text-primary"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-primary/40 tracking-widest">MESSAGE</label>
+              <textarea
+                placeholder="Message content..."
+                value={broadcastNotifInput.message}
+                onChange={(e) => setBroadcastNotifInput({ ...broadcastNotifInput, message: e.target.value })}
+                rows={4}
+                className="w-full bg-black/50 border border-violet-500/20 text-primary font-mono text-sm px-3 py-2 rounded-xl focus:outline-none focus:border-violet-500/50 resize-none"
+              />
+            </div>
+            <Button
+              className="w-full bg-violet-900/40 border border-violet-500/40 text-violet-400 hover:bg-violet-800/40 font-mono uppercase tracking-widest h-11"
+              onClick={() => broadcastNotifInput.title && broadcastNotifInput.message && sendBroadcastNotifMutation.mutate(broadcastNotifInput)}
+              disabled={sendBroadcastNotifMutation.isPending || !broadcastNotifInput.title || !broadcastNotifInput.message}
+            >
+              {sendBroadcastNotifMutation.isPending ? (
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Bell className="w-4 h-4 mr-2" />
+              )}
+              {sendBroadcastNotifMutation.isPending ? "SENDING..." : "SEND TO ALL USERS"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── ADS CONFIG DIALOG ── */}
+      <Dialog open={isAdsOpen} onOpenChange={setIsAdsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="border-b border-violet-500/10 pb-4">
+            <DialogTitle className="flex items-center gap-2 text-violet-400 uppercase tracking-widest">
+              <MonitorPlay className="w-5 h-5" /> ADS CONFIGURATION
+            </DialogTitle>
+            <DialogDescription className="text-violet-400/40 uppercase text-[10px] tracking-widest">
+              Rewarded ad shown before every search result
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-4">
+            {/* Enable toggle */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/10">
+              <div>
+                <div className="text-white text-xs font-bold">Enable Rewarded Ads</div>
+                <div className="text-slate-500 text-[10px] mt-0.5">Users watch ad before seeing results</div>
+              </div>
+              <button
+                onClick={() => setAdsConfig({ ...adsConfig, enabled: !adsConfig.enabled })}
+                className={`w-12 h-6 rounded-full border transition-all flex items-center ${adsConfig.enabled ? "bg-violet-600/40 border-violet-500/60 justify-end" : "bg-white/5 border-white/10 justify-start"}`}
+              >
+                <div className={`w-5 h-5 rounded-full mx-0.5 transition-all ${adsConfig.enabled ? "bg-violet-400" : "bg-white/20"}`} />
+              </button>
+            </div>
+
+            {/* Duration */}
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase text-primary/40 tracking-widest">Ad Duration</label>
+              <div className="flex gap-2">
+                {[10, 15, 20].map(sec => (
+                  <button
+                    key={sec}
+                    onClick={() => setAdsConfig({ ...adsConfig, adDuration: sec })}
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${adsConfig.adDuration === sec ? "bg-violet-600/30 border-violet-500/60 text-violet-300" : "bg-white/[0.03] border-white/10 text-slate-400 hover:border-violet-500/30"}`}
+                  >
+                    {sec}s
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Ad Title */}
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-primary/40 tracking-widest">Ad Title (shown to user)</label>
+              <Input
+                placeholder="e.g. Watch this short ad to continue..."
+                value={adsConfig.adTitle}
+                onChange={(e) => setAdsConfig({ ...adsConfig, adTitle: e.target.value })}
+                className="bg-black/50 border-violet-500/20 text-primary text-sm"
+              />
+            </div>
+
+            {/* Ad Image URL */}
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-primary/40 tracking-widest">Ad Image URL</label>
+              <Input
+                placeholder="https://..."
+                value={adsConfig.adImageUrl}
+                onChange={(e) => setAdsConfig({ ...adsConfig, adImageUrl: e.target.value })}
+                className="bg-black/50 border-violet-500/20 text-primary text-sm"
+              />
+            </div>
+
+            {/* Ad Link URL */}
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-primary/40 tracking-widest">Ad Click URL (optional)</label>
+              <Input
+                placeholder="https://..."
+                value={adsConfig.adLinkUrl}
+                onChange={(e) => setAdsConfig({ ...adsConfig, adLinkUrl: e.target.value })}
+                className="bg-black/50 border-violet-500/20 text-primary text-sm"
+              />
+            </div>
+
+            <Button
+              className="w-full bg-violet-900/40 border border-violet-500/40 text-violet-400 hover:bg-violet-800/40 font-mono uppercase tracking-widest h-11"
+              onClick={() => saveAdsConfigMutation.mutate(adsConfig)}
+              disabled={saveAdsConfigMutation.isPending}
+            >
+              {saveAdsConfigMutation.isPending ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <MonitorPlay className="w-4 h-4 mr-2" />}
+              {saveAdsConfigMutation.isPending ? "SAVING..." : "SAVE ADS CONFIG"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

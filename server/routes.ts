@@ -1869,6 +1869,34 @@ ${urls.map(u => `  <url>
     res.json(n);
   });
 
+  // Broadcast notification to ALL users
+  app.post("/api/admin/notifications/broadcast", requireAdminSession, async (req, res) => {
+    const { title, message } = req.body;
+    if (!title || !message) return res.status(400).json({ message: "title and message required" });
+    const allUsers = await storage.getAllUsers();
+    let sent = 0;
+    for (const user of allUsers) {
+      try {
+        await storage.createNotification(user.id, title, message);
+        sent++;
+      } catch (e) { /* skip */ }
+    }
+    sendTelegram(`📢 <b>BROADCAST NOTIFICATION SENT</b>\nTitle: ${title}\nMsg: ${message}\nSent to: ${sent} users`);
+    res.json({ success: true, sent, total: allUsers.length });
+  });
+
+  // Ads config
+  app.get("/api/admin/ads-config", requireAdminSession, async (_req, res) => {
+    const raw = await storage.getPlatformSetting("ads_config");
+    res.json(raw ? JSON.parse(raw) : { enabled: false, adDuration: 15, adTitle: "", adImageUrl: "", adLinkUrl: "" });
+  });
+
+  app.post("/api/admin/ads-config", requireAdminSession, async (req, res) => {
+    const { enabled, adDuration, adTitle, adImageUrl, adLinkUrl } = req.body;
+    await storage.setPlatformSetting("ads_config", JSON.stringify({ enabled: !!enabled, adDuration: adDuration || 15, adTitle: adTitle || "", adImageUrl: adImageUrl || "", adLinkUrl: adLinkUrl || "" }));
+    res.json({ success: true });
+  });
+
   app.get("/api/admin/protected-numbers", requireAdminSession, async (req, res) => {
     const numbers = await storage.getProtectedNumbers();
     res.json(numbers);
@@ -1891,6 +1919,12 @@ ${urls.map(u => `  <url>
   app.get("/api/broadcasts", async (req, res) => {
     const broadcasts = await storage.getActiveBroadcasts();
     res.json(broadcasts);
+  });
+
+  // Public ads config endpoint
+  app.get("/api/ads-config", async (_req, res) => {
+    const raw = await storage.getPlatformSetting("ads_config");
+    res.json(raw ? JSON.parse(raw) : { enabled: false, adDuration: 15, adTitle: "", adImageUrl: "", adLinkUrl: "" });
   });
 
   app.post("/api/admin/broadcasts", requireAdminSession, async (req, res) => {
