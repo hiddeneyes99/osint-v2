@@ -173,13 +173,13 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
             ) : (
               <>
                 {/* TOP BAR — fixed at very top */}
-                <div className="flex items-center justify-between px-4 pt-4 pb-3 shrink-0"
+                <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0"
                   style={{ background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                  <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
-                    style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                  <span className="text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full"
+                    style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.12)" }}>
                     Ad
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <CountdownPill done={done} countdown={countdown} />
                     <CloseBtn canClose={canClose} onClick={handleClose} />
                   </div>
@@ -189,27 +189,27 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                 <div className="flex-1 min-h-0 flex flex-col">
 
                   {/* ZONE 1 — top 30%: Logo + Title */}
-                  <div className="flex items-center justify-center px-4"
+                  <div className="flex items-center justify-center px-6"
                     style={{ flex: "30 30 0%", background: "rgba(255,255,255,0.025)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                     {!loading && ad && (
-                      <div className="flex items-center gap-3 w-full">
+                      <div className="flex items-center gap-4 w-full">
                         {ad.logoUrl ? (
                           <img src={ad.logoUrl} alt="logo"
                             className="rounded-2xl object-cover shrink-0"
-                            style={{ width: "52px", height: "52px", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 4px 20px rgba(0,0,0,0.5)" }}
+                            style={{ width: "68px", height: "68px", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 4px 24px rgba(0,0,0,0.6)" }}
                             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
                           />
                         ) : (
-                          <div className="rounded-2xl shrink-0 flex items-center justify-center font-black text-xl"
-                            style={{ width: "52px", height: "52px", background: "linear-gradient(135deg, #6d28d9, #4c1d95)", border: "1px solid rgba(139,92,246,0.4)", color: "#e9d5ff", boxShadow: "0 4px 20px rgba(109,40,217,0.4)" }}>
+                          <div className="rounded-2xl shrink-0 flex items-center justify-center font-black text-2xl"
+                            style={{ width: "68px", height: "68px", background: "linear-gradient(135deg, #6d28d9, #4c1d95)", border: "1px solid rgba(139,92,246,0.4)", color: "#e9d5ff", boxShadow: "0 4px 24px rgba(109,40,217,0.4)" }}>
                             {(ad.title || "A").charAt(0).toUpperCase()}
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-lg font-bold text-white leading-tight">{ad.title || "Advertisement"}</p>
+                          <p className="text-xl font-bold text-white leading-tight">{ad.title || "Advertisement"}</p>
                           {ad.linkUrl && (
-                            <p className="text-xs mt-1 flex items-center gap-1" style={{ color: "rgba(255,255,255,0.35)" }}>
-                              <ExternalLink className="w-3 h-3" />
+                            <p className="text-sm mt-1.5 flex items-center gap-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+                              <ExternalLink className="w-3.5 h-3.5" />
                               {(() => { try { return new URL(ad.linkUrl).hostname; } catch { return ad.linkUrl; } })()}
                             </p>
                           )}
@@ -222,7 +222,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                   <div className="flex items-center justify-center overflow-hidden"
                     style={{ flex: "30 30 0%", background: "#000" }}>
                     {loading && (
-                      <div className="w-9 h-9 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
+                      <div className="w-10 h-10 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
                     )}
                     {!loading && ad?.type === "IMAGE" && ad?.mediaUrl && !imgError && (
                       <img src={ad.mediaUrl} alt="Ad"
@@ -232,8 +232,8 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                     )}
                     {!loading && ad?.type === "IMAGE" && (imgError || !ad?.mediaUrl) && (
                       <div className="flex flex-col items-center justify-center gap-3" style={{ color: "rgba(255,255,255,0.18)" }}>
-                        <AlertCircle className="w-12 h-12" />
-                        <p className="text-sm">{imgError ? "Image failed to load" : "No image URL"}</p>
+                        <AlertCircle className="w-14 h-14" />
+                        <p className="text-base">{imgError ? "Image failed to load" : "No image URL"}</p>
                       </div>
                     )}
                     {!loading && ad?.type === "VIDEO" && ad?.mediaUrl && ytId && (
@@ -251,31 +251,31 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                     )}
                     {!loading && ad?.type === "VIDEO" && !ad?.mediaUrl && (
                       <div className="flex flex-col items-center justify-center gap-3" style={{ color: "rgba(255,255,255,0.18)" }}>
-                        <Play className="w-12 h-12" />
-                        <p className="text-sm">No video URL</p>
+                        <Play className="w-14 h-14" />
+                        <p className="text-base">No video URL</p>
                       </div>
                     )}
                   </div>
 
                   {/* ZONE 3 — bottom 25%: Description centered */}
-                  <div className="flex items-center justify-center px-6 text-center overflow-hidden"
+                  <div className="flex items-center justify-center px-8 text-center overflow-hidden"
                     style={{ flex: "25 25 0%", background: "rgba(15,10,30,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                     {!loading && ad?.description && (
-                      <p className="text-sm font-semibold text-white/90 leading-relaxed">{ad.description}</p>
+                      <p className="text-base font-semibold text-white/90 leading-relaxed">{ad.description}</p>
                     )}
                   </div>
 
                   {/* BUTTON — pinned at bottom, always visible */}
                   {!loading && ad && (
-                    <div className="shrink-0 px-4 pb-8 pt-4 space-y-3"
+                    <div className="shrink-0 px-6 pb-10 pt-5 space-y-3"
                       style={{ background: "rgba(10,7,22,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                       <button
                         onClick={handleCta}
-                        className="w-full flex items-center justify-center gap-2 font-bold transition-all"
+                        className="w-full flex items-center justify-center gap-2.5 font-bold transition-all"
                         style={{
-                          height: "54px",
-                          borderRadius: "27px",
-                          fontSize: "16px",
+                          height: "60px",
+                          borderRadius: "30px",
+                          fontSize: "17px",
                           letterSpacing: "0.01em",
                           background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
                           color: "#ffffff",
@@ -284,16 +284,16 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                           border: "none",
                         }}
                       >
-                        <ExternalLink className="w-4 h-4" />
+                        <ExternalLink className="w-5 h-5" />
                         {ad.linkUrl ? (ad.buttonText || "Learn More") : "Close Ad"}
                       </button>
                       {done && ad.forceRedirect && !linkVisited && ad.linkUrl && (
-                        <p className="text-center text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        <p className="text-center text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
                           Visit the link above to close this ad
                         </p>
                       )}
                       {done && linkVisited && ad.forceRedirect && (
-                        <p className="text-center text-[11px] text-emerald-400/70">
+                        <p className="text-center text-xs text-emerald-400/70">
                           ✓ You can now close this ad using the × button
                         </p>
                       )}
