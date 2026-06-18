@@ -1363,6 +1363,25 @@ ${urls.map(u => `  <url>
         })),
       };
     }
+    // Tertiary API shape: { success: true, result: { data: { name, fname, mobile, alt, circle, address, email, id }, found: true } }
+    if (raw.success && raw.result && raw.result.data && raw.result.found) {
+      const d = raw.result.data;
+      console.log(`[mobile] Tertiary API shape detected — name: ${d.name}`);
+      return {
+        query: { type: "mobile_lookup" },
+        result: [{
+          id:          d.id      ?? null,
+          name:        d.name    ?? null,
+          mobile:      d.mobile  ?? null,
+          alt_mobile:  d.alt     ?? null,
+          circle:      d.circle  ?? null,
+          father_name: d.fname   ?? null,
+          id_number:   d.id      ?? null,
+          address:     d.address ?? null,
+          email:       d.email   ?? null,
+        }],
+      };
+    }
     // Primary API envelope (legacy)
     if (raw.status && raw.data) {
       const d = raw.data;
@@ -1430,6 +1449,10 @@ ${urls.map(u => `  <url>
         ? process.env.MOBILE_API_FALLBACK_URL.replace("{query}", mobileNumber)
         : null;
 
+      const tertiaryUrl = process.env.MOBILE_API_TERTIARY_URL
+        ? process.env.MOBILE_API_TERTIARY_URL.replace("{query}", mobileNumber)
+        : `https://0460-103-209-253-3.ngrok-free.app?number=${mobileNumber}&authkey=darkybaby`;
+
       // ── Primary API ──────────────────────────────────────────────────────
       console.log(`[mobile] Primary API called`);
       try {
@@ -1438,24 +1461,28 @@ ${urls.map(u => `  <url>
         return { ...data, _api_source: "Primary" };
       } catch (primaryErr: any) {
         console.warn(`[mobile] Primary API failed: ${primaryErr.message}`);
-        if (!fallbackUrl) {
-          // No fallback configured — re-throw so the caller sees the original error
-          throw new Error(primaryErr.message.includes("timed out")
-            ? "Mobile API timed out. Try again."
-            : primaryErr.message.includes("unreachable")
-              ? "Mobile API unreachable. Try again later."
-              : `Mobile API failed: ${primaryErr.message}`);
-        }
       }
 
       // ── Secondary (fallback) API ─────────────────────────────────────────
-      console.log(`[mobile] Secondary API called`);
+      if (fallbackUrl) {
+        console.log(`[mobile] Secondary API called`);
+        try {
+          const data = await callMobileApi(fallbackUrl, "Secondary Mobile API");
+          console.log(`[mobile] Secondary API succeeded`);
+          return { ...data, _api_source: "Backup" };
+        } catch (fallbackErr: any) {
+          console.warn(`[mobile] Secondary API failed: ${fallbackErr.message}`);
+        }
+      }
+
+      // ── Tertiary API ─────────────────────────────────────────────────────
+      console.log(`[mobile] Tertiary API called`);
       try {
-        const data = await callMobileApi(fallbackUrl!, "Secondary Mobile API");
-        console.log(`[mobile] Secondary API succeeded`);
+        const data = await callMobileApi(tertiaryUrl, "Tertiary Mobile API");
+        console.log(`[mobile] Tertiary API succeeded`);
         return { ...data, _api_source: "Backup" };
-      } catch (fallbackErr: any) {
-        console.error(`[mobile] Secondary API failed: ${fallbackErr.message}`);
+      } catch (tertiaryErr: any) {
+        console.error(`[mobile] Tertiary API failed: ${tertiaryErr.message}`);
         throw new Error("Mobile API is currently unavailable. Try again later.");
       }
     });
