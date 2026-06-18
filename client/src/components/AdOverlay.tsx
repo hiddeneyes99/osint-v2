@@ -233,55 +233,53 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                 </div>
 
                 {/* ═══════════════════════════════════════
-                    DESCRIPTION SECTION — Below media
-                    Separate section with own background
-                    (Matches reference: dark section below content)
-                ═══════════════════════════════════════ */}
-                {!loading && ad?.description && (
-                  <div className="shrink-0 px-6 py-5 text-center"
-                    style={{ background: "rgba(15,10,30,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                    <p className="text-sm font-semibold text-white/90 leading-relaxed">{ad.description}</p>
-                  </div>
-                )}
-
-                {/* ═══════════════════════════════════════
-                    BOTTOM — CTA button (always active)
+                    MIDDLE AREA — Description centered, button pinned bottom
                 ═══════════════════════════════════════ */}
                 {!loading && ad && (
-                  <div className="shrink-0 px-4 pb-8 pt-4 space-y-3"
-                    style={{ background: "rgba(10,7,22,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-
-                    {/* CTA Button — always clickable from the start */}
-                    <button
-                      onClick={handleCta}
-                      className="w-full flex items-center justify-center gap-2 font-bold transition-all"
-                      style={{
-                        height: "54px",
-                        borderRadius: "27px",
-                        fontSize: "16px",
-                        letterSpacing: "0.01em",
-                        background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
-                        color: "#ffffff",
-                        cursor: "pointer",
-                        boxShadow: "0 8px 32px rgba(124,58,237,0.55), 0 2px 8px rgba(0,0,0,0.4)",
-                        border: "none",
-                      }}
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      {ad.linkUrl ? (ad.buttonText || "Learn More") : "Close Ad"}
-                    </button>
-
-                    {/* Force redirect hint */}
-                    {done && ad.forceRedirect && !linkVisited && ad.linkUrl && (
-                      <p className="text-center text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                        Visit the link above to close this ad
-                      </p>
+                  <div className="flex-1 flex flex-col" style={{ background: "rgba(10,7,22,0.98)" }}>
+                    {/* Description — right below media, natural height */}
+                    {ad.description && (
+                      <div className="shrink-0 px-6 py-5 text-center"
+                        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <p className="text-sm font-semibold text-white/90 leading-relaxed">{ad.description}</p>
+                      </div>
                     )}
-                    {done && linkVisited && ad.forceRedirect && (
-                      <p className="text-center text-[11px] text-emerald-400/70">
-                        ✓ You can now close this ad using the × button
-                      </p>
-                    )}
+
+                    {/* Spacer — pushes button to bottom */}
+                    <div className="flex-1" />
+
+                    {/* CTA Button — pinned to bottom */}
+                    <div className="shrink-0 px-4 pb-8 pt-4 space-y-3">
+                      <button
+                        onClick={handleCta}
+                        className="w-full flex items-center justify-center gap-2 font-bold transition-all"
+                        style={{
+                          height: "54px",
+                          borderRadius: "27px",
+                          fontSize: "16px",
+                          letterSpacing: "0.01em",
+                          background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+                          color: "#ffffff",
+                          cursor: "pointer",
+                          boxShadow: "0 8px 32px rgba(124,58,237,0.55), 0 2px 8px rgba(0,0,0,0.4)",
+                          border: "none",
+                        }}
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        {ad.linkUrl ? (ad.buttonText || "Learn More") : "Close Ad"}
+                      </button>
+
+                      {done && ad.forceRedirect && !linkVisited && ad.linkUrl && (
+                        <p className="text-center text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          Visit the link above to close this ad
+                        </p>
+                      )}
+                      {done && linkVisited && ad.forceRedirect && (
+                        <p className="text-center text-[11px] text-emerald-400/70">
+                          ✓ You can now close this ad using the × button
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
               </>
