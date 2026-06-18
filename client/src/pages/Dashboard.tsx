@@ -97,6 +97,7 @@ export default function Dashboard() {
   // Ad overlay state
   const [showAdOverlay, setShowAdOverlay] = useState(false);
   const pendingSearchRef = useRef<(() => void) | null>(null);
+  const shownAdIdsRef = useRef<number[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [telegramInput, setTelegramInput] = useState("");
@@ -263,8 +264,11 @@ export default function Dashboard() {
     }
   };
 
-  const handleAdComplete = () => {
+  const handleAdComplete = (shownAdId?: number) => {
     setShowAdOverlay(false);
+    if (shownAdId != null) {
+      shownAdIdsRef.current = [...shownAdIdsRef.current.slice(-9), shownAdId];
+    }
     if (pendingSearchRef.current) {
       pendingSearchRef.current();
       pendingSearchRef.current = null;
@@ -1367,7 +1371,7 @@ export default function Dashboard() {
           })}
         </div>
       </div>
-      <AdOverlay open={showAdOverlay} onComplete={handleAdComplete} />
+      <AdOverlay open={showAdOverlay} onComplete={handleAdComplete} shownAdIds={shownAdIdsRef.current} />
     </div>
   );
 }
