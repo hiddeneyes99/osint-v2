@@ -2,6 +2,10 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import express from "express";
 import { api } from "@shared/routes";
 import {
   mobileInfoSchema,
@@ -1883,6 +1887,34 @@ ${urls.map(u => `  <url>
     }
     sendTelegram(`📢 <b>BROADCAST NOTIFICATION SENT</b>\nTitle: ${title}\nMsg: ${message}\nSent to: ${sent} users`);
     res.json({ success: true, sent, total: allUsers.length });
+  });
+
+  // ── Media upload for ads ─────────────────────────────────────────────────
+  const uploadsDir = path.resolve(process.cwd(), "uploads/ads");
+  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+  const adMediaStorage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname);
+      cb(null, `ad_${Date.now()}${ext}`);
+    },
+  });
+  const adUpload = multer({
+    storage: adMediaStorage,
+    limits: { fileSize: 200 * 1024 * 1024 }, // 200MB
+    fileFilter: (_req, file, cb) => {
+      const ok = /^(video|image)\//.test(file.mimetype);
+      cb(null, ok);
+    },
+  });
+
+  app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
+
+  app.post("/api/admin/ads/upload-media", requireAdminSession, adUpload.single("file"), (req, res) => {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+    const url = `/uploads/ads/${req.file.filename}`;
+    res.json({ url });
   });
 
   // Ads management

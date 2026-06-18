@@ -470,6 +470,15 @@
   0%   { opacity: 1; transform: scale(0) translate(0, 0); }
   100% { opacity: 0; transform: scale(1.5) translate(var(--tx), var(--ty)); }
 }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15%  { transform: translateX(-8px); }
+  30%  { transform: translateX(8px); }
+  45%  { transform: translateX(-6px); }
+  60%  { transform: translateX(6px); }
+  75%  { transform: translateX(-3px); }
+  90%  { transform: translateX(3px); }
+}
 
 .toast-progress-bar {
   animation: toast-progress var(--toast-duration, 6000ms) linear forwards;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import {
   MonitorPlay, Plus, Trash2, ToggleLeft, ToggleRight, RefreshCw,
   Image, Video, Code2, ExternalLink, Clock, Eye, X, ChevronRight,
   Activity, MousePointerClick, Youtube, AlertCircle, TrendingUp, Lock,
-  Pencil, Save, CheckCircle2,
+  Pencil, Save, CheckCircle2, Upload, Link2,
 } from "lucide-react";
 import type { Ad } from "@shared/schema";
 
@@ -49,6 +49,116 @@ function adToForm(ad: Ad): FormState {
     forceRedirect: !!(ad as any).forceRedirect,
     duration: ad.duration || 15,
   };
+}
+
+/* ─── Media Field: URL tab or File Upload tab ─── */
+function MediaField({ form, setForm }: { form: FormState; setForm: (fn: (f: FormState) => FormState) => void }) {
+  const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [tab, setTab] = useState<"url" | "upload">("url");
+  const [uploading, setUploading] = useState(false);
+  const [uploadedName, setUploadedName] = useState<string | null>(null);
+
+  const isVideo = form.type === "VIDEO";
+  const ytId = isVideo && form.mediaUrl ? getYoutubeId(form.mediaUrl) : null;
+  const isHostedUpload = form.mediaUrl?.startsWith("/uploads/");
+
+  async function handleFile(file: File) {
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/admin/ads/upload-media", { method: "POST", body: fd });
+      if (!res.ok) throw new Error("Upload failed");
+      const { url } = await res.json();
+      setForm(f => ({ ...f, mediaUrl: url }));
+      setUploadedName(file.name);
+      toast({ title: "Uploaded!", description: file.name });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Upload failed", description: e.message });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="text-[10px] uppercase text-white/30 tracking-widest">
+        {isVideo ? "Video / YouTube" : "Image"} Media
+      </label>
+
+      {/* Tab switcher */}
+      <div className="flex gap-1 p-1 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+        {[
+          { key: "url", label: "URL", icon: <Link2 className="w-3 h-3" /> },
+          { key: "upload", label: "Upload File", icon: <Upload className="w-3 h-3" /> },
+        ].map(t => (
+          <button key={t.key} onClick={() => setTab(t.key as "url" | "upload")}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all"
+            style={tab === t.key
+              ? { background: "rgba(139,92,246,0.35)", color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.4)" }
+              : { color: "rgba(255,255,255,0.3)", border: "1px solid transparent" }
+            }>
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "url" ? (
+        <>
+          <Input
+            placeholder={isVideo ? "https://youtube.com/watch?v=... or direct .mp4 URL" : "https://example.com/image.jpg"}
+            value={isHostedUpload ? "" : form.mediaUrl}
+            onChange={e => { setUploadedName(null); setForm(f => ({ ...f, mediaUrl: e.target.value })); }}
+            className="bg-black/40 border-violet-500/20 text-white text-sm h-10"
+          />
+          {form.mediaUrl && !isVideo && !isHostedUpload && (
+            <div className="rounded-xl overflow-hidden" style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(139,92,246,0.15)" }}>
+              <img src={form.mediaUrl} alt="Preview" className="w-full object-contain" style={{ maxHeight: "140px" }}
+                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            </div>
+          )}
+          {ytId && (
+            <div className="rounded-xl overflow-hidden" style={{ background: "#000", border: "1px solid rgba(139,92,246,0.15)", aspectRatio: "16/9" }}>
+              <iframe src={`https://www.youtube.com/embed/${ytId}`} className="w-full h-full border-0" allowFullScreen title="YouTube preview" />
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div
+            onClick={() => fileRef.current?.click()}
+            className="w-full rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all"
+            style={{
+              minHeight: "90px", border: "2px dashed rgba(139,92,246,0.3)",
+              background: uploading ? "rgba(139,92,246,0.08)" : "rgba(255,255,255,0.02)",
+            }}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+          >
+            {uploading
+              ? <><RefreshCw className="w-5 h-5 text-violet-400 animate-spin" /><p className="text-xs text-violet-400">Uploading...</p></>
+              : uploadedName || isHostedUpload
+                ? <><CheckCircle2 className="w-5 h-5 text-emerald-400" /><p className="text-xs text-emerald-400 font-bold">{uploadedName || "File uploaded"}</p><p className="text-[10px] text-white/20">Click to replace</p></>
+                : <><Upload className="w-5 h-5 text-white/25" /><p className="text-xs text-white/40">Click or drag & drop</p><p className="text-[10px] text-white/20">{isVideo ? "MP4, WebM, MOV (max 200MB)" : "JPG, PNG, GIF, WebP"}</p></>
+            }
+          </div>
+          <input ref={fileRef} type="file" accept={isVideo ? "video/*" : "image/*"} className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+          {isHostedUpload && form.mediaUrl && !isVideo && (
+            <div className="rounded-xl overflow-hidden" style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(139,92,246,0.15)" }}>
+              <img src={form.mediaUrl} alt="Preview" className="w-full object-contain" style={{ maxHeight: "140px" }} />
+            </div>
+          )}
+          {isHostedUpload && form.mediaUrl && isVideo && (
+            <div className="rounded-xl overflow-hidden" style={{ background: "#000", border: "1px solid rgba(139,92,246,0.15)", aspectRatio: "16/9" }}>
+              <video src={form.mediaUrl} controls className="w-full h-full" />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /* ─── Shared form body (used for both Create and Edit) ─── */
@@ -107,28 +217,9 @@ function AdFormFields({ form, setForm }: { form: FormState; setForm: (fn: (f: Fo
         </div>
       )}
 
-      {/* Media URL */}
+      {/* Media — URL or Upload */}
       {(form.type === "IMAGE" || form.type === "VIDEO") && (
-        <div className="space-y-1">
-          <label className="text-[10px] uppercase text-white/30 tracking-widest">
-            {form.type === "IMAGE" ? "Image URL" : "Video / YouTube URL"}
-          </label>
-          <Input placeholder={form.type === "IMAGE" ? "https://example.com/image.jpg" : "https://youtube.com/watch?v=..."}
-            value={form.mediaUrl} onChange={e => setForm(f => ({ ...f, mediaUrl: e.target.value }))}
-            className="bg-black/40 border-violet-500/20 text-white text-sm h-10" />
-          {form.mediaUrl && form.type === "IMAGE" && (
-            <div className="mt-2 rounded-xl overflow-hidden" style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(139,92,246,0.15)" }}>
-              <img src={form.mediaUrl} alt="Preview" className="w-full object-contain" style={{ maxHeight: "140px" }}
-                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-            </div>
-          )}
-          {form.mediaUrl && form.type === "VIDEO" && getYoutubeId(form.mediaUrl) && (
-            <div className="mt-2 rounded-xl overflow-hidden" style={{ background: "#000", border: "1px solid rgba(139,92,246,0.15)", aspectRatio: "16/9" }}>
-              <iframe src={`https://www.youtube.com/embed/${getYoutubeId(form.mediaUrl)}`}
-                className="w-full h-full border-0" allowFullScreen title="YouTube preview" />
-            </div>
-          )}
-        </div>
+        <MediaField form={form} setForm={setForm} />
       )}
 
       {/* HTML content */}

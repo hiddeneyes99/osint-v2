@@ -43,6 +43,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
   const [imgError, setImgError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [linkVisited, setLinkVisited] = useState(false);
+  const [shakeWarning, setShakeWarning] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const trackedRef = useRef(false);
 
@@ -118,8 +119,17 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
   const progress = done ? 1 : ad ? 1 - countdown / dur : 0;
   const ytId = ad?.type === "VIDEO" && ad.mediaUrl ? getYoutubeId(ad.mediaUrl) : null;
   const canClose = done && (!ad?.forceRedirect || linkVisited);
+  const needsLinkFirst = done && ad?.forceRedirect && !linkVisited;
 
-  const handleClose = () => { if (canClose) onComplete(); };
+  const handleClose = () => {
+    if (!done) return;
+    if (needsLinkFirst) {
+      setShakeWarning(true);
+      setTimeout(() => setShakeWarning(false), 700);
+      return;
+    }
+    onComplete();
+  };
   const handleCta = () => {
     if (!ad) return;
     trackClick(ad.id);
@@ -162,7 +172,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                   </span>
                   <div className="flex items-center gap-2">
                     <CountdownPill done={done} countdown={countdown} />
-                    <CloseBtn canClose={canClose} onClick={handleClose} />
+                    <CloseBtn done={done} needsLinkFirst={needsLinkFirst} onClick={handleClose} />
                   </div>
                 </div>
                 <div className="flex-1 min-h-0">
@@ -181,7 +191,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                   </span>
                   <div className="flex items-center gap-3">
                     <CountdownPill done={done} countdown={countdown} />
-                    <CloseBtn canClose={canClose} onClick={handleClose} />
+                    <CloseBtn done={done} needsLinkFirst={needsLinkFirst} onClick={handleClose} />
                   </div>
                 </div>
 
@@ -269,8 +279,38 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
 
                   {/* BUTTON — pinned at bottom, always visible */}
                   {!loading && ad && (
-                    <div className="shrink-0 px-6 pb-10 pt-5 space-y-3"
+                    <div className="shrink-0 px-6 pb-8 pt-4 space-y-3"
                       style={{ background: "rgba(10,7,22,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+
+                      {/* Force redirect prominent warning — shake animation on X click */}
+                      {done && needsLinkFirst && (
+                        <div
+                          className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${shakeWarning ? "animate-[shake_0.5s_ease-in-out]" : ""}`}
+                          style={{
+                            background: "rgba(239,68,68,0.12)",
+                            border: "1px solid rgba(239,68,68,0.45)",
+                          }}
+                        >
+                          <span className="text-2xl shrink-0">⚠️</span>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold" style={{ color: "#fca5a5" }}>
+                              Pehle neeche button pe click karo!
+                            </p>
+                            <p className="text-xs mt-0.5" style={{ color: "rgba(252,165,165,0.65)" }}>
+                              Ad close karne ke liye link visit karna zaruri hai
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {done && linkVisited && ad.forceRedirect && (
+                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl"
+                          style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)" }}>
+                          <span className="text-lg">✅</span>
+                          <p className="text-xs font-bold text-emerald-400">Ab ✕ button se ad band kar sakte ho</p>
+                        </div>
+                      )}
+
                       <button
                         onClick={handleCta}
                         className="w-full flex items-center justify-center gap-2.5 font-bold transition-all"
@@ -289,16 +329,6 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                         <ExternalLink className="w-5 h-5" />
                         {ad.linkUrl ? (ad.buttonText || "Learn More") : "Close Ad"}
                       </button>
-                      {done && ad.forceRedirect && !linkVisited && ad.linkUrl && (
-                        <p className="text-center text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-                          Visit the link above to close this ad
-                        </p>
-                      )}
-                      {done && linkVisited && ad.forceRedirect && (
-                        <p className="text-center text-xs text-emerald-400/70">
-                          ✓ You can now close this ad using the × button
-                        </p>
-                      )}
                     </div>
                   )}
 
@@ -326,16 +356,19 @@ function CountdownPill({ done, countdown }: { done: boolean; countdown: number }
   );
 }
 
-function CloseBtn({ canClose, onClick }: { canClose: boolean; onClick: () => void }) {
+function CloseBtn({ done, needsLinkFirst, onClick }: { done: boolean; needsLinkFirst: boolean; onClick: () => void }) {
+  const canClose = done && !needsLinkFirst;
   return (
     <button
       onClick={onClick}
-      disabled={!canClose}
-      title={!canClose ? "Watch the ad to close" : "Close ad"}
+      title={!done ? "Ad dekho pehle" : needsLinkFirst ? "Pehle link visit karo" : "Close ad"}
       className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
-      style={canClose
-        ? { background: "rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", border: "1px solid rgba(255,255,255,0.2)" }
-        : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.18)", cursor: "not-allowed", border: "1px solid rgba(255,255,255,0.07)" }
+      style={
+        !done
+          ? { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.18)", cursor: "not-allowed", border: "1px solid rgba(255,255,255,0.07)" }
+          : needsLinkFirst
+            ? { background: "rgba(239,68,68,0.18)", color: "#fca5a5", cursor: "pointer", border: "1px solid rgba(239,68,68,0.4)" }
+            : { background: "rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", border: "1px solid rgba(255,255,255,0.2)" }
       }
     >
       <X className="w-3.5 h-3.5" />
