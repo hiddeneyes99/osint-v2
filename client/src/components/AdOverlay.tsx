@@ -240,7 +240,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                     )}
                     {!loading && ad?.type === "VIDEO" && ad?.mediaUrl && ytId && (
                       <iframe
-                        src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1`}
+                        src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=0&rel=0&modestbranding=1&playsinline=1`}
                         className="absolute inset-0 w-full h-full border-0"
                         allow="autoplay; encrypted-media"
                         allowFullScreen
@@ -259,8 +259,8 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                     )}
                   </div>
 
-                  {/* ZONE 3 — Description: shares remaining space with title */}
-                  <div className="flex-1 flex items-center justify-center px-8 text-center overflow-hidden"
+                  {/* ZONE 3 — Description: scrollable when text is long */}
+                  <div className="flex-1 min-h-0 overflow-y-auto px-8 py-4 text-center"
                     style={{ background: "rgba(15,10,30,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                     {!loading && ad?.description && (
                       <p className="text-base font-semibold text-white/90 leading-relaxed">{ad.description}</p>
