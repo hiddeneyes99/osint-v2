@@ -158,7 +158,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
         >
           {/* Card — takes full height, max-width phone-style */}
           <div
-            className="relative w-full flex flex-col overflow-hidden"
+            className="relative w-full h-full flex flex-col overflow-hidden"
             style={{
               maxWidth: "480px",
               background: "#0d0b18",
