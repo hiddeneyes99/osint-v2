@@ -188,9 +188,9 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                 {/* REMAINING HEIGHT — split into 3 zones + button */}
                 <div className="flex-1 min-h-0 flex flex-col">
 
-                  {/* ZONE 1 — top 30%: Logo + Title */}
-                  <div className="flex items-center justify-center px-6"
-                    style={{ flex: "30 30 0%", background: "rgba(255,255,255,0.025)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  {/* ZONE 1 — Logo + Title: shares remaining space with description */}
+                  <div className="flex-1 flex items-center justify-center px-6"
+                    style={{ background: "rgba(255,255,255,0.025)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                     {!loading && ad && (
                       <div className="flex items-center gap-4 w-full">
                         {ad.logoUrl ? (
@@ -218,20 +218,22 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                     )}
                   </div>
 
-                  {/* ZONE 2 — middle 30%: 16:9 Media centered */}
-                  <div className="flex items-center justify-center overflow-hidden"
-                    style={{ flex: "30 30 0%", background: "#000" }}>
+                  {/* ZONE 2 — exact 16:9 media */}
+                  <div className="shrink-0 w-full relative overflow-hidden"
+                    style={{ aspectRatio: "16/9", background: "#000" }}>
                     {loading && (
-                      <div className="w-10 h-10 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-10 h-10 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
+                      </div>
                     )}
                     {!loading && ad?.type === "IMAGE" && ad?.mediaUrl && !imgError && (
                       <img src={ad.mediaUrl} alt="Ad"
-                        className="w-full h-full object-contain block"
+                        className="absolute inset-0 w-full h-full object-contain block"
                         onError={() => setImgError(true)}
                       />
                     )}
                     {!loading && ad?.type === "IMAGE" && (imgError || !ad?.mediaUrl) && (
-                      <div className="flex flex-col items-center justify-center gap-3" style={{ color: "rgba(255,255,255,0.18)" }}>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ color: "rgba(255,255,255,0.18)" }}>
                         <AlertCircle className="w-14 h-14" />
                         <p className="text-base">{imgError ? "Image failed to load" : "No image URL"}</p>
                       </div>
@@ -239,7 +241,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                     {!loading && ad?.type === "VIDEO" && ad?.mediaUrl && ytId && (
                       <iframe
                         src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1`}
-                        className="w-full h-full border-0"
+                        className="absolute inset-0 w-full h-full border-0"
                         allow="autoplay; encrypted-media"
                         allowFullScreen
                         title="Ad Video"
@@ -247,19 +249,19 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                     )}
                     {!loading && ad?.type === "VIDEO" && ad?.mediaUrl && !ytId && (
                       <video src={ad.mediaUrl} autoPlay muted playsInline
-                        className="w-full h-full object-contain block" />
+                        className="absolute inset-0 w-full h-full object-contain block" />
                     )}
                     {!loading && ad?.type === "VIDEO" && !ad?.mediaUrl && (
-                      <div className="flex flex-col items-center justify-center gap-3" style={{ color: "rgba(255,255,255,0.18)" }}>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ color: "rgba(255,255,255,0.18)" }}>
                         <Play className="w-14 h-14" />
                         <p className="text-base">No video URL</p>
                       </div>
                     )}
                   </div>
 
-                  {/* ZONE 3 — bottom 25%: Description centered */}
-                  <div className="flex items-center justify-center px-8 text-center overflow-hidden"
-                    style={{ flex: "25 25 0%", background: "rgba(15,10,30,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                  {/* ZONE 3 — Description: shares remaining space with title */}
+                  <div className="flex-1 flex items-center justify-center px-8 text-center overflow-hidden"
+                    style={{ background: "rgba(15,10,30,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                     {!loading && ad?.description && (
                       <p className="text-base font-semibold text-white/90 leading-relaxed">{ad.description}</p>
                     )}
