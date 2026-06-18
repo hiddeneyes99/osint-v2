@@ -64,7 +64,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { AuthModal } from "@/components/AuthModal";
 import sirenSound from "@assets/siren_1768712570112_1780125705439.mp3";
-import { AdOverlay, useAdsConfig } from "@/components/AdOverlay";
+import { AdOverlay } from "@/components/AdOverlay";
 
 function ServiceComingSoon({ emoji, tileClass, label }: { emoji: string; tileClass: string; label: string }) {
   return (
@@ -95,7 +95,6 @@ export default function Dashboard() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Ad overlay state
-  const { data: adsConfig } = useAdsConfig();
   const [showAdOverlay, setShowAdOverlay] = useState(false);
   const pendingSearchRef = useRef<(() => void) | null>(null);
   const { toast } = useToast();
@@ -248,12 +247,18 @@ export default function Dashboard() {
     defaultValues: { ip: "" },
   });
 
-  // Ad-aware search helper — shows ad if enabled, then runs the actual search
-  const withAd = (searchFn: () => void) => {
-    if (adsConfig?.enabled) {
-      pendingSearchRef.current = searchFn;
-      setShowAdOverlay(true);
-    } else {
+  // Ad-aware search helper — checks for active ads, shows overlay if any exist
+  const withAd = async (searchFn: () => void) => {
+    try {
+      const res = await fetch("/api/ads/random");
+      const ad = await res.json();
+      if (ad) {
+        pendingSearchRef.current = searchFn;
+        setShowAdOverlay(true);
+      } else {
+        searchFn();
+      }
+    } catch {
       searchFn();
     }
   };

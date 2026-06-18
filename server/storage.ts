@@ -1,8 +1,8 @@
 import {
   users, requestLogs, protectedNumbers, broadcastMessages,
-  userNotes, loginActivity, notifications, platformSettings,
+  userNotes, loginActivity, notifications, platformSettings, ads,
   type User, type UpsertUser, type RequestLog, type BroadcastMessage,
-  type UserNote, type LoginActivity, type Notification
+  type UserNote, type LoginActivity, type Notification, type Ad
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, and, gte, desc } from "drizzle-orm";
@@ -76,6 +76,13 @@ export interface IStorage {
   // Platform settings
   getPlatformSetting(key: string): Promise<string | null>;
   setPlatformSetting(key: string, value: string | null): Promise<void>;
+
+  // Ads
+  getAllAds(): Promise<Ad[]>;
+  getActiveAds(): Promise<Ad[]>;
+  createAd(data: { title: string; type: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; duration: number }): Promise<Ad>;
+  deleteAd(id: number): Promise<void>;
+  toggleAd(id: number): Promise<Ad>;
 
   // Cleanup
   fetchLogsBeforeCleanup(days: number): Promise<LogWithUser[]>;
@@ -373,6 +380,29 @@ export class DatabaseStorage implements IStorage {
     await db.insert(platformSettings)
       .values({ key, value, updatedAt: new Date() })
       .onConflictDoUpdate({ target: platformSettings.key, set: { value, updatedAt: new Date() } });
+  }
+
+  async getAllAds(): Promise<Ad[]> {
+    return db.select().from(ads).orderBy(desc(ads.createdAt));
+  }
+
+  async getActiveAds(): Promise<Ad[]> {
+    return db.select().from(ads).where(eq(ads.isActive, true));
+  }
+
+  async createAd(data: { title: string; type: string; mediaUrl?: string; htmlContent?: string; linkUrl?: string; duration: number }): Promise<Ad> {
+    const [ad] = await db.insert(ads).values(data).returning();
+    return ad;
+  }
+
+  async deleteAd(id: number): Promise<void> {
+    await db.delete(ads).where(eq(ads.id, id));
+  }
+
+  async toggleAd(id: number): Promise<Ad> {
+    const [current] = await db.select().from(ads).where(eq(ads.id, id));
+    const [updated] = await db.update(ads).set({ isActive: !current.isActive }).where(eq(ads.id, id)).returning();
+    return updated;
   }
 
   async cleanupAllRequestLogs(): Promise<{ deletedLogs: number }> {

@@ -1885,16 +1885,27 @@ ${urls.map(u => `  <url>
     res.json({ success: true, sent, total: allUsers.length });
   });
 
-  // Ads config
-  app.get("/api/admin/ads-config", requireAdminSession, async (_req, res) => {
-    const raw = await storage.getPlatformSetting("ads_config");
-    res.json(raw ? JSON.parse(raw) : { enabled: false, adDuration: 15, adTitle: "", adImageUrl: "", adLinkUrl: "" });
+  // Ads management
+  app.get("/api/admin/ads", requireAdminSession, async (_req, res) => {
+    const allAds = await storage.getAllAds();
+    res.json(allAds);
   });
 
-  app.post("/api/admin/ads-config", requireAdminSession, async (req, res) => {
-    const { enabled, adDuration, adTitle, adImageUrl, adLinkUrl } = req.body;
-    await storage.setPlatformSetting("ads_config", JSON.stringify({ enabled: !!enabled, adDuration: adDuration || 15, adTitle: adTitle || "", adImageUrl: adImageUrl || "", adLinkUrl: adLinkUrl || "" }));
+  app.post("/api/admin/ads", requireAdminSession, async (req, res) => {
+    const { title, type, mediaUrl, htmlContent, linkUrl, duration } = req.body;
+    if (!type) return res.status(400).json({ message: "type is required" });
+    const ad = await storage.createAd({ title: title || "", type, mediaUrl, htmlContent, linkUrl, duration: duration || 15 });
+    res.json(ad);
+  });
+
+  app.delete("/api/admin/ads/:id", requireAdminSession, async (req, res) => {
+    await storage.deleteAd(Number(req.params.id));
     res.json({ success: true });
+  });
+
+  app.patch("/api/admin/ads/:id/toggle", requireAdminSession, async (req, res) => {
+    const ad = await storage.toggleAd(Number(req.params.id));
+    res.json(ad);
   });
 
   app.get("/api/admin/protected-numbers", requireAdminSession, async (req, res) => {
@@ -1921,10 +1932,12 @@ ${urls.map(u => `  <url>
     res.json(broadcasts);
   });
 
-  // Public ads config endpoint
-  app.get("/api/ads-config", async (_req, res) => {
-    const raw = await storage.getPlatformSetting("ads_config");
-    res.json(raw ? JSON.parse(raw) : { enabled: false, adDuration: 15, adTitle: "", adImageUrl: "", adLinkUrl: "" });
+  // Public — returns a random active ad for the overlay
+  app.get("/api/ads/random", async (_req, res) => {
+    const activeAds = await storage.getActiveAds();
+    if (!activeAds.length) return res.json(null);
+    const random = activeAds[Math.floor(Math.random() * activeAds.length)];
+    res.json(random);
   });
 
   app.post("/api/admin/broadcasts", requireAdminSession, async (req, res) => {

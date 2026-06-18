@@ -69,6 +69,20 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const ads = pgTable("ads", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull().default(""),
+  type: text("type").notNull().default("IMAGE"),
+  mediaUrl: text("media_url"),
+  htmlContent: text("html_content"),
+  linkUrl: text("link_url"),
+  duration: integer("duration").notNull().default(15),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type Ad = typeof ads.$inferSelect;
+
 // === SCHEMAS ===
 export const insertRequestLogSchema = createInsertSchema(requestLogs).omit({ id: true, createdAt: true });
 export const insertProtectedNumberSchema = createInsertSchema(protectedNumbers).omit({ id: true, createdAt: true });
