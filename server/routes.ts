@@ -1971,25 +1971,10 @@ ${urls.map(u => `  <url>
   });
 
   // Public — returns a random active ad for the overlay
-  // ?exclude=1,2,3 — skip recently shown ad IDs so same ad isn't repeated
-  app.get("/api/ads/random", async (req, res) => {
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  app.get("/api/ads/random", async (_req, res) => {
     const activeAds = await storage.getActiveAds();
     if (!activeAds.length) return res.json(null);
-
-    // Parse excluded IDs from query
-    const excludeParam = req.query.exclude as string | undefined;
-    const excludeIds = excludeParam
-      ? excludeParam.split(",").map(Number).filter(n => !isNaN(n))
-      : [];
-
-    // Try to pick from ads not yet shown; fall back to full pool if all shown
-    const pool = excludeIds.length > 0
-      ? activeAds.filter(a => !excludeIds.includes(a.id))
-      : activeAds;
-    const candidates = pool.length > 0 ? pool : activeAds;
-
-    const random = candidates[Math.floor(Math.random() * candidates.length)];
+    const random = activeAds[Math.floor(Math.random() * activeAds.length)];
     res.json(random);
   });
 
