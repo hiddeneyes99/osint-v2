@@ -85,7 +85,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
 
   const handleClose = () => { if (canClose) onComplete(); };
   const handleCta = () => {
-    if (!ad || !done) return;
+    if (!ad) return;
     trackClick(ad.id);
     if (ad.linkUrl) {
       window.open(ad.linkUrl, "_blank", "noopener,noreferrer");
@@ -187,27 +187,25 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                 )}
 
                 {/* ═══════════════════════════════════════
-                    MAIN MEDIA — CENTER OF THE AD
-                    flex-1 so it takes the most space
-                    This is the MAIN CONTENT per reference
+                    MAIN MEDIA — 16:9 fixed ratio, no black bars
                 ═══════════════════════════════════════ */}
-                <div className="flex-1 min-h-0 flex items-center justify-center"
-                  style={{ background: "#000", position: "relative" }}>
+                <div className="w-full shrink-0 relative overflow-hidden"
+                  style={{ aspectRatio: "16/9", background: "#000" }}>
 
                   {loading && (
-                    <div className="flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-9 h-9 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
                     </div>
                   )}
 
                   {!loading && ad?.type === "IMAGE" && ad.mediaUrl && !imgError && (
                     <img src={ad.mediaUrl} alt="Ad"
-                      className="w-full h-full object-contain block"
+                      className="absolute inset-0 w-full h-full object-cover block"
                       onError={() => setImgError(true)}
                     />
                   )}
                   {!loading && ad?.type === "IMAGE" && (imgError || !ad?.mediaUrl) && (
-                    <div className="flex flex-col items-center gap-3" style={{ color: "rgba(255,255,255,0.18)" }}>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ color: "rgba(255,255,255,0.18)" }}>
                       <AlertCircle className="w-16 h-16" />
                       <p className="text-sm">{imgError ? "Image failed to load" : "No image URL"}</p>
                     </div>
@@ -216,7 +214,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                   {!loading && ad?.type === "VIDEO" && ad.mediaUrl && ytId && (
                     <iframe
                       src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1`}
-                      className="w-full h-full border-0"
+                      className="absolute inset-0 w-full h-full border-0"
                       allow="autoplay; encrypted-media"
                       allowFullScreen
                       title="Ad Video"
@@ -224,10 +222,10 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                   )}
                   {!loading && ad?.type === "VIDEO" && ad.mediaUrl && !ytId && (
                     <video src={ad.mediaUrl} autoPlay muted playsInline
-                      className="w-full h-full object-contain block" />
+                      className="absolute inset-0 w-full h-full object-cover block" />
                   )}
                   {!loading && ad?.type === "VIDEO" && !ad?.mediaUrl && (
-                    <div className="flex flex-col items-center gap-3" style={{ color: "rgba(255,255,255,0.18)" }}>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ color: "rgba(255,255,255,0.18)" }}>
                       <Play className="w-16 h-16" />
                       <p className="text-sm">No video URL</p>
                     </div>
@@ -247,59 +245,30 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                 )}
 
                 {/* ═══════════════════════════════════════
-                    BOTTOM — Progress bar + CTA button
+                    BOTTOM — CTA button (always active)
                 ═══════════════════════════════════════ */}
                 {!loading && ad && (
                   <div className="shrink-0 px-4 pb-8 pt-4 space-y-3"
                     style={{ background: "rgba(10,7,22,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
 
-                    {/* Progress bar */}
-                    <div className="relative h-1.5 rounded-full overflow-hidden"
-                      style={{ background: "rgba(255,255,255,0.08)" }}>
-                      <motion.div
-                        className="absolute inset-y-0 left-0 rounded-full"
-                        style={{ background: done ? "#34d399" : "linear-gradient(90deg, #6d28d9, #a78bfa)" }}
-                        animate={{ width: `${progress * 100}%` }}
-                        transition={{ duration: 0.9, ease: "linear" }}
-                      />
-                    </div>
-
-                    {/* CTA Button — matches reference "Install" button style */}
+                    {/* CTA Button — always clickable from the start */}
                     <button
                       onClick={handleCta}
-                      disabled={!done}
                       className="w-full flex items-center justify-center gap-2 font-bold transition-all"
                       style={{
                         height: "54px",
                         borderRadius: "27px",
                         fontSize: "16px",
                         letterSpacing: "0.01em",
-                        ...(done
-                          ? {
-                              background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
-                              color: "#ffffff",
-                              cursor: "pointer",
-                              boxShadow: "0 8px 32px rgba(124,58,237,0.55), 0 2px 8px rgba(0,0,0,0.4)",
-                              border: "none",
-                            }
-                          : {
-                              background: "rgba(255,255,255,0.06)",
-                              color: "rgba(255,255,255,0.2)",
-                              cursor: "not-allowed",
-                              border: "1px solid rgba(255,255,255,0.07)",
-                            }),
+                        background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+                        color: "#ffffff",
+                        cursor: "pointer",
+                        boxShadow: "0 8px 32px rgba(124,58,237,0.55), 0 2px 8px rgba(0,0,0,0.4)",
+                        border: "none",
                       }}
                     >
-                      {done ? (
-                        <>
-                          {ad.linkUrl && <ExternalLink className="w-4 h-4" />}
-                          {ad.linkUrl ? (ad.buttonText || "Learn More") : "Close Ad"}
-                        </>
-                      ) : (
-                        <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "14px" }}>
-                          Please wait {countdown}s…
-                        </span>
-                      )}
+                      <ExternalLink className="w-4 h-4" />
+                      {ad.linkUrl ? (ad.buttonText || "Learn More") : "Close Ad"}
                     </button>
 
                     {/* Force redirect hint */}
