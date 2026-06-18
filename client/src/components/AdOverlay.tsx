@@ -147,7 +147,6 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
           <div
             className="relative w-full h-full flex flex-col overflow-hidden"
             style={{
-              maxWidth: "480px",
               background: "#0d0b18",
             }}
           >
