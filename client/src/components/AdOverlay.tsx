@@ -190,17 +190,9 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
               </>
             ) : (
               <>
-                {/* STICKY HEADER — always visible at top */}
-                <div
-                  className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0"
-                  style={{
-                    background: "rgba(13,11,24,0.98)",
-                    borderBottom: "1px solid rgba(255,255,255,0.06)",
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 10,
-                  }}
-                >
+                {/* TOP BAR */}
+                <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0"
+                  style={{ background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                   <span className="text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full"
                     style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.12)" }}>
                     Ad
@@ -211,18 +203,12 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                   </div>
                 </div>
 
-                {/* SCROLLABLE BODY — single scroll container, iOS-safe */}
-                <div
-                  style={{
-                    flex: 1,
-                    overflowY: "scroll",
-                    WebkitOverflowScrolling: "touch" as any,
-                    overscrollBehavior: "contain",
-                  }}
-                >
+                {/* REMAINING HEIGHT — 3 zones + button */}
+                <div className="flex-1 min-h-0 flex flex-col">
+
                   {/* ZONE 1 — Logo + Title */}
-                  <div className="flex items-center justify-center px-6 py-5"
-                    style={{ background: "rgba(255,255,255,0.025)", borderBottom: "1px solid rgba(255,255,255,0.06)", minHeight: "100px" }}>
+                  <div className="flex-1 flex items-center justify-center px-6"
+                    style={{ background: "rgba(255,255,255,0.025)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                     {!loading && ad && (
                       <div className="flex items-center gap-4 w-full">
                         {ad.logoUrl ? (
@@ -250,8 +236,8 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                     )}
                   </div>
 
-                  {/* ZONE 2 — 16:9 media */}
-                  <div className="w-full relative" style={{ aspectRatio: "16/9", background: "#000", overflow: "hidden" }}>
+                  {/* ZONE 2 — exact 16:9 media */}
+                  <div className="shrink-0 w-full relative" style={{ aspectRatio: "16/9", background: "#000", overflow: "hidden" }}>
                     {loading && (
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="w-10 h-10 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
@@ -289,17 +275,25 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                     )}
                   </div>
 
-                  {/* ZONE 3 — Description (scrolls with the page, no nested scroll) */}
-                  {!loading && ad?.description && (
-                    <div className="px-8 py-5 text-center"
-                      style={{ background: "rgba(15,10,30,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                  {/* ZONE 3 — Description: scrollable, iOS-safe (scroll not auto, no overflow-hidden ancestor) */}
+                  <div
+                    className="flex-1 min-h-0 px-8 py-4 text-center"
+                    style={{
+                      overflowY: "scroll",
+                      WebkitOverflowScrolling: "touch" as any,
+                      overscrollBehavior: "contain",
+                      background: "rgba(15,10,30,0.98)",
+                      borderTop: "1px solid rgba(255,255,255,0.05)",
+                    }}
+                  >
+                    {!loading && ad?.description && (
                       <p className="text-base font-semibold text-white/90 leading-relaxed">{ad.description}</p>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
-                  {/* CTA BUTTON — inside scroll area, always reachable */}
+                  {/* BUTTON — pinned at bottom */}
                   {!loading && ad && (
-                    <div className="px-6 pb-10 pt-5 space-y-3"
+                    <div className="shrink-0 px-6 pb-8 pt-4 space-y-3"
                       style={{ background: "rgba(10,7,22,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
 
                       {done && needsLinkFirst && (
@@ -325,10 +319,10 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                       <button
                         onTouchEnd={e => { e.preventDefault(); handleCta(); }}
                         onClick={handleCta}
+                        className="w-full flex items-center justify-center gap-2.5 font-bold transition-all"
                         style={{
-                          width: "100%", display: "flex", alignItems: "center", justifyContent: "center",
-                          gap: "10px", fontWeight: "bold", height: "60px", borderRadius: "30px",
-                          fontSize: "17px", letterSpacing: "0.01em", border: "none", cursor: "pointer",
+                          height: "60px", borderRadius: "30px", fontSize: "17px",
+                          letterSpacing: "0.01em", border: "none", cursor: "pointer",
                           touchAction: "manipulation",
                           background: ad.buttonColor
                             ? `linear-gradient(135deg, ${ad.buttonColor} 0%, ${ad.buttonColor}cc 100%)`
@@ -344,6 +338,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                       </button>
                     </div>
                   )}
+
                 </div>
               </>
             )}
