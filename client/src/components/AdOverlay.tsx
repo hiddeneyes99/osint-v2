@@ -161,20 +161,17 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
-          className="fixed inset-0 z-[9999] flex items-stretch md:items-center justify-center overflow-hidden"
+          className="fixed inset-0 z-[9999] flex items-stretch md:items-center justify-center"
           style={{ background: "rgba(0,0,0,0.92)", userSelect: "none", pointerEvents: "all" }}
         >
           {/* Card — full screen on mobile, centered card on desktop */}
           <div
-            className="relative w-full h-full md:h-[88vh] md:max-w-[480px] md:rounded-2xl flex flex-col overflow-hidden"
-            style={{
-              background: "#0d0b18",
-            }}
+            className="relative w-full h-full md:h-[88vh] md:max-w-[480px] md:rounded-2xl flex flex-col md:overflow-hidden"
+            style={{ background: "#0d0b18" }}
           >
             {/* ───────────── HTML AD ───────────── */}
             {ad?.type === "HTML" && ad.htmlContent ? (
               <>
-                {/* Top bar only */}
                 <div className="flex items-center justify-between px-4 pt-4 pb-3 shrink-0"
                   style={{ background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
                   <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
@@ -193,9 +190,17 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
               </>
             ) : (
               <>
-                {/* TOP BAR — fixed at very top */}
-                <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0"
-                  style={{ background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                {/* STICKY HEADER — always visible at top */}
+                <div
+                  className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0"
+                  style={{
+                    background: "rgba(13,11,24,0.98)",
+                    borderBottom: "1px solid rgba(255,255,255,0.06)",
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 10,
+                  }}
+                >
                   <span className="text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full"
                     style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.12)" }}>
                     Ad
@@ -206,12 +211,18 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                   </div>
                 </div>
 
-                {/* REMAINING HEIGHT — split into 3 zones + button */}
-                <div className="flex-1 min-h-0 flex flex-col">
-
-                  {/* ZONE 1 — Logo + Title: shares remaining space with description */}
-                  <div className="flex-1 flex items-center justify-center px-6"
-                    style={{ background: "rgba(255,255,255,0.025)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                {/* SCROLLABLE BODY — single scroll container, iOS-safe */}
+                <div
+                  style={{
+                    flex: 1,
+                    overflowY: "scroll",
+                    WebkitOverflowScrolling: "touch" as any,
+                    overscrollBehavior: "contain",
+                  }}
+                >
+                  {/* ZONE 1 — Logo + Title */}
+                  <div className="flex items-center justify-center px-6 py-5"
+                    style={{ background: "rgba(255,255,255,0.025)", borderBottom: "1px solid rgba(255,255,255,0.06)", minHeight: "100px" }}>
                     {!loading && ad && (
                       <div className="flex items-center gap-4 w-full">
                         {ad.logoUrl ? (
@@ -239,9 +250,8 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                     )}
                   </div>
 
-                  {/* ZONE 2 — exact 16:9 media */}
-                  <div className="shrink-0 w-full relative overflow-hidden"
-                    style={{ aspectRatio: "16/9", background: "#000" }}>
+                  {/* ZONE 2 — 16:9 media */}
+                  <div className="w-full relative" style={{ aspectRatio: "16/9", background: "#000", overflow: "hidden" }}>
                     {loading && (
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="w-10 h-10 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
@@ -250,8 +260,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                     {!loading && ad?.type === "IMAGE" && ad?.mediaUrl && !imgError && (
                       <img src={ad.mediaUrl} alt="Ad"
                         className="absolute inset-0 w-full h-full object-contain block"
-                        onError={() => setImgError(true)}
-                      />
+                        onError={() => setImgError(true)} />
                     )}
                     {!loading && ad?.type === "IMAGE" && (imgError || !ad?.mediaUrl) && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ color: "rgba(255,255,255,0.18)" }}>
@@ -280,36 +289,27 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                     )}
                   </div>
 
-                  {/* ZONE 3 — Description: scrollable when text is long */}
-                  <div className="flex-1 min-h-0 overflow-y-auto px-8 py-4 text-center"
-                    style={{ background: "rgba(15,10,30,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)", WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}>
-                    {!loading && ad?.description && (
+                  {/* ZONE 3 — Description (scrolls with the page, no nested scroll) */}
+                  {!loading && ad?.description && (
+                    <div className="px-8 py-5 text-center"
+                      style={{ background: "rgba(15,10,30,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                       <p className="text-base font-semibold text-white/90 leading-relaxed">{ad.description}</p>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
-                  {/* BUTTON — pinned at bottom, always visible */}
+                  {/* CTA BUTTON — inside scroll area, always reachable */}
                   {!loading && ad && (
-                    <div className="shrink-0 px-6 pb-8 pt-4 space-y-3"
+                    <div className="px-6 pb-10 pt-5 space-y-3"
                       style={{ background: "rgba(10,7,22,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
 
-                      {/* Force redirect prominent warning — shake animation on X click */}
                       {done && needsLinkFirst && (
                         <div
                           className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${shakeWarning ? "animate-[shake_0.5s_ease-in-out]" : ""}`}
-                          style={{
-                            background: "rgba(239,68,68,0.12)",
-                            border: "1px solid rgba(239,68,68,0.45)",
-                          }}
-                        >
+                          style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.45)" }}>
                           <span className="text-2xl shrink-0">⚠️</span>
                           <div className="flex-1">
-                            <p className="text-sm font-bold" style={{ color: "#fca5a5" }}>
-                              Click the button below first!
-                            </p>
-                            <p className="text-xs mt-0.5" style={{ color: "rgba(252,165,165,0.65)" }}>
-                              You must visit the link to close this ad
-                            </p>
+                            <p className="text-sm font-bold" style={{ color: "#fca5a5" }}>Click the button below first!</p>
+                            <p className="text-xs mt-0.5" style={{ color: "rgba(252,165,165,0.65)" }}>You must visit the link to close this ad</p>
                           </div>
                         </div>
                       )}
@@ -323,22 +323,20 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                       )}
 
                       <button
+                        onTouchEnd={e => { e.preventDefault(); handleCta(); }}
                         onClick={handleCta}
-                        className="w-full flex items-center justify-center gap-2.5 font-bold transition-all"
                         style={{
-                          height: "60px",
-                          borderRadius: "30px",
-                          fontSize: "17px",
-                          letterSpacing: "0.01em",
+                          width: "100%", display: "flex", alignItems: "center", justifyContent: "center",
+                          gap: "10px", fontWeight: "bold", height: "60px", borderRadius: "30px",
+                          fontSize: "17px", letterSpacing: "0.01em", border: "none", cursor: "pointer",
+                          touchAction: "manipulation",
                           background: ad.buttonColor
                             ? `linear-gradient(135deg, ${ad.buttonColor} 0%, ${ad.buttonColor}cc 100%)`
                             : "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
                           color: "#ffffff",
-                          cursor: "pointer",
                           boxShadow: ad.buttonColor
                             ? `0 8px 32px ${ad.buttonColor}88, 0 2px 8px rgba(0,0,0,0.4)`
                             : "0 8px 32px rgba(124,58,237,0.55), 0 2px 8px rgba(0,0,0,0.4)",
-                          border: "none",
                         }}
                       >
                         <ExternalLink className="w-5 h-5" />
@@ -346,7 +344,6 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
                       </button>
                     </div>
                   )}
-
                 </div>
               </>
             )}
@@ -372,14 +369,15 @@ function CountdownPill({ done, countdown }: { done: boolean; countdown: number }
 }
 
 function CloseBtn({ done, needsLinkFirst, onClick }: { done: boolean; needsLinkFirst: boolean; onClick: () => void }) {
-  const canClose = done && !needsLinkFirst;
   return (
     <button
       onClick={onClick}
+      onTouchEnd={e => { e.preventDefault(); onClick(); }}
       title={!done ? "Watch the ad first" : needsLinkFirst ? "Visit the link first" : "Close ad"}
       className="rounded-full flex items-center justify-center transition-all"
       style={{
-        width: "44px", height: "44px", touchAction: "manipulation",
+        width: "48px", height: "48px", touchAction: "manipulation",
+        flexShrink: 0,
         ...(
           !done
             ? { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.18)", cursor: "not-allowed", border: "1px solid rgba(255,255,255,0.07)" }
@@ -389,7 +387,7 @@ function CloseBtn({ done, needsLinkFirst, onClick }: { done: boolean; needsLinkF
         )
       }}
     >
-      <X className="w-4 h-4" />
+      <X className="w-5 h-5" />
     </button>
   );
 }
