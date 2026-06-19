@@ -282,7 +282,7 @@ export function AdOverlay({ open, onComplete }: AdOverlayProps) {
 
                   {/* ZONE 3 — Description: scrollable when text is long */}
                   <div className="flex-1 min-h-0 overflow-y-auto px-8 py-4 text-center"
-                    style={{ background: "rgba(15,10,30,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                    style={{ background: "rgba(15,10,30,0.98)", borderTop: "1px solid rgba(255,255,255,0.05)", WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}>
                     {!loading && ad?.description && (
                       <p className="text-base font-semibold text-white/90 leading-relaxed">{ad.description}</p>
                     )}
@@ -377,16 +377,19 @@ function CloseBtn({ done, needsLinkFirst, onClick }: { done: boolean; needsLinkF
     <button
       onClick={onClick}
       title={!done ? "Watch the ad first" : needsLinkFirst ? "Visit the link first" : "Close ad"}
-      className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
-      style={
-        !done
-          ? { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.18)", cursor: "not-allowed", border: "1px solid rgba(255,255,255,0.07)" }
-          : needsLinkFirst
-            ? { background: "rgba(239,68,68,0.18)", color: "#fca5a5", cursor: "pointer", border: "1px solid rgba(239,68,68,0.4)" }
-            : { background: "rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", border: "1px solid rgba(255,255,255,0.2)" }
-      }
+      className="rounded-full flex items-center justify-center transition-all"
+      style={{
+        width: "44px", height: "44px", touchAction: "manipulation",
+        ...(
+          !done
+            ? { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.18)", cursor: "not-allowed", border: "1px solid rgba(255,255,255,0.07)" }
+            : needsLinkFirst
+              ? { background: "rgba(239,68,68,0.18)", color: "#fca5a5", cursor: "pointer", border: "1px solid rgba(239,68,68,0.4)" }
+              : { background: "rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", border: "1px solid rgba(255,255,255,0.2)" }
+        )
+      }}
     >
-      <X className="w-3.5 h-3.5" />
+      <X className="w-4 h-4" />
     </button>
   );
 }

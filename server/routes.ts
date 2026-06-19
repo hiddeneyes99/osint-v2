@@ -1157,7 +1157,10 @@ ${urls.map(u => `  <url>
 
       await storage.logRequest(user.id, serviceName, query, "SUCCESS", data);
 
-      // Broadcast to admin live feed
+      // ── Send result to user IMMEDIATELY — don't block on Telegram ──────────
+      res.json({ success: true, data });
+
+      // ── Background: admin live feed + Telegram notifications ──────────────
       broadcastToAdmins({
         type: "query",
         service: serviceName,
@@ -1167,27 +1170,20 @@ ${urls.map(u => `  <url>
         timestamp: new Date().toISOString(),
       });
 
-      // Formatted alert to user's personal Telegram if they have set up their chat ID
+      // User's personal Telegram alert (fire & forget)
       if (user.telegramChatId) {
-        sendFormattedAlert(user.telegramChatId, serviceName, query, data);
+        sendFormattedAlert(user.telegramChatId, serviceName, query, data).catch(() => {});
       }
 
-      // Alert to ALL admins — includes who searched + full result
-      const { adminChatIds } = await getTelegramSettings();
-      if (adminChatIds.length) {
+      // Admin Telegram alerts (fire & forget — never block the response)
+      getTelegramSettings().then(({ adminChatIds }) => {
+        if (!adminChatIds.length) return;
         const userLabel = user.username || user.email || user.id;
         const prefix = `👤 <b>User:</b> <code>${userLabel}</code>\n🔎 <b>Service:</b> <code>${serviceName.toUpperCase()}</code>\n━━━━━━━━━━━━━━━━━━━━━━`;
-        console.log(`[Telegram] Sending admin alert to ${adminChatIds.length} admin(s): ${adminChatIds.join(", ")}`);
-        await Promise.all(
-          adminChatIds.map((adminId) =>
-            sendFormattedAlert(adminId, serviceName, query, data, prefix)
-              .then((ok) => console.log(`[Telegram] Admin alert to ${adminId}: ${ok ? "✓ sent" : "✗ failed"}`))
-              .catch((e) => console.error(`[Telegram] Admin alert to ${adminId} error:`, e.message))
-          )
+        adminChatIds.forEach((adminId) =>
+          sendFormattedAlert(adminId, serviceName, query, data, prefix).catch(() => {})
         );
-      }
-
-      res.json({ success: true, data });
+      }).catch(() => {});
     } catch (error) {
       console.error("Service Error:", error);
       res.status(500).json({ message: "Internal server error" });
