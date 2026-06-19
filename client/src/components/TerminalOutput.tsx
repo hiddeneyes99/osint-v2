@@ -243,6 +243,51 @@ function IpResult({ data }: { data: any }) {
   );
 }
 
+function VehicleResult({ data }: { data: any }) {
+  const na = (v: any) => (v && String(v).trim() && String(v).trim() !== "null" && String(v).trim() !== "undefined" ? String(v).trim() : null);
+  return (
+    <div className="space-y-3">
+      <SectionCard title="Owner Information">
+        <FieldRow icon={User} label="Owner Name" value={na(data.owner_name) ?? undefined} valueClass="text-white font-semibold" />
+        <FieldRow icon={UserCheck} label="Father Name" value={na(data.father_name) ?? undefined} />
+        <FieldRow icon={CreditCard} label="RC Number" value={na(data.registration_number) ?? undefined} valueClass="text-violet-300 font-semibold" mono />
+        <FieldRow icon={Building2} label="Registered RTO" value={na(data.registered_rto) ?? undefined} />
+        <FieldRow icon={Hash} label="Ownership Type" value={na(data.ownership_type) ?? undefined} />
+      </SectionCard>
+
+      <SectionCard title="Vehicle Specs">
+        <FieldRow icon={Activity} label="Make" value={na(data.maker) ?? undefined} />
+        <FieldRow icon={Activity} label="Model" value={na(data.model) ?? undefined} />
+        <FieldRow icon={FileText} label="Vehicle Class" value={na(data.vehicle_class) ?? undefined} />
+        <FieldRow icon={Wifi} label="Fuel Type" value={na(data.fuel_type) ?? undefined} />
+        <FieldRow icon={Hash} label="Chassis Number" value={na(data.chassis_number) ?? undefined} mono />
+        <FieldRow icon={Hash} label="Engine Number" value={na(data.engine_number) ?? undefined} mono />
+        <FieldRow icon={Hash} label="Cubic Capacity" value={na(data.cubic_capacity) ?? undefined} />
+        <FieldRow icon={User} label="Seating Capacity" value={na(data.seating_capacity) ?? undefined} />
+      </SectionCard>
+
+      <SectionCard title="Insurance & Validity">
+        <FieldRow icon={ShieldCheck} label="Insurance Company" value={na(data.insurance_company) ?? undefined} />
+        <FieldRow icon={FileText} label="Policy Number" value={na(data.insurance_number) ?? undefined} mono />
+        <FieldRow icon={Clock} label="Insurance Expiry" value={na(data.insurance_expiry) ?? undefined} valueClass={data.insurance_expiry ? "text-amber-300 font-semibold" : undefined} />
+        <FieldRow icon={Clock} label="Registration Date" value={na(data.registration_date) ?? undefined} />
+        <FieldRow icon={Clock} label="Vehicle Age" value={na(data.vehicle_age) ?? undefined} />
+        <FieldRow icon={Clock} label="Fitness Upto" value={na(data.fitness_upto) ?? undefined} />
+        <FieldRow icon={Clock} label="Tax Upto" value={na(data.tax_upto) ?? undefined} />
+        <FieldRow icon={Clock} label="PUC Upto" value={na(data.puc_upto) ?? undefined} />
+      </SectionCard>
+
+      {(data.rto_city || data.rto_code || data.rto_address) && (
+        <SectionCard title="RTO Details">
+          <FieldRow icon={Building2} label="RTO City" value={na(data.rto_city) ?? undefined} />
+          <FieldRow icon={Hash} label="RTO Code" value={na(data.rto_code) ?? undefined} mono />
+          <FieldRow icon={MapPin} label="RTO Address" value={na(data.rto_address) ?? undefined} />
+        </SectionCard>
+      )}
+    </div>
+  );
+}
+
 function GenericResult({ data }: { data: any }) {
   const skip = new Set([
     "credit", "API DEVELOPER", "api_developer", "query", "success", "status_code", "usage",
@@ -338,6 +383,9 @@ export function TerminalOutput({ data, title = "Results", className, isLoading }
     data?.source?.type === "mobile";
   const isIpResult =
     !isMobileResult && (data?.country || data?.countryCode || data?.isp);
+  const isVehicleResult =
+    !isMobileResult && !isIpResult &&
+    (data?.registration_number || data?.owner_name || data?.vehicle_info);
 
   return (
     <div
@@ -506,6 +554,29 @@ export function TerminalOutput({ data, title = "Results", className, isLoading }
                 </div>
               ) : isIpResult ? (
                 <IpResult data={data} />
+              ) : isVehicleResult ? (
+                <VehicleResult data={data?.vehicle_info ? (() => {
+                  const v = data.vehicle_info;
+                  const o = v.ownership || {};
+                  const s = v.vehicle_specs || {};
+                  const ins = v.insurance || {};
+                  const val = v.validity || {};
+                  const rto = v.rto_contact || {};
+                  return {
+                    registration_number: v.registration_number,
+                    owner_name: o.owner_name, father_name: o.father_name,
+                    registered_rto: o.registered_rto, ownership_type: o.owner_serial,
+                    maker: s.model_name, model: s.maker_model,
+                    vehicle_class: s.vehicle_class, fuel_type: s.fuel_type,
+                    chassis_number: s.chassis_number, engine_number: s.engine_number,
+                    seating_capacity: s.seating_capacity, cubic_capacity: s.cubic_capacity,
+                    insurance_company: ins.insurance_company, insurance_number: ins.insurance_number,
+                    insurance_expiry: ins.insurance_expiry,
+                    registration_date: val.registration_date, vehicle_age: val.vehicle_age,
+                    fitness_upto: val.fitness_upto, tax_upto: val.tax_upto, puc_upto: val.puc_upto,
+                    rto_city: rto.city, rto_code: rto.code, rto_address: rto.address,
+                  };
+                })() : data} />
               ) : (
                 <GenericResult data={data} />
               )}

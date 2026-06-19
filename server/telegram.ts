@@ -365,6 +365,63 @@ export function formatAadharAlert(query: string, data: any): string {
   return `${header}📊 Total Records: <b>${total}</b>\n${recordLines}${moreNote}\n\n⏰ ${formatTime()}${FOOTER}`;
 }
 
+export function formatVehicleAlert(query: string, data: any): string {
+  const header = `🔍 <b>VEHICLE LOOKUP RESULT</b>\n━━━━━━━━━━━━━━━━━━━━━━\n🚗 RC: <code>${query}</code>\n`;
+  const na = (v: any) => (v && String(v).trim() && String(v).trim() !== "null" && String(v).trim() !== "undefined" ? String(v).trim() : "N/A");
+
+  // Handles both normalizeVehicleResponse flat format and raw API shapes
+  const d = data?.vehicle_info ? (() => {
+    const v = data.vehicle_info;
+    const o = v.ownership || {};
+    const s = v.vehicle_specs || {};
+    const ins = v.insurance || {};
+    const val = v.validity || {};
+    const rto = v.rto_contact || {};
+    return {
+      registration_number: v.registration_number,
+      owner_name: o.owner_name, father_name: o.father_name,
+      registered_rto: o.registered_rto, ownership_type: o.owner_serial,
+      maker: s.model_name, model: s.maker_model,
+      vehicle_class: s.vehicle_class, fuel_type: s.fuel_type,
+      chassis_number: s.chassis_number, engine_number: s.engine_number,
+      insurance_company: ins.insurance_company, insurance_expiry: ins.insurance_expiry,
+      registration_date: val.registration_date, vehicle_age: val.vehicle_age,
+      fitness_upto: val.fitness_upto, tax_upto: val.tax_upto, puc_upto: val.puc_upto,
+      rto_city: rto.city, rto_address: rto.address,
+    };
+  })() : data;
+
+  if (!d || (!d.owner_name && !d.registration_number)) {
+    return `${header}\n❌ <b>NOT FOUND</b>\nNo records available for this vehicle.\n\n⏰ ${formatTime()}${FOOTER}`;
+  }
+
+  return `${header}
+✅ <b>FOUND</b>
+
+👤 Owner:           ${na(d.owner_name)}
+👨 Father:          ${na(d.father_name)}
+🏷 RC Number:       ${na(d.registration_number)}
+🏢 Registered RTO:  ${na(d.registered_rto)}
+
+🚘 Make / Model:    ${na(d.maker)} / ${na(d.model)}
+🚗 Vehicle Class:   ${na(d.vehicle_class)}
+⛽ Fuel Type:       ${na(d.fuel_type)}
+🔩 Chassis No:      ${na(d.chassis_number)}
+🔧 Engine No:       ${na(d.engine_number)}
+
+🛡 Insurance Co:    ${na(d.insurance_company)}
+📅 Ins. Expiry:     ${na(d.insurance_expiry)}
+📋 Reg. Date:       ${na(d.registration_date)}
+🎂 Vehicle Age:     ${na(d.vehicle_age)}
+💪 Fitness Upto:    ${na(d.fitness_upto)}
+💰 Tax Upto:        ${na(d.tax_upto)}
+🌿 PUC Upto:        ${na(d.puc_upto)}
+
+📍 RTO City:        ${na(d.rto_city)}
+
+⏰ ${formatTime()}${FOOTER}`;
+}
+
 export async function sendFormattedAlert(
   chatId: string,
   serviceName: string,
@@ -384,6 +441,8 @@ export async function sendFormattedAlert(
     text = formatEmailAlert(query, data);
   } else if (serviceName === "aadhar") {
     text = formatAadharAlert(query, data);
+  } else if (serviceName === "vehicle") {
+    text = formatVehicleAlert(query, data);
   } else {
     text = `🔍 <b>${serviceName.toUpperCase()} LOOKUP RESULT</b>\n━━━━━━━━━━━━━━━━━━━━━━\n🔎 Query: <code>${query}</code>\n\n❓ No formatter for this service.\n\n⏰ ${formatTime()}${FOOTER}`;
   }
