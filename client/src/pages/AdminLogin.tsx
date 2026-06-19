@@ -9,7 +9,7 @@ import {
   Activity, FileText, Gauge, MessageSquare, LogIn, TrendingUp, Zap,
   Wifi, WifiOff, Send, StickyNote, Clock, Bot, Plus, X, ChevronDown,
   Power, Smartphone, Car, Globe, Mail, ToggleLeft, ToggleRight,
-  Bell, MonitorPlay
+  Bell, MonitorPlay, Menu
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect, useRef } from "react";
@@ -33,6 +33,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export default function AdminLogin() {
   const [, setLocation] = useLocation();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -789,7 +790,65 @@ export default function AdminLogin() {
       <div className="fixed bottom-0 right-0 w-[400px] h-[400px] rounded-full opacity-10 pointer-events-none"
         style={{ background: "radial-gradient(circle, rgba(168,85,247,0.5) 0%, transparent 70%)", filter: "blur(80px)" }} />
 
-      {/* ── SIDEBAR ── */}
+      {/* ── MOBILE SIDEBAR OVERLAY ── */}
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 z-[200] lg:hidden" onClick={() => setMobileSidebarOpen(false)}>
+          <div className="absolute inset-0 bg-black/70" />
+          <aside
+            className="absolute left-0 top-0 h-full w-[260px] flex flex-col z-10"
+            style={{ background: "rgba(9,5,26,0.99)", borderRight: "1px solid rgba(255,255,255,0.06)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
+            <div className="flex items-center justify-between px-4 py-5 border-b border-white/[0.05]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center"
+                  style={{ boxShadow: "0 0 14px rgba(139,92,246,0.3)" }}>
+                  <ShieldCheck className="w-4 h-4 text-violet-400" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-white">TWH_OSINT</div>
+                  <div className="text-[9px] text-violet-400/60 uppercase tracking-widest">Admin Console</div>
+                </div>
+              </div>
+              <button onClick={() => setMobileSidebarOpen(false)} className="p-1.5 rounded-lg text-white/40 hover:text-white/70">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+              {([
+                { icon: <Activity className="w-3.5 h-3.5" />, label: "Dashboard", section: "dashboard", action: () => { setActiveSection("dashboard"); setSelectedUserForDetail(null); setMobileSidebarOpen(false); } },
+                { icon: <Users className="w-3.5 h-3.5" />, label: "Users", section: "users", action: () => { setActiveSection("users"); setSelectedUserForDetail(null); setMobileSidebarOpen(false); } },
+                { icon: <Terminal className="w-3.5 h-3.5" />, label: "Queries", section: "logs", action: () => { setActiveSection("logs"); setSelectedUserForDetail(null); setMobileSidebarOpen(false); } },
+                { icon: <ShieldAlert className="w-3.5 h-3.5" />, label: "IP Management", section: null, action: () => { setIsIpBlockedOpen(true); setMobileSidebarOpen(false); } },
+                { icon: <Bot className="w-3.5 h-3.5" />, label: "Telegram", section: null, action: () => { setIsTelegramOpen(true); setMobileSidebarOpen(false); } },
+                { icon: <Megaphone className="w-3.5 h-3.5" />, label: "Broadcasts", section: null, action: () => { setIsBroadcastOpen(true); setMobileSidebarOpen(false); } },
+                { icon: <Bell className="w-3.5 h-3.5" />, label: "Notify All", section: null, action: () => { setIsBroadcastNotifOpen(true); setMobileSidebarOpen(false); } },
+                { icon: <MonitorPlay className="w-3.5 h-3.5" />, label: "Ads Manager", section: "ads", action: () => { setActiveSection("ads"); setSelectedUserForDetail(null); setMobileSidebarOpen(false); } },
+                { icon: <ShieldCheck className="w-3.5 h-3.5" />, label: "Protected", section: null, action: () => { setIsProtectedModalOpen(true); setMobileSidebarOpen(false); } },
+                { icon: <Ban className="w-3.5 h-3.5" />, label: "Blocked Users", section: null, action: () => { setIsBlockedUsersOpen(true); setMobileSidebarOpen(false); } },
+                { icon: <TrendingUp className="w-3.5 h-3.5" />, label: "Reports", section: "reports", action: () => { setActiveSection("reports"); setSelectedUserForDetail(null); setMobileSidebarOpen(false); } },
+                { icon: <FileText className="w-3.5 h-3.5" />, label: "Logs", section: "logs", action: () => { setActiveSection("logs"); setSelectedUserForDetail(null); setMobileSidebarOpen(false); } },
+                { icon: <Power className="w-3.5 h-3.5" />, label: "Services", section: "services", action: () => { setActiveSection("services"); setSelectedUserForDetail(null); setMobileSidebarOpen(false); } },
+              ] as const).map(({ icon, label, section, action }) => {
+                const isActive = section !== null && activeSection === section;
+                return (
+                  <button key={label} onClick={action}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs transition-all text-left ${
+                      isActive ? "bg-violet-600/20 text-violet-300 border border-violet-500/30"
+                               : "text-white/40 hover:text-white/70 hover:bg-white/[0.04] border border-transparent"
+                    }`}>
+                    <span className={isActive ? "text-violet-400" : "text-white/25"}>{icon}</span>
+                    {label}
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
+        </div>
+      )}
+
+      {/* ── SIDEBAR (desktop only) ── */}
       <aside className="hidden lg:flex w-[220px] shrink-0 flex-col border-r border-white/[0.05] fixed left-0 top-0 h-full z-20"
         style={{ background: "rgba(9,5,26,0.97)", backdropFilter: "blur(20px)" }}>
         <div className="h-px w-full bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
@@ -847,7 +906,29 @@ export default function AdminLogin() {
 
       {/* ── MAIN CONTENT ── */}
       <div className="flex-1 overflow-auto min-w-0 lg:ml-[220px]">
-        <div className="max-w-6xl mx-auto p-6 sm:p-10 space-y-8 relative">
+
+        {/* Mobile top bar — hamburger menu */}
+        <div className="flex lg:hidden items-center justify-between px-4 py-3 border-b border-white/[0.06] sticky top-0 z-10"
+          style={{ background: "rgba(9,5,26,0.98)", backdropFilter: "blur(12px)" }}>
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-violet-400" />
+            <span className="text-sm font-bold text-white">Admin Console</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-violet-300 uppercase tracking-widest px-2 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30">
+              {activeSection}
+            </span>
+            <button
+              onClick={() => setMobileSidebarOpen(true)}
+              className="p-2 rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/60 hover:text-white active:scale-95 transition-all"
+              style={{ touchAction: "manipulation" }}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-10 space-y-8 relative">
 
           {/* ── HEADER ── */}
           <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-8 border-b border-white/[0.08]">
