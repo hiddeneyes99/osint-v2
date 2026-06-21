@@ -106,9 +106,10 @@ export default function AdminLogin() {
     },
   });
 
-  const { data: users } = useQuery<(User & { queryCount?: number })[]>({
+  const { data: users, refetch: refetchUsers } = useQuery<(User & { queryCount?: number })[]>({
     queryKey: ["/api/admin/users"],
     enabled: isLoggedIn,
+    staleTime: 0,
   });
 
   const { data: adminStats, refetch: refetchStats } = useQuery<{
@@ -121,6 +122,7 @@ export default function AdminLogin() {
   }>({
     queryKey: ["/api/admin/stats"],
     enabled: isLoggedIn,
+    staleTime: 0,
   });
 
   const { data: protectedNumbersList, refetch: refetchProtected } = useQuery<string[]>({
@@ -226,6 +228,7 @@ export default function AdminLogin() {
   const { data: chartData = [], refetch: refetchCharts } = useQuery<Array<{ date: string; mobile: number; aadhar: number; vehicle: number; ip: number; total: number }>>({
     queryKey: ["/api/admin/stats/charts", chartDays],
     enabled: isLoggedIn,
+    staleTime: 0,
     queryFn: async () => {
       const adminToken = localStorage.getItem("adminToken");
       const res = await fetch(`/api/admin/stats/charts?days=${chartDays}`, {
@@ -295,6 +298,7 @@ export default function AdminLogin() {
   const { data: liveFeedData, isLoading: isLiveFeedLoading, refetch: refetchLiveFeed } = useQuery<Array<{ service: string; query: string; username: string; timestamp: string }>>({
     queryKey: ["/api/admin/live-feed"],
     enabled: isLoggedIn,
+    staleTime: 0,
   });
 
   useEffect(() => {
@@ -939,7 +943,13 @@ export default function AdminLogin() {
                   : <><span>📤</span> Export CSV</>}
               </button>
               <button
-                onClick={() => queryClient.invalidateQueries()}
+                onClick={() => {
+                  refetchUsers();
+                  refetchStats();
+                  refetchLiveFeed();
+                  refetchCharts();
+                  refetchBroadcasts();
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] text-white/50 hover:text-white hover:bg-white/[0.08] text-xs transition-all"
               >
                 <RefreshCw className="w-3.5 h-3.5" /> Refresh

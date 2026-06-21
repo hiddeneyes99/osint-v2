@@ -145,6 +145,11 @@ app.use((req, res, next) => {
   // exported to Telegram as CSV + summary, then deleted from the DB.
   // A lastCleanupDate guard ensures it runs only once per day even if the
   // server restarts multiple times.
+  // IMPORTANT: Skip cleanup in development — Vercel Cron handles it in production.
+  // Running cleanup in dev would wipe the shared Supabase (production) DB!
+  if (process.env.NODE_ENV === "development") {
+    log("[cleanup] Dev mode — scheduled cleanup disabled (Vercel Cron handles this)", "cleanup");
+  } else {
 
   let lastCleanupDate: string | null = null;
 
@@ -191,4 +196,6 @@ app.use((req, res, next) => {
   setInterval(runScheduledCleanup, 60 * 60 * 1000);
   // Also check shortly after startup (in case server was down on a cleanup day)
   setTimeout(runScheduledCleanup, 15_000);
+
+  } // end: NODE_ENV !== "development"
 })();
