@@ -1,8 +1,7 @@
-import type { Request, Response } from "express";
 import { storage } from "../../server/storage";
 import { sendCleanupReport } from "../../server/telegram";
 
-export default async function handler(req: Request, res: Response) {
+export default async function handler(req: any, res: any) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
