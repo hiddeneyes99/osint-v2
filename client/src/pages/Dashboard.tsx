@@ -67,15 +67,12 @@ import sirenSound from "@assets/siren_1768712570112_1780125705439.mp3";
 import { AdOverlay } from "@/components/AdOverlay";
 
 function ServiceComingSoon({ emoji, tileClass, label, reason }: { emoji: string; tileClass: string; label: string; reason?: string }) {
-  const isDisabled = !!reason;
   return (
     <CyberCard className="flex flex-col items-center justify-center py-20 text-center">
       <div className={`icon3d ${tileClass} w-16 h-16 rounded-2xl mb-5`}>
         <span className="e text-3xl select-none">{emoji}</span>
       </div>
-      <h2 className="text-lg font-semibold text-white mb-1.5">
-        {isDisabled ? `${label} Unavailable` : `${label} Coming Soon`}
-      </h2>
+      <h2 className="text-lg font-semibold text-white mb-1.5">{label} Coming Soon</h2>
       <p className="text-white/40 text-sm mb-6 max-w-xs leading-relaxed">
         {reason || "Coming soon — module under development"}
       </p>
