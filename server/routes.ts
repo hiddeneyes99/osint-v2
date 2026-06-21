@@ -62,6 +62,19 @@ async function getServiceConfig(): Promise<Record<string, boolean>> {
   return data;
 }
 
+let serviceReasonsCache: { data: Record<string, string>; ts: number } | null = null;
+const SERVICE_REASONS_TTL = 15_000;
+
+async function getServiceReasons(): Promise<Record<string, string>> {
+  if (serviceReasonsCache && Date.now() - serviceReasonsCache.ts < SERVICE_REASONS_TTL) {
+    return serviceReasonsCache.data;
+  }
+  const raw = await storage.getPlatformSetting("service_reasons");
+  const data: Record<string, string> = raw ? JSON.parse(raw) : {};
+  serviceReasonsCache = { data, ts: Date.now() };
+  return data;
+}
+
 // ── SERVICE AVAILABILITY (COMING SOON) CACHE ─────────────────────────────────
 let serviceAvailabilityCache: { data: Record<string, boolean>; ts: number } | null = null;
 const AVAILABILITY_TTL = 5_000; // 5 s — bust immediately on admin change
@@ -1132,7 +1145,12 @@ ${urls.map(u => `  <url>
       const svcCfg = await getServiceConfig();
       if (svcCfg[serviceName] === false) {
         const name = serviceName.charAt(0).toUpperCase() + serviceName.slice(1);
-        return res.status(503).json({ message: `${name} service is currently disabled. Contact admin for access.` });
+        const reasons = await getServiceReasons();
+        const customReason = reasons[serviceName];
+        const message = customReason
+          ? customReason
+          : `${name} service is currently disabled. Contact admin for access.`;
+        return res.status(503).json({ message });
       }
 
       // Daily rate limit check
@@ -1321,14 +1339,16 @@ ${urls.map(u => `  <url>
     }
 
     const svcCfg = await getServiceConfig();
+    const reasons = await getServiceReasons();
     const toStatus = (key: string): string => svcCfg[key] === false ? "down" : "up";
 
-    const data: Record<string, string> = {
+    const data: Record<string, any> = {
       mobile:  toStatus("mobile"),
       aadhar:  toStatus("aadhar"),
       email:   toStatus("email"),
       ip:      toStatus("ip"),
       vehicle: toStatus("vehicle"),
+      reasons,
       checkedAt: new Date().toISOString(),
     };
 
@@ -1719,11 +1739,12 @@ ${urls.map(u => `  <url>
   app.get("/api/admin/services", requireAdminSession, async (_req, res) => {
     const raw = await storage.getPlatformSetting("service_config");
     const config: Record<string, boolean> = raw ? JSON.parse(raw) : {};
-    res.json(config);
+    const reasons = await getServiceReasons();
+    res.json({ ...config, _reasons: reasons });
   });
 
   app.post("/api/admin/services", requireAdminSession, async (req, res) => {
-    const { service, enabled } = req.body;
+    const { service, enabled, reason } = req.body;
     if (!service || typeof enabled !== "boolean") {
       return res.status(400).json({ message: "Invalid params" });
     }
@@ -1737,14 +1758,39 @@ ${urls.map(u => `  <url>
     config[service] = enabled;
     await storage.setPlatformSetting("service_config", JSON.stringify(config));
 
-    serviceConfigCache = null;  // bust config cache — next read gets fresh DB value
-    serviceStatusCache = null;  // bust status cache — dashboard gets new status instantly
+    // Save or clear reason
+    const rawReasons = await storage.getPlatformSetting("service_reasons");
+    const reasons: Record<string, string> = rawReasons ? JSON.parse(rawReasons) : {};
+    if (!enabled && reason !== undefined) {
+      reasons[service] = reason || "";
+    } else if (enabled) {
+      delete reasons[service];
+    }
+    await storage.setPlatformSetting("service_reasons", JSON.stringify(reasons));
+
+    serviceConfigCache = null;
+    serviceReasonsCache = null;
+    serviceStatusCache = null;
 
     console.log(
-      `[ServiceSync] service=${service} | prev=${prevStatus} | new=${newStatus} | action=${enabled ? "ENABLED" : "DISABLED"} | dashboardSync=instant`
+      `[ServiceSync] service=${service} | prev=${prevStatus} | new=${newStatus} | action=${enabled ? "ENABLED" : "DISABLED"} | reason=${reason || ""}`
     );
 
     res.json({ success: true, config });
+  });
+
+  app.post("/api/admin/service-reason", requireAdminSession, async (req, res) => {
+    const { service, reason } = req.body;
+    if (!service || typeof reason !== "string") {
+      return res.status(400).json({ message: "Invalid params" });
+    }
+    const rawReasons = await storage.getPlatformSetting("service_reasons");
+    const reasons: Record<string, string> = rawReasons ? JSON.parse(rawReasons) : {};
+    reasons[service] = reason;
+    await storage.setPlatformSetting("service_reasons", JSON.stringify(reasons));
+    serviceReasonsCache = null;
+    serviceStatusCache = null;
+    res.json({ success: true });
   });
 
   // ── SERVICE AVAILABILITY MANAGEMENT ─────────────────────────────────────────

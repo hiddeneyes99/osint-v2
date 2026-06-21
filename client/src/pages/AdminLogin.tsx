@@ -91,6 +91,7 @@ export default function AdminLogin() {
   const [tgBroadcastButtons, setTgBroadcastButtons] = useState<Array<{ label: string; url: string }>>([]);
   const [tgBroadcastMediaUrl, setTgBroadcastMediaUrl] = useState("");
   const [tgBroadcastMediaType, setTgBroadcastMediaType] = useState("IMAGE");
+  const [serviceReasonDraft, setServiceReasonDraft] = useState<Record<string, string>>({});
   const [tgManualUserId, setTgManualUserId] = useState("");
   const [tgManualChatId, setTgManualChatId] = useState("");
 
@@ -569,21 +570,44 @@ export default function AdminLogin() {
   });
 
   const toggleServiceMutation = useMutation({
-    mutationFn: async ({ service, enabled }: { service: string; enabled: boolean }) => {
+    mutationFn: async ({ service, enabled, reason }: { service: string; enabled: boolean; reason?: string }) => {
       const adminToken = localStorage.getItem("adminToken");
       const res = await fetch("/api/admin/services", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(adminToken ? { "X-Admin-Token": adminToken } : {}) },
         credentials: "include",
-        body: JSON.stringify({ service, enabled }),
+        body: JSON.stringify({ service, enabled, reason }),
       });
       if (!res.ok) throw new Error("Failed to update service");
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      refetchServiceConfig();
+      queryClient.invalidateQueries({ queryKey: ["/api/services/status"] });
+      if (variables.enabled) {
+        setServiceReasonDraft(prev => { const n = { ...prev }; delete n[variables.service]; return n; });
+      }
+      toast({ title: `Service ${variables.enabled ? "enabled" : "disabled"}` });
+    },
+    onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
+  });
+
+  const saveServiceReasonMutation = useMutation({
+    mutationFn: async ({ service, reason }: { service: string; reason: string }) => {
+      const adminToken = localStorage.getItem("adminToken");
+      const res = await fetch("/api/admin/service-reason", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(adminToken ? { "X-Admin-Token": adminToken } : {}) },
+        credentials: "include",
+        body: JSON.stringify({ service, reason }),
+      });
+      if (!res.ok) throw new Error("Failed to save reason");
       return res.json();
     },
     onSuccess: () => {
       refetchServiceConfig();
       queryClient.invalidateQueries({ queryKey: ["/api/services/status"] });
-      toast({ title: "Service status updated" });
+      toast({ title: "Reason saved" });
     },
     onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
   });
@@ -1652,15 +1676,19 @@ export default function AdminLogin() {
                     { key: "ip",      label: "IP Trace",       desc: "IP address geolocation & ISP info",  icon: <Globe className="w-4 h-4" /> },
                     { key: "vehicle", label: "Vehicle Search", desc: "Vehicle registration lookup",        icon: <Car className="w-4 h-4" /> },
                   ] as { key: string; label: string; desc: string; icon: React.ReactNode }[]).map(({ key, label, desc, icon }) => {
-                    const enabled = (serviceConfig as Record<string, boolean>)[key] !== false;
+                    const cfg = serviceConfig as Record<string, any>;
+                    const enabled = cfg[key] !== false;
+                    const savedReason: string = cfg._reasons?.[key] || "";
+                    const draftReason = serviceReasonDraft[key] ?? savedReason;
                     const pending = toggleServiceMutation.isPending && (toggleServiceMutation.variables as any)?.service === key;
+                    const savingReason = saveServiceReasonMutation.isPending && (saveServiceReasonMutation.variables as any)?.service === key;
                     return (
-                      <div key={key} className="rounded-xl p-4 transition-all"
+                      <div key={key} className="rounded-xl p-4 transition-all flex flex-col gap-3"
                         style={{
                           background: enabled ? "rgba(16,185,129,0.06)" : "rgba(239,68,68,0.05)",
                           border: `1px solid ${enabled ? "rgba(16,185,129,0.22)" : "rgba(239,68,68,0.18)"}`,
                         }}>
-                        <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-start justify-between">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                               style={{
@@ -1683,8 +1711,40 @@ export default function AdminLogin() {
                             {enabled ? "ACTIVE" : "INACTIVE"}
                           </span>
                         </div>
+
+                        {/* Reason input — shown when disabled OR as pre-fill before disabling */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[9px] uppercase tracking-widest font-semibold"
+                            style={{ color: enabled ? "rgba(255,255,255,0.2)" : "rgba(248,113,113,0.7)" }}>
+                            {enabled ? "Disable Reason (optional)" : "Reason shown to users"}
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={draftReason}
+                            onChange={e => setServiceReasonDraft(prev => ({ ...prev, [key]: e.target.value }))}
+                            placeholder={enabled ? "Type reason before disabling…" : "No reason set — default message shown"}
+                            className="w-full rounded-lg px-2.5 py-2 text-[11px] resize-none outline-none transition-all"
+                            style={{
+                              background: enabled ? "rgba(255,255,255,0.03)" : "rgba(239,68,68,0.06)",
+                              border: `1px solid ${enabled ? "rgba(255,255,255,0.08)" : "rgba(239,68,68,0.2)"}`,
+                              color: enabled ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.75)",
+                            }}
+                          />
+                          {/* Save reason button — only shown when service is already disabled */}
+                          {!enabled && (
+                            <button
+                              onClick={() => saveServiceReasonMutation.mutate({ service: key, reason: draftReason })}
+                              disabled={savingReason || draftReason === savedReason}
+                              className="self-end text-[9px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider transition-all disabled:opacity-40"
+                              style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "rgba(196,181,253,0.9)" }}
+                            >
+                              {savingReason ? "Saving…" : "Save Reason"}
+                            </button>
+                          )}
+                        </div>
+
                         <button
-                          onClick={() => toggleServiceMutation.mutate({ service: key, enabled: !enabled })}
+                          onClick={() => toggleServiceMutation.mutate({ service: key, enabled: !enabled, reason: !enabled ? undefined : draftReason })}
                           disabled={pending}
                           className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all disabled:opacity-50"
                           style={enabled

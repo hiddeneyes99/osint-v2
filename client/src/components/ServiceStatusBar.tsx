@@ -18,13 +18,15 @@ const STATUS_STYLES: Record<string, { label: string; dot: string; text: string }
 };
 
 export function ServiceStatusBar() {
-  const { data, isLoading, refetch, isFetching } = useQuery<Record<string, string>>({
+  const { data, isLoading, refetch, isFetching } = useQuery<Record<string, any>>({
     queryKey: ["/api/services/status"],
     refetchInterval: 5 * 1000,
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
   });
+
+  const reasons: Record<string, string> = data?.reasons || {};
 
   return (
     <div
@@ -40,9 +42,10 @@ export function ServiceStatusBar() {
         {SERVICES.map(({ key, label, icon: Icon }) => {
           const status = isLoading ? null : (data?.[key] ?? "down");
           const style = status ? (STATUS_STYLES[status] ?? STATUS_STYLES.down) : null;
+          const reason = status === "down" ? (reasons[key] || "") : "";
 
           return (
-            <div key={key} className="flex items-center gap-1 sm:gap-1.5">
+            <div key={key} className="flex items-center gap-1 sm:gap-1.5 relative group">
               <Icon size={10} className="text-violet-400/60 shrink-0" />
               <span className="text-[9px] sm:text-[10px] text-white/45 font-medium hidden sm:inline">
                 {label}
@@ -68,6 +71,23 @@ export function ServiceStatusBar() {
                   {style?.label ?? "..."}
                 </span>
               </span>
+
+              {/* Reason tooltip — only when service is down and reason exists */}
+              {status === "down" && reason && (
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 hidden group-hover:block pointer-events-none">
+                  <div className="rounded-lg px-2.5 py-1.5 text-[10px] leading-relaxed max-w-[180px] text-center whitespace-pre-wrap"
+                    style={{
+                      background: "rgba(9,5,26,0.96)",
+                      border: "1px solid rgba(239,68,68,0.3)",
+                      color: "rgba(252,165,165,0.9)",
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+                    }}>
+                    {reason}
+                  </div>
+                  <div className="w-2 h-2 rotate-45 mx-auto -mt-1"
+                    style={{ background: "rgba(9,5,26,0.96)", borderRight: "1px solid rgba(239,68,68,0.3)", borderBottom: "1px solid rgba(239,68,68,0.3)" }} />
+                </div>
+              )}
             </div>
           );
         })}
