@@ -1793,6 +1793,24 @@ ${urls.map(u => `  <url>
     }
   });
 
+  // Live feed endpoint — polling-based replacement for WebSocket (works on Vercel serverless)
+  app.get("/api/admin/live-feed", requireAdminSession, async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string || "60"), 100);
+      const logs = await storage.getAllRequestLogs(limit);
+      const feed = logs.map((log: any) => ({
+        service: log.service,
+        query: log.query,
+        username: log.username || log.email || "Unknown",
+        timestamp: log.createdAt ? new Date(log.createdAt).toISOString() : new Date().toISOString(),
+        userId: log.userId,
+      }));
+      res.json(feed);
+    } catch {
+      res.json([]);
+    }
+  });
+
   app.get("/api/admin/stats/charts", requireAdminSession, async (req, res) => {
     const days = parseInt(req.query.days as string) || 7;
     const data = await storage.getQueryChartData(Math.min(days, 30));

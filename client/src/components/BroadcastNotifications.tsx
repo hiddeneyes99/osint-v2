@@ -126,40 +126,10 @@ export function BroadcastNotifications() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalIdx, setModalIdx] = useState(0);
   const [viewingId, setViewingId] = useState<number | null>(null);
-  const esRef = useRef<EventSource | null>(null);
-
   const { data: broadcasts = [] } = useQuery<any[]>({
     queryKey: ["/api/broadcasts"],
-    refetchInterval: 15000,
+    refetchInterval: 10000,
   });
-
-  useEffect(() => {
-    let es: EventSource;
-    const connect = () => {
-      es = new EventSource("/api/broadcasts/stream");
-      esRef.current = es;
-      es.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data.type === "broadcast_new") {
-            queryClient.setQueryData(["/api/broadcasts"], (old: any[] = []) => {
-              if (old.find((b: any) => b.id === data.broadcast.id)) return old;
-              return [...old, data.broadcast];
-            });
-          } else if (data.type === "broadcast_removed") {
-            queryClient.setQueryData(["/api/broadcasts"], (old: any[] = []) =>
-              old.filter((b: any) => b.id !== data.id)
-            );
-            setDismissed(prev => { const n = new Set(prev); n.delete(data.id); return n; });
-            setExpanded(prev => { const n = new Set(prev); n.delete(data.id); return n; });
-          }
-        } catch {}
-      };
-      es.onerror = () => {};
-    };
-    connect();
-    return () => { esRef.current?.close(); };
-  }, []);
 
   const prevBroadcastIdsRef = useRef<Set<number>>(new Set());
   useEffect(() => {

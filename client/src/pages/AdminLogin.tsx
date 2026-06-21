@@ -54,7 +54,6 @@ export default function AdminLogin() {
   const [userDetailTab, setUserDetailTab] = useState("history");
 
   // Live feed & charts
-  const wsRef = useRef<WebSocket | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
   const [liveFeed, setLiveFeed] = useState<Array<{ service: string; query: string; username: string; timestamp: string }>>([]);
   const [wsConnected, setWsConnected] = useState(false);
@@ -296,29 +295,18 @@ export default function AdminLogin() {
     });
   }, []);
 
-  // WebSocket for live feed
+  // Polling-based live feed (replaces WebSocket — works on Vercel serverless)
+  const { data: liveFeedData } = useQuery<Array<{ service: string; query: string; username: string; timestamp: string }>>({
+    queryKey: ["/api/admin/live-feed"],
+    enabled: isLoggedIn,
+    refetchInterval: 5000,
+  });
+
   useEffect(() => {
-    if (!isLoggedIn) return;
-    const connect = () => {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const ws = new WebSocket(`${protocol}//${window.location.host}/ws/admin-feed`);
-      wsRef.current = ws;
-      ws.onopen = () => setWsConnected(true);
-      ws.onclose = () => { setWsConnected(false); setTimeout(connect, 3000); };
-      ws.onerror = () => ws.close();
-      ws.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          setLiveFeed(prev => [data, ...prev].slice(0, 60));
-          setTimeout(() => {
-            if (feedRef.current) feedRef.current.scrollTop = 0;
-          }, 50);
-        } catch (_) {}
-      };
-    };
-    connect();
-    return () => { wsRef.current?.close(); };
-  }, [isLoggedIn]);
+    if (!liveFeedData) return;
+    setLiveFeed(liveFeedData.slice(0, 60));
+    setWsConnected(true);
+  }, [liveFeedData]);
 
   const addNoteMutation = useMutation({
     mutationFn: async ({ userId, note }: { userId: string; note: string }) => {
