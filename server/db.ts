@@ -1,4 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
+// @ts-ignore — @types/pg not needed at runtime; esbuild handles transpilation
 import pg from "pg";
 import * as schema from "@shared/schema";
 
