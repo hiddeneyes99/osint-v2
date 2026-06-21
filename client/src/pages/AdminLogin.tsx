@@ -7,7 +7,7 @@ import {
   Users, ShieldCheck, Ban, ArrowLeft, Search, RefreshCw,
   History as HistoryIcon, Terminal, Lock, ShieldAlert, Megaphone, Trash2,
   Activity, FileText, Gauge, MessageSquare, LogIn, TrendingUp, Zap,
-  Wifi, WifiOff, Send, StickyNote, Clock, Bot, Plus, X, ChevronDown,
+  Send, StickyNote, Clock, Bot, Plus, X, ChevronDown,
   Power, Smartphone, Car, Globe, Mail, ToggleLeft, ToggleRight,
   Bell, MonitorPlay, Menu
 } from "lucide-react";
@@ -56,7 +56,6 @@ export default function AdminLogin() {
   // Live feed & charts
   const feedRef = useRef<HTMLDivElement>(null);
   const [liveFeed, setLiveFeed] = useState<Array<{ service: string; query: string; username: string; timestamp: string }>>([]);
-  const [wsConnected, setWsConnected] = useState(false);
   const [chartDays, setChartDays] = useState(7);
 
   // User management extras
@@ -112,7 +111,7 @@ export default function AdminLogin() {
     enabled: isLoggedIn,
   });
 
-  const { data: adminStats } = useQuery<{
+  const { data: adminStats, refetch: refetchStats } = useQuery<{
     totalUsers: number;
     blockedUsers: number;
     ipBlockedUsers: number;
@@ -122,7 +121,6 @@ export default function AdminLogin() {
   }>({
     queryKey: ["/api/admin/stats"],
     enabled: isLoggedIn,
-    refetchInterval: 10000,
   });
 
   const { data: protectedNumbersList, refetch: refetchProtected } = useQuery<string[]>({
@@ -225,10 +223,9 @@ export default function AdminLogin() {
     enabled: !!selectedUserHistory && isLoggedIn,
   });
 
-  const { data: chartData = [] } = useQuery<Array<{ date: string; mobile: number; aadhar: number; vehicle: number; ip: number; total: number }>>({
+  const { data: chartData = [], refetch: refetchCharts } = useQuery<Array<{ date: string; mobile: number; aadhar: number; vehicle: number; ip: number; total: number }>>({
     queryKey: ["/api/admin/stats/charts", chartDays],
     enabled: isLoggedIn,
-    refetchInterval: 30000,
     queryFn: async () => {
       const adminToken = localStorage.getItem("adminToken");
       const res = await fetch(`/api/admin/stats/charts?days=${chartDays}`, {
@@ -240,13 +237,12 @@ export default function AdminLogin() {
     },
   });
 
-  const { data: allLogs = [], isLoading: isLoadingAllLogs } = useQuery<Array<{
+  const { data: allLogs = [], isLoading: isLoadingAllLogs, refetch: refetchLogs } = useQuery<Array<{
     id: number; userId: string; service: string; query: string; status: string | null;
     result: any; createdAt: string | null; username: string | null; email: string | null;
   }>>({
     queryKey: ["/api/admin/logs"],
     enabled: isLoggedIn && activeSection === "logs",
-    refetchInterval: 15000,
   });
 
   const { data: detailHistory = [], isLoading: isLoadingDetailHistory } = useQuery<RequestLog[]>({
@@ -295,17 +291,15 @@ export default function AdminLogin() {
     });
   }, []);
 
-  // Polling-based live feed (replaces WebSocket — works on Vercel serverless)
-  const { data: liveFeedData } = useQuery<Array<{ service: string; query: string; username: string; timestamp: string }>>({
+  // Live feed — fetch from DB on login/manual refresh only (no auto-polling)
+  const { data: liveFeedData, isLoading: isLiveFeedLoading, refetch: refetchLiveFeed } = useQuery<Array<{ service: string; query: string; username: string; timestamp: string }>>({
     queryKey: ["/api/admin/live-feed"],
     enabled: isLoggedIn,
-    refetchInterval: 5000,
   });
 
   useEffect(() => {
     if (!liveFeedData) return;
     setLiveFeed(liveFeedData.slice(0, 60));
-    setWsConnected(true);
   }, [liveFeedData]);
 
   const addNoteMutation = useMutation({
@@ -1105,20 +1099,25 @@ export default function AdminLogin() {
                 style={{ borderColor: "rgba(139,92,246,0.15)", background: "linear-gradient(90deg, rgba(139,92,246,0.1) 0%, rgba(139,92,246,0.03) 60%, transparent 100%)" }}>
                 <div className="flex items-center gap-2.5">
                   <div className="relative">
-                    <div className={`w-2.5 h-2.5 rounded-full ${wsConnected ? "bg-violet-400" : "bg-white/20"}`}
-                      style={wsConnected ? { boxShadow: "0 0 8px rgba(139,92,246,1), 0 0 16px rgba(139,92,246,0.5)" } : {}} />
-                    {wsConnected && <div className="absolute inset-0 rounded-full bg-violet-400/30 animate-ping" />}
+                    <div className="w-2.5 h-2.5 rounded-full bg-violet-400"
+                      style={{ boxShadow: "0 0 8px rgba(139,92,246,1), 0 0 16px rgba(139,92,246,0.5)" }} />
                   </div>
                   <span className="text-[11px] uppercase tracking-widest font-bold"
                     style={{ color: "rgba(196,181,253,0.9)", textShadow: "0 0 12px rgba(139,92,246,0.6)" }}>Live Query Feed</span>
-                  {wsConnected
-                    ? <Wifi className="w-3 h-3" style={{ color: "rgba(139,92,246,0.7)" }} />
-                    : <WifiOff className="w-3 h-3 text-white/20" />}
                 </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
-                  style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.25)" }}>
-                  <div className="w-1 h-1 rounded-full bg-violet-400 animate-pulse" />
-                  <span className="text-[9px] text-violet-300/70 font-mono">{liveFeed.length} events</span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => refetchLiveFeed()}
+                    disabled={isLiveFeedLoading}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all"
+                    style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.35)", color: "rgba(196,181,253,0.9)" }}>
+                    <RefreshCw className={`w-2.5 h-2.5 ${isLiveFeedLoading ? "animate-spin" : ""}`} />
+                    Refresh
+                  </button>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+                    style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.25)" }}>
+                    <div className="w-1 h-1 rounded-full bg-violet-400" />
+                    <span className="text-[9px] text-violet-300/70 font-mono">{liveFeed.length} queries</span>
+                  </div>
                 </div>
               </div>
               <div ref={feedRef} className="h-[280px] overflow-y-auto p-3 space-y-1.5"
@@ -1588,16 +1587,21 @@ export default function AdminLogin() {
 
               <div className="rounded-2xl border border-violet-500/20 p-6" style={{ background: "rgba(9,5,26,0.8)" }}>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-2 h-2 rounded-full ${wsConnected ? "bg-green-400 animate-pulse" : "bg-white/20"}`} />
+                  <div className="w-2 h-2 rounded-full bg-violet-400" />
                   <div className="text-sm font-bold text-white">Live Query Feed</div>
-                  <span className="text-[10px] text-white/30 ml-auto">{wsConnected ? "● Connected" : "○ Disconnected"}</span>
+                  <span className="text-[10px] text-white/30 ml-auto">{liveFeed.length} queries</span>
+                  <button onClick={() => refetchLiveFeed()} disabled={isLiveFeedLoading}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] transition-all"
+                    style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", color: "#A78BFA" }}>
+                    <RefreshCw className={`w-3 h-3 ${isLiveFeedLoading ? "animate-spin" : ""}`} />
+                  </button>
                 </div>
                 <div className="space-y-1 max-h-52 overflow-y-auto" ref={feedRef}>
                   {liveFeed.length === 0 ? (
-                    <div className="text-center py-8 text-white/20 text-xs">Waiting for live queries...</div>
-                  ) : liveFeed.slice().reverse().map((item, i) => (
+                    <div className="text-center py-8 text-white/20 text-xs">No queries found. Click refresh to load.</div>
+                  ) : liveFeed.map((item, i) => (
                     <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/[0.03] text-xs transition-colors">
-                      <span className="text-white/20 font-mono text-[10px] shrink-0 w-16">{item.timestamp}</span>
+                      <span className="text-white/20 font-mono text-[10px] shrink-0 w-16">{new Date(item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                       <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase" style={{ background: "rgba(139,92,246,0.2)", color: "#A78BFA" }}>{item.service}</span>
                       <span className="text-white/50 shrink-0 w-24 truncate">{item.username}</span>
                       <span className="text-white/30 truncate">→ {item.query}</span>
