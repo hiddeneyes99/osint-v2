@@ -15,7 +15,7 @@ export const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-pool.query('SELECT NOW()', (err, res) => {
+pool.query('SELECT NOW()', (err: Error | null, res: any) => {
   if (err) {
     console.error('Database connection error:', err.message);
   } else {
