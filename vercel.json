@@ -1,7 +1,7 @@
 {
   "version": 2,
   "installCommand": "pnpm install --no-frozen-lockfile",
-  "buildCommand": "npx vite build --config vite.config.vercel.ts && npx esbuild api/_handler.ts --bundle --platform=node --format=cjs --outfile=api/index.js --alias:@shared=./shared --packages=external && npx esbuild api/cron/cleanup.ts --bundle --platform=node --format=cjs --outfile=api/cron/cleanup.js --alias:@shared=./shared --packages=external",
+ "buildCommand": "sh script/vercel-build.sh",
   "outputDirectory": "dist/public",
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index", "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"] },
