@@ -76,19 +76,31 @@ async function getServiceReasons(): Promise<Record<string, string>> {
 }
 
 // ── SERVICE AVAILABILITY (COMING SOON) CACHE ─────────────────────────────────
-let serviceAvailabilityCache: { data: Record<string, boolean>; ts: number } | null = null;
+let serviceAvailabilityCache: { data: Record<string, boolean | Record<string, string>>; ts: number } | null = null;
 const AVAILABILITY_TTL = 5_000; // 5 s — bust immediately on admin change
 
-async function getServiceAvailability(): Promise<Record<string, boolean>> {
+async function getServiceAvailability(): Promise<Record<string, boolean | Record<string, string>>> {
   if (serviceAvailabilityCache && Date.now() - serviceAvailabilityCache.ts < AVAILABILITY_TTL) {
     return serviceAvailabilityCache.data;
   }
   const raw = await storage.getPlatformSetting("service_coming_soon");
-  // Default: email starts as coming soon if no setting exists yet
   const data: Record<string, boolean> = raw ? JSON.parse(raw) : { email: true };
   if (!raw) await storage.setPlatformSetting("service_coming_soon", JSON.stringify(data));
-  serviceAvailabilityCache = { data, ts: Date.now() };
-  return data;
+
+  // Merge service_config: disabled services also show as "coming soon" to users
+  const cfgRaw = await storage.getPlatformSetting("service_config");
+  const cfg: Record<string, boolean> = cfgRaw ? JSON.parse(cfgRaw) : {};
+  for (const [svc, enabled] of Object.entries(cfg)) {
+    if (enabled === false) data[svc] = true;
+  }
+
+  // Include reasons so dashboard can show the reason message
+  const reasonsRaw = await storage.getPlatformSetting("service_reasons");
+  const reasons: Record<string, string> = reasonsRaw ? JSON.parse(reasonsRaw) : {};
+
+  const result: Record<string, boolean | Record<string, string>> = { ...data, _reasons: reasons };
+  serviceAvailabilityCache = { data: result, ts: Date.now() };
+  return result;
 }
 
 // ── WEBSOCKET LIVE FEED ──────────────────────────────────────────────────────
@@ -1771,6 +1783,7 @@ ${urls.map(u => `  <url>
     serviceConfigCache = null;
     serviceReasonsCache = null;
     serviceStatusCache = null;
+    serviceAvailabilityCache = null; // bust so dashboard picks up enable/disable instantly
 
     console.log(
       `[ServiceSync] service=${service} | prev=${prevStatus} | new=${newStatus} | action=${enabled ? "ENABLED" : "DISABLED"} | reason=${reason || ""}`

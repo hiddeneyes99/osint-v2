@@ -66,14 +66,19 @@ import { AuthModal } from "@/components/AuthModal";
 import sirenSound from "@assets/siren_1768712570112_1780125705439.mp3";
 import { AdOverlay } from "@/components/AdOverlay";
 
-function ServiceComingSoon({ emoji, tileClass, label }: { emoji: string; tileClass: string; label: string }) {
+function ServiceComingSoon({ emoji, tileClass, label, reason }: { emoji: string; tileClass: string; label: string; reason?: string }) {
+  const isDisabled = !!reason;
   return (
     <CyberCard className="flex flex-col items-center justify-center py-20 text-center">
       <div className={`icon3d ${tileClass} w-16 h-16 rounded-2xl mb-5`}>
         <span className="e text-3xl select-none">{emoji}</span>
       </div>
-      <h2 className="text-lg font-semibold text-white mb-1.5">{label} Coming Soon</h2>
-      <p className="text-white/40 text-sm mb-6">Coming soon — module under development</p>
+      <h2 className="text-lg font-semibold text-white mb-1.5">
+        {isDisabled ? `${label} Unavailable` : `${label} Coming Soon`}
+      </h2>
+      <p className="text-white/40 text-sm mb-6 max-w-xs leading-relaxed">
+        {reason || "Coming soon — module under development"}
+      </p>
       <div className="h-1.5 w-40 bg-white/[0.06] rounded-full relative overflow-hidden">
         <motion.div
           className="absolute inset-0 bg-gradient-to-r from-violet-600 to-purple-400 rounded-full"
@@ -159,10 +164,11 @@ export default function Dashboard() {
   });
 
   // Service availability (coming soon) — poll every 3 seconds for real-time sync
-  const { data: comingSoon = {} } = useQuery<Record<string, boolean>>({
+  const { data: comingSoon = {} } = useQuery<Record<string, boolean | Record<string, string>>>({
     queryKey: ["/api/services/availability"],
     refetchInterval: 3000,
   });
+  const serviceReasons = (comingSoon._reasons || {}) as Record<string, string>;
 
   // Service Mutations
   const mobileMutation = useMobileInfo();
@@ -1023,7 +1029,7 @@ export default function Dashboard() {
                   className="h-full flex flex-col gap-4 md:gap-5"
                 >
                   {comingSoon.mobile ? (
-                    <ServiceComingSoon emoji="📱" tileClass="t-violet" label="Number Search" />
+                    <ServiceComingSoon emoji="📱" tileClass="t-violet" label="Number Search" reason={serviceReasons.mobile} />
                   ) : (
                     <>
                       <CyberCard>
@@ -1081,7 +1087,7 @@ export default function Dashboard() {
               {activeTab === "aadhar" && (
                 <motion.div key="aadhar" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="h-full flex flex-col gap-4 md:gap-5">
                   {comingSoon.aadhar ? (
-                    <ServiceComingSoon emoji="🪪" tileClass="t-fuchsia" label="Aadhaar Search" />
+                    <ServiceComingSoon emoji="🪪" tileClass="t-fuchsia" label="Aadhaar Search" reason={serviceReasons.aadhar} />
                   ) : (
                     <>
                       <CyberCard>
@@ -1130,7 +1136,7 @@ export default function Dashboard() {
               {activeTab === "vehicle" && (
                 <motion.div key="vehicle" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="h-full flex flex-col gap-4 md:gap-5">
                   {comingSoon.vehicle ? (
-                    <ServiceComingSoon emoji="🚗" tileClass="t-orange" label="Vehicle Search" />
+                    <ServiceComingSoon emoji="🚗" tileClass="t-orange" label="Vehicle Search" reason={serviceReasons.vehicle} />
                   ) : (
                     <>
                       <CyberCard>
@@ -1178,7 +1184,7 @@ export default function Dashboard() {
               {activeTab === "email" && (
                 <motion.div key="email" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="h-full flex flex-col gap-5">
                   {comingSoon.email !== false ? (
-                    <ServiceComingSoon emoji="📧" tileClass="t-emerald" label="Email Search" />
+                    <ServiceComingSoon emoji="📧" tileClass="t-emerald" label="Email Search" reason={serviceReasons.email} />
                   ) : (
                     <>
                       <CyberCard>
@@ -1226,7 +1232,7 @@ export default function Dashboard() {
               {activeTab === "ip" && (
                 <motion.div key="ip" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="h-full flex flex-col gap-4 md:gap-5">
                   {comingSoon.ip ? (
-                    <ServiceComingSoon emoji="🌐" tileClass="t-blue" label="IP Trace" />
+                    <ServiceComingSoon emoji="🌐" tileClass="t-blue" label="IP Trace" reason={serviceReasons.ip} />
                   ) : (
                     <>
                       <CyberCard>
