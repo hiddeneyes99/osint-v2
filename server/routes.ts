@@ -1107,6 +1107,37 @@ ${urls.map(u => `  <url>
   // rather than a raw JSON blob.
   //   { success: true, vehicle_info: { registration_number, ownership:{}, vehicle_specs:{}, insurance:{}, validity:{}, rto_contact:{} } }
   function normalizeVehicleResponse(raw: any): any {
+    // vehicle2info API shape: { status: "success", data: { vehicle:{}, registration_details:{}, vehicle_specs:{}, insurance_details:{}, validity:{} } }
+    if (raw?.status === "success" && raw?.data?.vehicle) {
+      const v   = raw.data.vehicle;
+      const reg = raw.data.registration_details || {};
+      const sp  = raw.data.vehicle_specs        || {};
+      const ins = raw.data.insurance_details    || {};
+      const val = raw.data.validity             || {};
+      console.log(`[vehicle] vehicle2info shape detected — RC: ${v.registration_number}`);
+      return {
+        registration_number: v.registration_number,
+        owner_name:          v.owner_name,
+        father_name:         v.father_name,
+        address:             v.address,
+        phone:               v.phone !== "NA" ? v.phone : null,
+        registered_rto:      reg.rto,
+        rto_city:            reg.city,
+        registration_date:   reg.registration_date,
+        ownership_type:      reg.owner_serial,
+        vehicle_class:       reg.vehicle_class,
+        maker:               sp.model_name,
+        model:               sp.maker_model,
+        fuel_type:           sp.fuel_type,
+        fuel_norms:          sp.fuel_norms,
+        insurance_company:   ins.company,
+        insurance_expiry:    ins.expiry,
+        fitness_upto:        val.fitness_upto,
+        puc_upto:            val.puc_upto,
+        tax_upto:            val.tax_upto,
+        financier:           raw.data.financier || null,
+      };
+    }
     if (!raw?.success || !raw?.vehicle_info) return raw;
     const v   = raw.vehicle_info;
     const o   = v.ownership      || {};
