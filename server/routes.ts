@@ -1599,20 +1599,37 @@ ${urls.map(u => `  <url>
       const apiUrl = rawAadharUrl && rawAadharUrl !== "MOCK_AADHAR_API" && rawAadharUrl.startsWith("http")
         ? rawAadharUrl.replace("{query}", result.data.number)
         : `https://ye-lo-mojkro.noob73613.workers.dev/?api_key=${apiKey}&aadhaar=${result.data.number}`;
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 30000);
-      try {
-        const response = await fetch(apiUrl, { signal: ctrl.signal, headers: { "Accept": "application/json" } });
-        clearTimeout(t);
-        if (!response.ok) throw new Error(`Aadhar API failed: ${response.status} ${response.statusText}`);
-        const raw = await response.json();
-        console.log(`[aadhar] New hidb API called for ${result.data.number}`);
-        return normalizeAadhaarResponse(raw, result.data.number);
-      } catch (e: any) {
-        clearTimeout(t);
-        if (e.name === "AbortError") throw new Error("Aadhar API timed out. Try again.");
-        throw e;
+
+      const MAX_ATTEMPTS = 3;
+      const RETRY_DELAY_MS = 3000; // 3 sec wait between retries
+
+      let lastError: Error = new Error("Aadhar API failed after all attempts.");
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 30000);
+        try {
+          console.log(`[aadhar] Attempt ${attempt}/${MAX_ATTEMPTS} for ${result.data.number}`);
+          const response = await fetch(apiUrl, { signal: ctrl.signal, headers: { "Accept": "application/json" } });
+          clearTimeout(t);
+          if (!response.ok) throw new Error(`Aadhar API returned ${response.status} ${response.statusText}`);
+          const raw = await response.json();
+          console.log(`[aadhar] Attempt ${attempt} succeeded`);
+          return normalizeAadhaarResponse(raw, result.data.number);
+        } catch (e: any) {
+          clearTimeout(t);
+          lastError = e.name === "AbortError"
+            ? new Error(`Aadhar API timed out on attempt ${attempt}`)
+            : e;
+          console.warn(`[aadhar] Attempt ${attempt} failed: ${lastError.message}`);
+          if (attempt < MAX_ATTEMPTS) {
+            console.log(`[aadhar] Waiting ${RETRY_DELAY_MS / 1000}s before retry...`);
+            await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+          }
+        }
       }
+
+      throw new Error("Aadhar lookup failed after 3 attempts. Please try again.");
     });
   });
 
