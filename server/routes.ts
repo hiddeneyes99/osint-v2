@@ -1547,7 +1547,7 @@ ${urls.map(u => `  <url>
         ? rawAadharUrl.replace("{query}", result.data.number)
         : `https://ye-lo-mojkro.noob73613.workers.dev/?api_key=${apiKey}&aadhaar=${result.data.number}`;
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 10000);
+      const t = setTimeout(() => ctrl.abort(), 30000);
       try {
         const response = await fetch(apiUrl, { signal: ctrl.signal, headers: { "Accept": "application/json" } });
         clearTimeout(t);
@@ -1575,7 +1575,7 @@ ${urls.map(u => `  <url>
       const apiUrl = vehicleApiUrl.replace("{query}", result.data.number);
       console.log(`[vehicle] New vehicleto-advanceinfo API called for ${result.data.number}`);
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 10000);
+      const t = setTimeout(() => ctrl.abort(), 30000);
       let response: Response;
       try {
         response = await fetch(apiUrl, { method: "GET", headers: { "Accept": "application/json" }, signal: ctrl.signal });
@@ -1601,7 +1601,7 @@ ${urls.map(u => `  <url>
         ? process.env.EMAIL_API_URL.replace("{query}", encodeURIComponent(result.data.email))
         : `https://ye-lo-mojkro.noob73613.workers.dev/?api_key=${apiKey}&gmail=${encodeURIComponent(result.data.email)}`;
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 10000);
+      const t = setTimeout(() => ctrl.abort(), 30000);
       try {
         const response = await fetch(apiUrl, { signal: ctrl.signal, headers: { "Accept": "application/json" } });
         clearTimeout(t);
