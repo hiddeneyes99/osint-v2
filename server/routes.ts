@@ -1525,6 +1525,16 @@ ${urls.map(u => `  <url>
     return normalizeMobileResponse(raw);
   };
 
+  // Safe URL builder — if the template has {query}, replace it.
+  // If {query} is missing (misconfigured env), append &mobile=<number> so the
+  // number is always sent to the external API.
+  const buildMobileUrl = (template: string, number: string): string => {
+    if (template.includes("{query}")) return template.replace("{query}", number);
+    // No placeholder — append the number as a query param
+    const sep = template.includes("?") ? "&" : "?";
+    return `${template}${sep}mobile=${encodeURIComponent(number)}`;
+  };
+
   // 1. Mobile Info
   app.post(api.services.mobile.path, requireAuth, async (req, res) => {
     const result = mobileInfoSchema.safeParse(req.body);
@@ -1533,16 +1543,20 @@ ${urls.map(u => `  <url>
       const mobileNumber = result.data.number;
 
       const primaryUrl = process.env.MOBILE_API_URL
-        ? process.env.MOBILE_API_URL.replace("{query}", mobileNumber)
+        ? buildMobileUrl(process.env.MOBILE_API_URL, mobileNumber)
         : `https://utthaninternational.com/number/js/api-proxy.php?mobile=${mobileNumber}`;
 
       const fallbackUrl = process.env.MOBILE_API_FALLBACK_URL
-        ? process.env.MOBILE_API_FALLBACK_URL.replace("{query}", mobileNumber)
+        ? buildMobileUrl(process.env.MOBILE_API_FALLBACK_URL, mobileNumber)
         : null;
 
       const tertiaryUrl = process.env.MOBILE_API_TERTIARY_URL
-        ? process.env.MOBILE_API_TERTIARY_URL.replace("{query}", mobileNumber)
+        ? buildMobileUrl(process.env.MOBILE_API_TERTIARY_URL, mobileNumber)
         : `https://0460-103-209-253-3.ngrok-free.app?number=${mobileNumber}&authkey=darkybaby`;
+
+      console.log(`[mobile] Searching number: ${mobileNumber}`);
+      console.log(`[mobile] Primary URL has number: ${primaryUrl.includes(mobileNumber)}`);
+      console.log(`[mobile] Tertiary URL has number: ${tertiaryUrl.includes(mobileNumber)}`);
 
       // ── Primary API (ngrok) ───────────────────────────────────────────────
       console.log(`[mobile] Primary API called`);
@@ -1596,9 +1610,15 @@ ${urls.map(u => `  <url>
     await handleServiceRequest(req, res, "aadhar", result.data.number, async () => {
       const apiKey = process.env.AADHAR_API_KEY || "@noob11001";
       const rawAadharUrl = process.env.AADHAR_API_URL;
+      const buildAadharUrl = (template: string, num: string): string => {
+        if (template.includes("{query}")) return template.replace("{query}", num);
+        const sep = template.includes("?") ? "&" : "?";
+        return `${template}${sep}aadhaar=${encodeURIComponent(num)}`;
+      };
       const apiUrl = rawAadharUrl && rawAadharUrl !== "MOCK_AADHAR_API" && rawAadharUrl.startsWith("http")
-        ? rawAadharUrl.replace("{query}", result.data.number)
+        ? buildAadharUrl(rawAadharUrl, result.data.number)
         : `https://ye-lo-mojkro.noob73613.workers.dev/?api_key=${apiKey}&aadhaar=${result.data.number}`;
+      console.log(`[aadhar] URL has number: ${apiUrl.includes(result.data.number)}`);
 
       const MAX_ATTEMPTS = 3;
       const RETRY_DELAY_MS = 3000; // 3 sec wait between retries
@@ -1642,8 +1662,13 @@ ${urls.map(u => `  <url>
       return res.status(503).json({ message: "Vehicle lookup service is currently offline. Please try again later." });
     }
     await handleServiceRequest(req, res, "vehicle", result.data.number, async () => {
-      const apiUrl = vehicleApiUrl.replace("{query}", result.data.number);
-      console.log(`[vehicle] New vehicleto-advanceinfo API called for ${result.data.number}`);
+      const buildVehicleUrl = (template: string, num: string): string => {
+        if (template.includes("{query}")) return template.replace("{query}", num);
+        const sep = template.includes("?") ? "&" : "?";
+        return `${template}${sep}vehicle=${encodeURIComponent(num)}`;
+      };
+      const apiUrl = buildVehicleUrl(vehicleApiUrl, result.data.number);
+      console.log(`[vehicle] Searching: ${result.data.number} | URL has number: ${apiUrl.includes(result.data.number)}`);
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 30000);
       let response: Response;
@@ -1667,9 +1692,15 @@ ${urls.map(u => `  <url>
     if (!result.success) return res.status(400).json({ message: "Invalid email address" });
     await handleServiceRequest(req, res, "email", result.data.email, async () => {
       const apiKey = process.env.EMAIL_API_KEY || "@noob11001";
+      const buildEmailUrl = (template: string, email: string): string => {
+        if (template.includes("{query}")) return template.replace("{query}", encodeURIComponent(email));
+        const sep = template.includes("?") ? "&" : "?";
+        return `${template}${sep}gmail=${encodeURIComponent(email)}`;
+      };
       const apiUrl = process.env.EMAIL_API_URL
-        ? process.env.EMAIL_API_URL.replace("{query}", encodeURIComponent(result.data.email))
+        ? buildEmailUrl(process.env.EMAIL_API_URL, result.data.email)
         : `https://ye-lo-mojkro.noob73613.workers.dev/?api_key=${apiKey}&gmail=${encodeURIComponent(result.data.email)}`;
+      console.log(`[email] Searching: ${result.data.email} | URL has email: ${apiUrl.includes(encodeURIComponent(result.data.email))}`);
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 30000);
       try {

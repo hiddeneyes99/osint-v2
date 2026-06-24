@@ -273,15 +273,15 @@ export default function Dashboard() {
     // Results already fetching / ready in background — nothing more to trigger
   };
 
-  // Handlers
+  // Handlers — always reset before mutate so old result is cleared instantly
   const onMobileSubmit = (data: z.infer<typeof mobileInfoSchema>) =>
-    withAd(() => mobileMutation.mutate(data));
+    withAd(() => { mobileMutation.reset(); mobileMutation.mutate(data); });
   const onAadharSubmit = (data: z.infer<typeof aadharInfoSchema>) =>
-    withAd(() => aadharMutation.mutate(data));
+    withAd(() => { aadharMutation.reset(); aadharMutation.mutate(data); });
   const onVehicleSubmit = (data: z.infer<typeof vehicleInfoSchema>) =>
-    withAd(() => vehicleMutation.mutate(data));
+    withAd(() => { vehicleMutation.reset(); vehicleMutation.mutate(data); });
   const onEmailSubmit = (data: z.infer<typeof emailInfoSchema>) =>
-    withAd(() => emailMutation.mutate(data));
+    withAd(() => { emailMutation.reset(); emailMutation.mutate(data); });
   const onIpSubmit = (data: z.infer<typeof ipInfoSchema>) => {
     withAd(() => {
       ipMutation.reset();
