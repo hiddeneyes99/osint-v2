@@ -1377,6 +1377,25 @@ ${urls.map(u => `  <url>
   // Primary API shape:  { status: true, data: { _id, m_name, m_number, ... } }
   // Backup API shape:   { success: true, results: [{ id, name, mobile, fname, alt, circle, address, email }] }
   const normalizeMobileResponse = (raw: any): any => {
+    // number2info API shape: { status: "success", data: { subscriber: { mobile, name, father_name, ... } } }
+    if (raw.status === "success" && raw.data && raw.data.subscriber) {
+      const s = raw.data.subscriber;
+      console.log(`[mobile] number2info subscriber shape detected — name: ${s.name}`);
+      return {
+        query: { type: "mobile_lookup" },
+        result: [{
+          id:          s.id               ?? null,
+          name:        s.name             ?? null,
+          mobile:      s.mobile           ?? null,
+          alt_mobile:  s.alternate_number ?? null,
+          circle:      s.circle           ?? null,
+          father_name: s.father_name      ?? null,
+          id_number:   s.id               ?? null,
+          address:     s.address          ?? null,
+          email:       s.email            ?? null,
+        }],
+      };
+    }
     // New numberto-info API shape: { status: "success", code: 200, data: { mobile, records: [...] } }
     if (raw.data && Array.isArray(raw.data.records)) {
       console.log(`[mobile] New numberto-info API shape detected — ${raw.data.records.length} record(s)`);
@@ -1452,7 +1471,7 @@ ${urls.map(u => `  <url>
   // Throws a descriptive error on timeout, network failure, or non-2xx status.
   const callMobileApi = async (resolvedUrl: string, label: string): Promise<any> => {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
+    const t = setTimeout(() => ctrl.abort(), 30000);
     let response: Response;
     try {
       response = await fetch(resolvedUrl, { method: "GET", headers: { "Accept": "application/json", "ngrok-skip-browser-warning": "true" }, signal: ctrl.signal });
