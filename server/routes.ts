@@ -1053,11 +1053,14 @@ ${urls.map(u => `  <url>
   // Converts workers.dev API format {results:[{mobile,name,fname,address,alt,circle,id,email}]}
   // into the same canonical mobile-lookup format so TerminalOutput reuses MobileRecord.
   function normalizeWorkersResponse(raw: any, queryType: "email_lookup" | "aadhar_lookup", queryValue: string) {
-    const items: any[] = Array.isArray(raw.results) ? raw.results : Array.isArray(raw.data) ? raw.data : [];
+    const items: any[] = Array.isArray(raw.results) ? raw.results
+      : Array.isArray(raw.data) ? raw.data
+      : Array.isArray(raw.data?.subscribers) ? raw.data.subscribers
+      : [];
     const result = items.map((item: any) => ({
       name: item.name || null,
       mobile: item.mobile || null,
-      alt_mobile: item.alt || item.alt_mobile || null,
+      alt_mobile: item.alt || item.alt_mobile || item.alternate_number || null,
       circle: item.circle || null,
       father_name: item.fname || item.father_name || null,
       id_number: item.id || null,
