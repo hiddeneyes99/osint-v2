@@ -1411,6 +1411,24 @@ ${urls.map(u => `  <url>
   // Primary API shape:  { status: true, data: { _id, m_name, m_number, ... } }
   // Backup API shape:   { success: true, results: [{ id, name, mobile, fname, alt, circle, address, email }] }
   const normalizeMobileResponse = (raw: any): any => {
+    // hitech-info API shape: { found: N, data: [{ mobile, name, fname, address, id, circle, ... }] }
+    if (typeof raw.found === "number" && Array.isArray(raw.data)) {
+      console.log(`[mobile] hitech-info API shape detected — ${raw.found} record(s)`);
+      return {
+        query: { type: "mobile_lookup" },
+        result: raw.data.map((r: any) => ({
+          id:          r.id      ?? null,
+          name:        r.name    ?? null,
+          mobile:      r.mobile  ?? null,
+          alt_mobile:  r.alt     ?? r.alt_mobile ?? null,
+          circle:      r.circle  ?? null,
+          father_name: r.fname   ?? r.father_name ?? null,
+          id_number:   r.id      ?? null,
+          address:     r.address ?? null,
+          email:       r.email   ?? null,
+        })),
+      };
+    }
     // number2info API shape: { status: "success", data: { subscriber: { mobile, name, father_name, ... } } }
     if (raw.status === "success" && raw.data && raw.data.subscriber) {
       const s = raw.data.subscriber;
