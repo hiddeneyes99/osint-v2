@@ -1254,6 +1254,70 @@ ${urls.map(u => `  <url>
     }
   };
 
+  // ── NOTICE / SHUTDOWN PAGE ───────────────────────────────────────────────
+  // Get like count + whether current IP liked
+  app.get("/api/notice/stats", async (req, res) => {
+    try {
+      const { pool } = await import("./db");
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+      const [likesRes, myLikeRes] = await Promise.all([
+        pool.query("SELECT COUNT(*) as count FROM notice_likes"),
+        pool.query("SELECT id FROM notice_likes WHERE ip = $1", [ip]),
+      ]);
+      res.json({ likes: parseInt(likesRes.rows[0].count), liked: myLikeRes.rows.length > 0 });
+    } catch (e: any) {
+      res.json({ likes: 0, liked: false });
+    }
+  });
+
+  // Toggle like
+  app.post("/api/notice/like", async (req, res) => {
+    try {
+      const { pool } = await import("./db");
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+      const existing = await pool.query("SELECT id FROM notice_likes WHERE ip = $1", [ip]);
+      if (existing.rows.length > 0) {
+        await pool.query("DELETE FROM notice_likes WHERE ip = $1", [ip]);
+        const count = await pool.query("SELECT COUNT(*) as count FROM notice_likes");
+        res.json({ liked: false, likes: parseInt(count.rows[0].count) });
+      } else {
+        await pool.query("INSERT INTO notice_likes (ip) VALUES ($1) ON CONFLICT (ip) DO NOTHING", [ip]);
+        const count = await pool.query("SELECT COUNT(*) as count FROM notice_likes");
+        res.json({ liked: true, likes: parseInt(count.rows[0].count) });
+      }
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Get all replies
+  app.get("/api/notice/replies", async (_req, res) => {
+    try {
+      const { pool } = await import("./db");
+      const result = await pool.query("SELECT id, author_name, content, created_at FROM notice_replies ORDER BY created_at ASC");
+      res.json(result.rows);
+    } catch (e: any) {
+      res.json([]);
+    }
+  });
+
+  // Post a reply
+  app.post("/api/notice/reply", async (req, res) => {
+    try {
+      const { pool } = await import("./db");
+      const { authorName, content } = req.body;
+      if (!authorName?.trim() || !content?.trim()) return res.status(400).json({ error: "Name and message required" });
+      if (content.length > 500) return res.status(400).json({ error: "Too long" });
+      const result = await pool.query(
+        "INSERT INTO notice_replies (author_name, content) VALUES ($1, $2) RETURNING id, author_name, content, created_at",
+        [authorName.trim().slice(0, 40), content.trim()]
+      );
+      res.json(result.rows[0]);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ── HEALTH / DEBUG ───────────────────────────────────────────────────────
   app.get("/api/health", async (_req, res) => {
     let dbOk = false;

@@ -127,3 +127,20 @@ export interface ServiceResponse {
   data?: any;
   error?: string;
 }
+
+// ── Notice / Shutdown page ──────────────────────────────────────────────────
+export const noticeReplies = pgTable("notice_replies", {
+  id: serial("id").primaryKey(),
+  authorName: text("author_name").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const noticeLikes = pgTable("notice_likes", {
+  id: serial("id").primaryKey(),
+  ip: text("ip").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type NoticeReply = typeof noticeReplies.$inferSelect;
+export type NoticeLike = typeof noticeLikes.$inferSelect;

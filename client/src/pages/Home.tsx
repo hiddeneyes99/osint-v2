@@ -1,414 +1,620 @@
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Navbar } from "@/components/Navbar";
 import { useSEO } from "@/hooks/use-seo";
 import logoHeroPath from "@assets/ChatGPT_Image_Jun_1,_2026,_06_09_38_AM_1780274401269.png";
 
+const TWH_AVATAR = "/twh-afsar.jpeg";
+
+// ── relative time helper ─────────────────────────────────────────────────────
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// ── initial of a name for fallback avatar ────────────────────────────────────
+function initials(name: string) {
+  return name.trim().charAt(0).toUpperCase();
+}
+
+const AVATAR_COLORS = [
+  "#7C3AED","#2563EB","#059669","#D97706","#DC2626","#DB2777","#0891B2",
+];
+function colorFor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+// ── Hinglish message ─────────────────────────────────────────────────────────
+const HINGLISH = (
+  <div className="space-y-3 text-[13.5px] leading-[1.9]" style={{ color: "#1e1e2e" }}>
+    <p>
+      Sabse pehle — main <strong style={{ color: "#7C3AED" }}>Afsar (Technical White Hat)</strong> — TWH OSINT ka founder — yeh notice publicly jaari kar raha hoon.
+    </p>
+    <p>
+      <strong style={{ color: "#c026d3" }}>TWH OSINT officially discontinue</strong> kiya ja raha hai. Hum out of fund ho gaye hain, aur is wajah se service aage nahi chal sakti. Yeh tool kabhi wapas aayega ya nahi — is waqt hum yeh confirm nahi kar sakte.
+    </p>
+    <p>
+      Is tool ko maine ek soch ke saath banaya tha — online scam, bullying, blackmailing, aur khaas karke{" "}
+      <strong style={{ color: "#059669" }}>ladkiyon ki safety</strong> ke liye. Yeh completely free rakha gaya tha, aur humne{" "}
+      <strong style={{ color: "#c026d3" }}>1,00,000+ successful results</strong> users ko diye.
+    </p>
+    <p>
+      Lekin bahut saare complaints aur formal cyber cases aane ke baad humne verify kiya — aur yeh paya ki tool ka{" "}
+      <strong style={{ color: "#dc2626" }}>misuse fair use se kahin zyada</strong> ho raha hai.{" "}
+      <strong style={{ color: "#D97706" }}>Right to Privacy</strong> ek fundamental cheez hai — aur hum uski respect karte hain.
+    </p>
+    <p>
+      Main hamesha ek responsible developer raha hoon. Mera — ya mere team ka — kabhi koi galat irada nahi raha. Lekin{" "}
+      <strong style={{ color: "#059669" }}>galat ko rokna bhi hamara hi kaam hai.</strong>
+    </p>
+    <p>
+      Agar future mein hum ya humara koi tool wapas aata hai — woh hamesha <strong style={{ color: "#7C3AED" }}>logo ke bhalay ke liye</strong> hoga.
+    </p>
+    <p>
+      Aap sabhi ka <strong style={{ color: "#7C3AED" }}>shukriya</strong> — support, trust aur ek achhi niyat ke saath is tool ka istemal karne ke liye. TWH OSINT ka safar yahan khatam hota hai.
+    </p>
+    <p className="font-bold" style={{ color: "#7C3AED" }}>🇮🇳 Jai Hind</p>
+  </div>
+);
+
+// ── English message ──────────────────────────────────────────────────────────
+const ENGLISH = (
+  <div className="space-y-3 text-[13.5px] leading-[1.9]" style={{ color: "#1e1e2e" }}>
+    <p>
+      I, <strong style={{ color: "#7C3AED" }}>Afsar (Technical White Hat)</strong> — founder of TWH OSINT — am officially issuing this public notice.
+    </p>
+    <p>
+      <strong style={{ color: "#c026d3" }}>TWH OSINT is officially being discontinued.</strong> We have run out of funds and the service can no longer continue. Whether this tool returns in the future — we are unable to confirm at this time.
+    </p>
+    <p>
+      This tool was built with a clear purpose — to fight online scams, bullying, blackmailing, and to protect{" "}
+      <strong style={{ color: "#059669" }}>women's safety</strong> online. It was kept completely free and we delivered{" "}
+      <strong style={{ color: "#c026d3" }}>1,00,000+ successful results</strong> to our users.
+    </p>
+    <p>
+      However, after receiving numerous complaints and formal cyber cases, we thoroughly reviewed the situation — and identified that the tool was being{" "}
+      <strong style={{ color: "#dc2626" }}>misused far beyond its intended purpose</strong>.
+      The <strong style={{ color: "#D97706" }}>Right to Privacy</strong> is a fundamental right — and one we deeply respect.
+    </p>
+    <p>
+      I have always been a responsible developer. Neither I nor my team has ever had any wrong intention.{" "}
+      <strong style={{ color: "#059669" }}>But stopping what is wrong is equally our responsibility.</strong>
+    </p>
+    <p>
+      If in the future we or any of our tools return to this space — it will always be for the{" "}
+      <strong style={{ color: "#7C3AED" }}>betterment of the people</strong>.
+    </p>
+    <p>
+      Thank you to each one of you for your <strong style={{ color: "#7C3AED" }}>support and trust</strong>. The journey of TWH OSINT ends here.
+    </p>
+    <p className="font-bold" style={{ color: "#7C3AED" }}>🇮🇳 Jai Hind</p>
+  </div>
+);
+
+// ── GOODBYE from TWH OSINT (platform voice) ─────────────────────────────────
+const GOODBYE_HI = (
+  <div className="space-y-3 text-[13px] leading-[1.9]" style={{ color: "#1e1e2e" }}>
+    <p>
+      Main <strong style={{ color: "#7C3AED" }}>TWH OSINT</strong> hoon — aaj officially apna aakhri message de raha hoon.
+    </p>
+    <p>
+      Mujhe <strong>2024</strong> mein banaya gaya tha ek simple maqsad ke liye — log sach jaanein, scammers se khud ko bachaaein, aur digital duniya mein safe rahein. Maine lakhon queries handle kiye, hazaron logo ki madad ki, aur koshish ki ki yeh platform hamesha free rahe.
+    </p>
+    <p>
+      Lekin ab mera waqt aa gaya hai. Fund nahi raha, aur jo kaam mere liye socha gaya tha — usska misuse zyada hua, fair use se kahin zyada. Mujhe band karna hi sahi faisla hai.
+    </p>
+    <p>
+      TWH — matlab <strong style={{ color: "#7C3AED" }}>Technical White Hat</strong> — yeh company/team aage bhi kaam karti rahegi. Main sirf ek <em>tool</em> tha unka. Woh log age bhi nayi cheezein banayenge — lekin sahi niyat ke saath.
+    </p>
+    <p>
+      Aap sab jo mujhe use karte rahe, support karte rahe — <strong style={{ color: "#7C3AED" }}>shukriya</strong>. Yeh safar yahaan khatam hota hai.
+    </p>
+    <p className="font-bold text-[14px]" style={{ color: "#7C3AED" }}>
+      — TWH OSINT 🖤 &nbsp; Goodbye.
+    </p>
+  </div>
+);
+
+const GOODBYE_EN = (
+  <div className="space-y-3 text-[13px] leading-[1.9]" style={{ color: "#1e1e2e" }}>
+    <p>
+      I am <strong style={{ color: "#7C3AED" }}>TWH OSINT</strong> — and this is my final message.
+    </p>
+    <p>
+      I was created in <strong>2024</strong> with a simple mission — to help people know the truth, protect themselves from scammers, and stay safe in the digital world. I handled millions of queries, helped thousands of users, and always tried to stay free for everyone.
+    </p>
+    <p>
+      But my time has come. Funding ran out, and the very purpose I was built for was misused far more than it was used rightly. Shutting down is the right decision.
+    </p>
+    <p>
+      <strong style={{ color: "#7C3AED" }}>TWH — Technical White Hat</strong> — the team and company will continue. I was just one of their tools. They will build new things — but always with the right intent.
+    </p>
+    <p>
+      To everyone who used me, supported me — <strong style={{ color: "#7C3AED" }}>thank you</strong>. This journey ends here.
+    </p>
+    <p className="font-bold text-[14px]" style={{ color: "#7C3AED" }}>
+      — TWH OSINT 🖤 &nbsp; Goodbye.
+    </p>
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function Home() {
   useSEO({
     title: "TWH OSINT — Official Notice",
-    description: "An official public notice from Technical White Hat (Afsar) regarding TWH OSINT.",
+    description: "An official public notice from Technical White Hat (Afsar) regarding TWH OSINT discontinuation.",
     canonical: "https://twh-osint.vercel.app/",
   });
 
+  const [lang, setLang] = useState<"hi" | "en">("hi");
+  const [goodbyeLang, setGoodbyeLang] = useState<"hi" | "en">("hi");
+  const [likes, setLikes] = useState(0);
+  const [liked, setLiked] = useState(false);
+  const [replies, setReplies] = useState<any[]>([]);
+  const [replyName, setReplyName] = useState("");
+  const [replyText, setReplyText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [replyErr, setReplyErr] = useState("");
+  const repliesEndRef = useRef<HTMLDivElement>(null);
+
+  // fetch stats + replies
+  useEffect(() => {
+    fetch("/api/notice/stats").then(r => r.json()).then(d => {
+      setLikes(d.likes ?? 0);
+      setLiked(d.liked ?? false);
+    }).catch(() => {});
+    fetch("/api/notice/replies").then(r => r.json()).then(d => {
+      if (Array.isArray(d)) setReplies(d);
+    }).catch(() => {});
+  }, []);
+
+  const handleLike = async () => {
+    const prev = liked;
+    const prevCount = likes;
+    setLiked(!prev);
+    setLikes(prev ? likes - 1 : likes + 1);
+    try {
+      const r = await fetch("/api/notice/like", { method: "POST" });
+      const d = await r.json();
+      setLiked(d.liked);
+      setLikes(d.likes);
+    } catch {
+      setLiked(prev);
+      setLikes(prevCount);
+    }
+  };
+
+  const handleReply = async () => {
+    if (!replyName.trim() || !replyText.trim()) { setReplyErr("Naam aur message dono chahiye."); return; }
+    setPosting(true);
+    setReplyErr("");
+    try {
+      const r = await fetch("/api/notice/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ authorName: replyName, content: replyText }),
+      });
+      const d = await r.json();
+      if (d.error) { setReplyErr(d.error); return; }
+      setReplies(prev => [...prev, d]);
+      setReplyText("");
+      setTimeout(() => repliesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    } catch { setReplyErr("Kuch gadbad hui, dobara try karo."); }
+    finally { setPosting(false); }
+  };
+
+  // ── glass card style shared ────────────────────────────────────────────────
+  const glassCard: React.CSSProperties = {
+    background: "rgba(255,255,255,0.93)",
+    backdropFilter: "blur(24px)",
+    WebkitBackdropFilter: "blur(24px)",
+    border: "1px solid rgba(255,255,255,0.98)",
+    borderRadius: "20px",
+    boxShadow: "0 4px 40px rgba(80,40,180,0.18), 0 1px 0 rgba(255,255,255,1) inset, 0 0 0 1px rgba(139,92,246,0.08)",
+  };
+
   return (
-    <div
-      className="min-h-screen flex flex-col relative"
-      style={{ background: "#050314" }}
-    >
+    <div className="min-h-screen flex flex-col relative" style={{ background: "#050314" }}>
       <Navbar />
 
-      {/* Ambient glow */}
+      {/* Ambient bg */}
       <div
         className="fixed inset-0 pointer-events-none -z-10"
         style={{
-          background:
-            "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(139,92,246,0.08) 0%, transparent 70%)",
+          background: "radial-gradient(ellipse 90% 55% at 50% -5%, rgba(139,92,246,0.18) 0%, transparent 70%)",
         }}
       />
 
-      <main className="flex-1 flex flex-col items-center px-4 pt-10 pb-24">
+      <main className="flex-1 flex flex-col items-center px-4 pt-10 pb-24 gap-5">
 
-        {/* ── OFFICIAL NOTICE STAMP ── */}
+        {/* ── BADGE ── */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45 }}
-          className="flex items-center gap-3 mb-10"
+          className="flex items-center gap-3"
         >
-          <div className="h-px w-10 sm:w-20" style={{ background: "rgba(139,92,246,0.35)" }} />
+          <div className="h-px w-12" style={{ background: "rgba(139,92,246,0.3)" }} />
           <span
-            className="text-[10px] font-black tracking-[0.25em] uppercase px-4 py-1.5 rounded-full"
-            style={{
-              border: "1px solid rgba(239,68,68,0.4)",
-              color: "#FCA5A5",
-              background: "rgba(239,68,68,0.07)",
-              letterSpacing: "0.22em",
-            }}
+            className="text-[10px] font-black tracking-[0.22em] uppercase px-4 py-1.5 rounded-full"
+            style={{ border: "1px solid rgba(239,68,68,0.4)", color: "#FCA5A5", background: "rgba(239,68,68,0.07)" }}
           >
             ⚠ Official Public Notice
           </span>
-          <div className="h-px w-10 sm:w-20" style={{ background: "rgba(139,92,246,0.35)" }} />
+          <div className="h-px w-12" style={{ background: "rgba(139,92,246,0.3)" }} />
         </motion.div>
 
-        {/* ── NOTICE CARD ── */}
+        {/* ══════════════════════════════════════════════════════════════════════
+            MAIN COMMENT CARD — TWH's pinned post
+        ══════════════════════════════════════════════════════════════════════ */}
         <motion.div
-          initial={{ opacity: 0, y: 28 }}
+          initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, delay: 0.1 }}
+          transition={{ delay: 0.1 }}
           className="w-full max-w-2xl"
-          style={{
-            background: "rgba(255,255,255,0.022)",
-            border: "1px solid rgba(139,92,246,0.2)",
-            borderRadius: "22px",
-            boxShadow:
-              "0 0 0 1px rgba(139,92,246,0.06), 0 32px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04)",
-            overflow: "hidden",
-          }}
+          style={glassCard}
         >
-          {/* ── Card top bar ── */}
+          {/* ── Header ── */}
           <div
-            className="px-6 py-3 flex items-center justify-between"
-            style={{
-              background: "rgba(139,92,246,0.09)",
-              borderBottom: "1px solid rgba(139,92,246,0.14)",
-            }}
+            className="px-5 pt-5 pb-4 flex items-start gap-3.5"
+            style={{ borderBottom: "1px solid rgba(139,92,246,0.12)" }}
           >
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#EF4444" }} />
-              <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#F59E0B" }} />
-              <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#10B981" }} />
-            </div>
-            <span
-              className="text-[10px] font-bold tracking-widest uppercase"
-              style={{ color: "rgba(167,139,250,0.7)" }}
-            >
-              TWH OSINT &nbsp;·&nbsp; Public Statement
-            </span>
-            <span
-              className="text-[10px] font-semibold"
-              style={{ color: "rgba(255,255,255,0.2)" }}
-            >
-              July 2026
-            </span>
-          </div>
-
-          {/* ── PROFILE ROW (like a post author) ── */}
-          <div className="px-6 pt-6 pb-5 flex items-start gap-4">
             {/* Avatar */}
             <div className="relative flex-shrink-0">
-              <div
-                className="w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center"
+              <img
+                src={TWH_AVATAR}
+                alt="TWH"
+                className="w-12 h-12 rounded-full object-cover"
                 style={{
-                  background: "rgba(139,92,246,0.15)",
-                  border: "2px solid rgba(139,92,246,0.5)",
-                  boxShadow: "0 0 20px rgba(139,92,246,0.35)",
-                }}
-              >
-                <img
-                  src={logoHeroPath}
-                  alt="TWH"
-                  className="w-full h-full object-contain"
-                  style={{
-                    filter: "drop-shadow(0 0 6px rgba(139,92,246,0.6))",
-                  }}
-                  draggable={false}
-                />
-              </div>
-              {/* Online / active dot */}
-              <span
-                className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2"
-                style={{
-                  background: "#8B5CF6",
-                  borderColor: "#050314",
+                  border: "2.5px solid #8B5CF6",
+                  boxShadow: "0 0 0 2px rgba(139,92,246,0.18)",
                 }}
               />
-            </div>
-
-            {/* Author info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-white font-bold text-[15px] leading-tight">
-                  Technical White Hat
-                </span>
-                {/* Verified badge */}
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase"
-                  style={{
-                    background: "rgba(139,92,246,0.18)",
-                    border: "1px solid rgba(139,92,246,0.45)",
-                    color: "#C084FC",
-                  }}
-                >
-                  ✦ Verified
-                </span>
-                {/* Official member tag */}
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase"
-                  style={{
-                    background: "rgba(239,68,68,0.1)",
-                    border: "1px solid rgba(239,68,68,0.3)",
-                    color: "#FCA5A5",
-                  }}
-                >
-                  Official Member
-                </span>
-              </div>
-              <p
-                className="text-[11px] mt-0.5"
-                style={{ color: "rgba(255,255,255,0.38)" }}
-              >
-                @afsar &nbsp;·&nbsp; Founder, TWH OSINT &nbsp;·&nbsp; Released officially on behalf of TWH
-              </p>
-            </div>
-          </div>
-
-          {/* ── NOTICE BODY ── */}
-          <div
-            className="mx-6 mb-6 rounded-xl overflow-hidden"
-            style={{
-              border: "1px solid rgba(139,92,246,0.14)",
-              background: "rgba(0,0,0,0.22)",
-            }}
-          >
-            {/* Notice label */}
-            <div
-              className="px-5 py-3 flex items-center gap-2.5"
-              style={{
-                borderBottom: "1px solid rgba(139,92,246,0.1)",
-                background: "rgba(139,92,246,0.06)",
-              }}
-            >
-              <span style={{ fontSize: "15px" }}>📢</span>
+              {/* verified dot */}
               <span
-                className="text-[11px] font-black tracking-[0.18em] uppercase"
-                style={{ color: "#A78BFA" }}
+                className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center"
+                style={{ background: "#7C3AED", border: "2px solid white", fontSize: "8px" }}
               >
-                Public Notice — Discontinuation of TWH OSINT
+                ✓
               </span>
             </div>
 
-            {/* ── HINGLISH ── */}
-            <div className="px-5 pt-5 pb-4 space-y-3 text-[13px] leading-[1.9]" style={{ color: "rgba(255,255,255,0.82)" }}>
-              <div className="flex items-center gap-2 mb-3">
-                <span
-                  className="text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded"
-                  style={{
-                    background: "rgba(255,165,0,0.1)",
-                    border: "1px solid rgba(255,165,0,0.25)",
-                    color: "#FCD34D",
-                  }}
-                >
-                  🇮🇳 &nbsp;Hinglish
-                </span>
-              </div>
-
-              <p>
-                Sabse pehle — main{" "}
-                <span style={{ color: "#A78BFA", fontWeight: 700 }}>Afsar (Technical White Hat)</span> —
-                TWH OSINT ka founder aur official member — yeh notice publicly jaari kar raha hoon.
-              </p>
-
-              <p>
-                <span style={{ color: "#E879F9", fontWeight: 600 }}>TWH OSINT officially discontinue</span>{" "}
-                kiya ja raha hai. Hum out of fund ho gaye hain, aur is wajah se service aage nahi chal sakti.
-                Yeh tool kabhi wapas aayega ya nahi — is waqt hum yeh confirm nahi kar sakte.
-              </p>
-
-              <p>
-                Is tool ko maine ek soch ke saath banaya tha — online scam, bullying, blackmailing, aur khaas
-                karke{" "}
-                <span style={{ color: "#6EE7B7", fontWeight: 600 }}>ladkiyon ki safety</span> ke liye. Yeh
-                completely free rakha gaya tha, aur humne{" "}
-                <span style={{ color: "#E879F9", fontWeight: 600 }}>1,00,000+ successful results</span> users
-                ko diye.
-              </p>
-
-              <p>
-                Lekin bahut saare complaints aur formal cyber cases aane ke baad humne verify kiya — aur yeh
-                paya ki tool ka{" "}
-                <span style={{ color: "#FCA5A5", fontWeight: 600 }}>misuse fair use se kahin zyada</span> ho
-                raha hai.{" "}
-                <span style={{ color: "#FCD34D", fontWeight: 600 }}>Right to Privacy</span> ek fundamental
-                cheez hai — aur hum uski respect karte hain.
-              </p>
-
-              <p>
-                Main hamesha ek responsible developer raha hoon. Mera — ya mere team ka — kabhi koi galat
-                irada nahi raha. Lekin{" "}
-                <span style={{ color: "#6EE7B7", fontWeight: 600 }}>galat ko rokna bhi hamara hi kaam hai.</span>
-              </p>
-
-              <p>
-                Agar future mein hum ya humara koi tool wapas aata hai — woh hamesha{" "}
-                <span style={{ color: "#A78BFA", fontWeight: 600 }}>logo ke bhalay ke liye</span> hoga.
-              </p>
-
-              <p>
-                Aap sabhi ka{" "}
-                <span style={{ color: "#A78BFA", fontWeight: 700 }}>shukriya</span> — support, trust aur
-                ek achhi niyat ke saath is tool ka istemal karne ke liye. Safar yahan khatam hota hai.
-              </p>
-
-              <p style={{ color: "#A78BFA", fontWeight: 700 }}>🇮🇳 Jai Hind</p>
-            </div>
-
-            {/* Divider */}
-            <div
-              className="mx-5"
-              style={{
-                height: "1px",
-                background: "linear-gradient(90deg, transparent, rgba(139,92,246,0.25), transparent)",
-              }}
-            />
-
-            {/* ── ENGLISH ── */}
-            <div className="px-5 pt-5 pb-5 space-y-3 text-[13px] leading-[1.9]" style={{ color: "rgba(255,255,255,0.82)" }}>
-              <div className="flex items-center gap-2 mb-3">
-                <span
-                  className="text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded"
-                  style={{
-                    background: "rgba(59,130,246,0.1)",
-                    border: "1px solid rgba(59,130,246,0.25)",
-                    color: "#93C5FD",
-                  }}
-                >
-                  🌐 &nbsp;English
-                </span>
-              </div>
-
-              <p>
-                I, <span style={{ color: "#A78BFA", fontWeight: 700 }}>Afsar (Technical White Hat)</span> —
-                founder and official member of TWH OSINT — am issuing this notice to the public.
-              </p>
-
-              <p>
-                <span style={{ color: "#E879F9", fontWeight: 600 }}>TWH OSINT is officially being discontinued.</span>{" "}
-                We have run out of funds, and the service can no longer continue operations. Whether this
-                tool will return in the future — we are unable to confirm at this time.
-              </p>
-
-              <p>
-                This tool was built with a clear purpose — to fight online scams, bullying, blackmailing,
-                and to protect{" "}
-                <span style={{ color: "#6EE7B7", fontWeight: 600 }}>women's safety</span> online. It was
-                kept completely free, and we delivered{" "}
-                <span style={{ color: "#E879F9", fontWeight: 600 }}>1,00,000+ successful results</span> to
-                our users.
-              </p>
-
-              <p>
-                However, after receiving numerous complaints and formal cyber cases, we thoroughly reviewed
-                the situation — and identified that the tool was being{" "}
-                <span style={{ color: "#FCA5A5", fontWeight: 600 }}>misused far beyond its intended purpose</span>.
-                The{" "}
-                <span style={{ color: "#FCD34D", fontWeight: 600 }}>Right to Privacy</span> is a fundamental
-                right — and one we deeply respect.
-              </p>
-
-              <p>
-                I have always been a responsible developer. Neither I nor my team has ever had any wrong
-                intention.{" "}
-                <span style={{ color: "#6EE7B7", fontWeight: 600 }}>
-                  But stopping what is wrong is equally our responsibility.
-                </span>
-              </p>
-
-              <p>
-                If in the future we or any of our tools return to this space — it will always be for the{" "}
-                <span style={{ color: "#A78BFA", fontWeight: 600 }}>betterment of the people</span>.
-              </p>
-
-              <p>
-                Thank you to each one of you for your{" "}
-                <span style={{ color: "#A78BFA", fontWeight: 700 }}>support and trust</span>. This journey
-                ends here.
-              </p>
-
-              <p style={{ color: "#A78BFA", fontWeight: 700 }}>🇮🇳 Jai Hind</p>
-            </div>
-          </div>
-
-          {/* ── SIGNATURE ROW ── */}
-          <div
-            className="mx-6 mb-6 flex items-center gap-4 rounded-xl px-5 py-4"
-            style={{
-              background: "rgba(139,92,246,0.06)",
-              border: "1px solid rgba(139,92,246,0.14)",
-            }}
-          >
-            {/* Small avatar repeat */}
-            <div
-              className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0"
-              style={{
-                border: "1.5px solid rgba(139,92,246,0.45)",
-                background: "rgba(139,92,246,0.12)",
-              }}
-            >
-              <img
-                src={logoHeroPath}
-                alt="TWH"
-                className="w-full h-full object-contain"
-                draggable={false}
-              />
-            </div>
+            {/* Name + badges */}
             <div className="flex-1 min-w-0">
-              <p className="text-white font-bold text-[12px]">Technical White Hat (Afsar)</p>
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
-                Founder · TWH OSINT &nbsp;·&nbsp; Signed &amp; Released Officially
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Gold TWH logo inline */}
+                <img src={logoHeroPath} alt="TWH" className="w-4 h-4 object-contain" />
+                <span
+                  className="font-black text-[15px]"
+                  style={{
+                    background: "linear-gradient(90deg, #D4AF37, #F5E17A, #B8960C)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  TWH
+                </span>
+                <span
+                  className="text-[11px] font-bold"
+                  style={{ color: "#374151" }}
+                >
+                  — Afsar
+                </span>
+                {/* Verified badge */}
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black tracking-wider uppercase"
+                  style={{ background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.35)", color: "#7C3AED" }}
+                >
+                  ✦ Verified
+                </span>
+                {/* Official badge */}
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black tracking-wider uppercase"
+                  style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)", color: "#dc2626" }}
+                >
+                  Official
+                </span>
+              </div>
+              <p className="text-[11px] mt-0.5" style={{ color: "#9CA3AF" }}>
+                @afsar · Founder, TWH OSINT · July 2026
               </p>
             </div>
-            {/* Stamp */}
-            <div
-              className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-center"
+
+            {/* Lang toggle — top right */}
+            <button
+              onClick={() => setLang(l => l === "hi" ? "en" : "hi")}
+              className="flex-shrink-0 text-[10px] font-bold px-3 py-1.5 rounded-full transition-all"
               style={{
-                border: "2px solid rgba(139,92,246,0.4)",
-                background: "rgba(139,92,246,0.08)",
-                fontSize: "9px",
-                fontWeight: 900,
-                color: "rgba(167,139,250,0.55)",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                lineHeight: 1.2,
+                background: lang === "hi" ? "rgba(124,58,237,0.1)" : "rgba(37,99,235,0.1)",
+                border: lang === "hi" ? "1px solid rgba(124,58,237,0.35)" : "1px solid rgba(37,99,235,0.35)",
+                color: lang === "hi" ? "#7C3AED" : "#2563EB",
+                cursor: "pointer",
               }}
             >
-              TWH<br />2026
-            </div>
+              {lang === "hi" ? "🌐 English" : "🇮🇳 Hinglish"}
+            </button>
           </div>
 
-          {/* ── FOOTER ── */}
+          {/* ── Message body ── */}
+          <div className="px-5 py-5">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={lang}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2 }}
+              >
+                {lang === "hi" ? HINGLISH : ENGLISH}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* ── Like row ── */}
           <div
-            className="flex items-center justify-between px-6 py-3"
-            style={{
-              borderTop: "1px solid rgba(139,92,246,0.1)",
-              background: "rgba(0,0,0,0.18)",
-            }}
+            className="px-5 py-3 flex items-center gap-4"
+            style={{ borderTop: "1px solid rgba(139,92,246,0.1)" }}
           >
-            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.18)" }}>
-              TWH OSINT · Est. 2024
-            </span>
-            <span
-              className="text-[10px] font-semibold flex items-center gap-1.5"
-              style={{ color: "rgba(167,139,250,0.45)" }}
+            <button
+              onClick={handleLike}
+              className="flex items-center gap-2 px-4 py-1.5 rounded-full font-bold text-[13px] transition-all active:scale-95"
+              style={{
+                background: liked ? "rgba(124,58,237,0.12)" : "rgba(0,0,0,0.04)",
+                border: liked ? "1px solid rgba(124,58,237,0.4)" : "1px solid rgba(0,0,0,0.1)",
+                color: liked ? "#7C3AED" : "#6B7280",
+                cursor: "pointer",
+              }}
             >
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ background: "rgba(239,68,68,0.7)", boxShadow: "0 0 5px rgba(239,68,68,0.5)" }}
-              />
-              Service Discontinued
+              <span style={{ fontSize: "16px" }}>{liked ? "💜" : "🤍"}</span>
+              <span>{likes}</span>
+            </button>
+            <span className="text-[11px]" style={{ color: "#9CA3AF" }}>
+              {replies.length} {replies.length === 1 ? "reply" : "replies"}
             </span>
           </div>
         </motion.div>
 
-        {/* ── BOTTOM NOTE ── */}
+        {/* ══════════════════════════════════════════════════════════════════════
+            REPLIES SECTION
+        ══════════════════════════════════════════════════════════════════════ */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="w-full max-w-2xl"
+          style={glassCard}
+        >
+          <div className="px-5 pt-5 pb-3" style={{ borderBottom: "1px solid rgba(139,92,246,0.1)" }}>
+            <span className="text-[12px] font-bold" style={{ color: "#374151" }}>
+              💬 {replies.length} {replies.length === 1 ? "Reply" : "Replies"}
+            </span>
+          </div>
+
+          {/* Write reply */}
+          <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(139,92,246,0.08)" }}>
+            <div className="flex gap-3">
+              {/* Avatar placeholder */}
+              <div
+                className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-white text-[13px]"
+                style={{ background: replyName ? colorFor(replyName) : "#D1D5DB" }}
+              >
+                {replyName ? initials(replyName) : "?"}
+              </div>
+              <div className="flex-1 flex flex-col gap-2">
+                <input
+                  className="w-full rounded-xl px-3 py-2 text-[13px] outline-none transition-all"
+                  style={{
+                    background: "rgba(255,255,255,0.7)",
+                    border: "1px solid rgba(139,92,246,0.2)",
+                    color: "#1e1e2e",
+                  }}
+                  placeholder="Apna naam likho..."
+                  value={replyName}
+                  maxLength={40}
+                  onChange={e => setReplyName(e.target.value)}
+                />
+                <textarea
+                  className="w-full rounded-xl px-3 py-2 text-[13px] outline-none resize-none transition-all"
+                  style={{
+                    background: "rgba(255,255,255,0.7)",
+                    border: "1px solid rgba(139,92,246,0.2)",
+                    color: "#1e1e2e",
+                    minHeight: "70px",
+                  }}
+                  placeholder="Apna message likho... (max 500 characters)"
+                  value={replyText}
+                  maxLength={500}
+                  onChange={e => setReplyText(e.target.value)}
+                />
+                {replyErr && <p className="text-[11px] text-red-500">{replyErr}</p>}
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px]" style={{ color: "#9CA3AF" }}>{replyText.length}/500</span>
+                  <button
+                    onClick={handleReply}
+                    disabled={posting || !replyName.trim() || !replyText.trim()}
+                    className="px-4 py-1.5 rounded-full text-[12px] font-bold text-white transition-all active:scale-95"
+                    style={{
+                      background: posting || !replyName.trim() || !replyText.trim()
+                        ? "#D1D5DB"
+                        : "linear-gradient(135deg, #7C3AED, #6D28D9)",
+                      cursor: posting || !replyName.trim() || !replyText.trim() ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {posting ? "Posting..." : "Reply Karo"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Reply list */}
+          <div className="px-5 py-2">
+            {replies.length === 0 ? (
+              <p className="text-[12px] py-4 text-center" style={{ color: "#9CA3AF" }}>
+                Abhi koi reply nahi hai. Pehle reply karo! 👇
+              </p>
+            ) : (
+              <div className="divide-y" style={{ borderColor: "rgba(139,92,246,0.07)" }}>
+                {replies.map(r => (
+                  <div key={r.id} className="py-3.5 flex gap-3">
+                    {/* Avatar */}
+                    <div
+                      className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-white text-[12px]"
+                      style={{ background: colorFor(r.author_name) }}
+                    >
+                      {initials(r.author_name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[13px] font-bold" style={{ color: "#1e1e2e" }}>{r.author_name}</span>
+                        <span className="text-[10px]" style={{ color: "#9CA3AF" }}>{timeAgo(r.created_at)}</span>
+                      </div>
+                      <p className="text-[13px] mt-0.5" style={{ color: "#374151", lineHeight: 1.7, wordBreak: "break-word" }}>
+                        {r.content}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div ref={repliesEndRef} />
+          </div>
+        </motion.div>
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            TWH OSINT's GOODBYE COMMENT
+        ══════════════════════════════════════════════════════════════════════ */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="w-full max-w-2xl"
+          style={{
+            ...glassCard,
+            background: "rgba(240,232,255,0.75)",
+            border: "1.5px solid rgba(124,58,237,0.25)",
+          }}
+        >
+          {/* Header */}
+          <div
+            className="px-5 pt-5 pb-4 flex items-start gap-3.5"
+            style={{ borderBottom: "1px solid rgba(139,92,246,0.14)" }}
+          >
+            {/* TWH OSINT logo avatar */}
+            <div className="relative flex-shrink-0">
+              <div
+                className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center"
+                style={{
+                  border: "2.5px solid #7C3AED",
+                  background: "rgba(124,58,237,0.12)",
+                  boxShadow: "0 0 16px rgba(124,58,237,0.3)",
+                }}
+              >
+                <img src={logoHeroPath} alt="TWH OSINT" className="w-8 h-8 object-contain" />
+              </div>
+              <span
+                className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center"
+                style={{ background: "#7C3AED", border: "2px solid white", fontSize: "8px" }}
+              >
+                ✓
+              </span>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className="font-black text-[15px]"
+                  style={{
+                    background: "linear-gradient(90deg, #7C3AED, #a855f7)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                  }}
+                >
+                  TWH OSINT
+                </span>
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black tracking-wider uppercase"
+                  style={{ background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.35)", color: "#7C3AED" }}
+                >
+                  ✦ Verified
+                </span>
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black tracking-wider uppercase"
+                  style={{ background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.3)", color: "#7C3AED" }}
+                >
+                  Platform
+                </span>
+              </div>
+              <p className="text-[11px] mt-0.5" style={{ color: "#9CA3AF" }}>
+                @twh_osint · Official Platform Account · Final Message
+              </p>
+            </div>
+
+            {/* Goodbye lang toggle */}
+            <button
+              onClick={() => setGoodbyeLang(l => l === "hi" ? "en" : "hi")}
+              className="flex-shrink-0 text-[10px] font-bold px-3 py-1.5 rounded-full transition-all"
+              style={{
+                background: goodbyeLang === "hi" ? "rgba(124,58,237,0.1)" : "rgba(37,99,235,0.1)",
+                border: goodbyeLang === "hi" ? "1px solid rgba(124,58,237,0.35)" : "1px solid rgba(37,99,235,0.35)",
+                color: goodbyeLang === "hi" ? "#7C3AED" : "#2563EB",
+                cursor: "pointer",
+              }}
+            >
+              {goodbyeLang === "hi" ? "🌐 English" : "🇮🇳 Hinglish"}
+            </button>
+          </div>
+
+          {/* Goodbye body */}
+          <div className="px-5 py-5">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={goodbyeLang}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2 }}
+              >
+                {goodbyeLang === "hi" ? GOODBYE_HI : GOODBYE_EN}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* Footer line */}
+          <div
+            className="px-5 py-3 flex items-center justify-between"
+            style={{ borderTop: "1px solid rgba(139,92,246,0.12)" }}
+          >
+            <span className="text-[10px]" style={{ color: "#9CA3AF" }}>TWH OSINT · Est. 2024 – 2026</span>
+            <span
+              className="flex items-center gap-1.5 text-[10px] font-semibold"
+              style={{ color: "#7C3AED" }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400" style={{ boxShadow: "0 0 4px rgba(239,68,68,0.7)" }} />
+              Discontinued
+            </span>
+          </div>
+        </motion.div>
+
+        {/* bottom note */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-          className="mt-7 text-[11px] text-center max-w-xs"
-          style={{ color: "rgba(255,255,255,0.18)", lineHeight: "1.8" }}
+          transition={{ delay: 0.5 }}
+          className="text-[11px] text-center max-w-xs"
+          style={{ color: "rgba(255,255,255,0.2)", lineHeight: "1.8" }}
         >
-          For official queries — reach out via Telegram.
-          <br />
+          For official queries — reach out via Telegram.<br />
           Thank you for being part of this journey. 🙏
         </motion.p>
 
