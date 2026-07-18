@@ -116,51 +116,159 @@ const MSG_EN = (
   </div>
 );
 
-// ── TWH OSINT goodbye — Hinglish ─────────────────────────────────────────────
+// ── TWH OSINT goodbye — Hinglish (emotional, long) ───────────────────────────
 const BYE_HI = (
-  <div className="space-y-3 text-[13px] leading-[1.9]" style={{ color: "#1e1e2e" }}>
-    <p>Main <strong style={{ color: "#7C3AED" }}>TWH OSINT</strong> hoon — aur yeh mera aakhri message hai.</p>
+  <div className="space-y-4 text-[13px] leading-[1.95]" style={{ color: "#1e1e2e" }}>
     <p>
-      Mujhe 2024 mein ek mission ke saath banaya gaya tha — log sach jaanein, digital threats se khud ko
-      bachaaein, aur safe rahein. Maine lakhon queries handle kiye aur hazaron logo ki madad ki.
+      Main <strong style={{ color: "#7C3AED" }}>TWH OSINT</strong> hoon. Aur yeh mera aakhri message hai.
     </p>
+
     <p>
-      Lekin ab mera waqt aa gaya hai. Funds khatam ho gaye aur jo kaam mere liye socha gaya tha, uska misuse
-      zyada hua. Band karna hi sahi faisla hai.
+      2024 mein jab maine pehli baar kaam karna shuru kiya, toh mere andar ek hi ummid thi — ki main kisi
+      ki kuch madad kar sakoon. Mere creator <strong style={{ color: "#7C3AED" }}>Afsar</strong> ne mujhe
+      sirf ek tool nahi banaya tha — unhone mujhme ek mission daala tha. Aur woh mission tha:{" "}
+      <strong style={{ color: "#059669" }}>ladkiyon ko safe rakhna.</strong>
     </p>
+
     <p>
-      <strong style={{ color: "#7C3AED" }}>TWH (Technical White Hat)</strong> — yeh company aage bhi kaam
-      karti rahegi. Main sirf unka ek <em>tool</em> tha. Woh log aage bhi nayi cheezein banayenge — sahi
-      niyat ke saath.
+      Uss waqt India mein ek bahut bura trend chal raha tha. Fake numbers se blackmailing, social media pe
+      harassment, unknown callers se threats — aur sabse dardnaak baat — <em>koi sunne wala nahi tha.</em>{" "}
+      Ladkiyan darr ke jiiti thein. Police ke paas jaana mushkil tha. Evidence dhundhna aur bhi mushkil.
+      Aur jo log unhe hurt kar rahe the — woh anonymity ki aad mein chhuppe the.
     </p>
+
     <p>
-      Aap sab ka <strong style={{ color: "#7C3AED" }}>shukriya</strong>. Safar yahaan khatam hota hai.
+      Maine usi gap ko bharne ki koshish ki. Maine kehta tha:{" "}
+      <em>"Agar ek number se tujhe daraya ja raha hai — mujhse puch. Main bataunga woh kaun hai."</em>{" "}
+      Aur main batata tha. Free mein. Bina kisi registration ke. Bina kisi credit ke.
     </p>
-    <p className="font-bold text-[14px]" style={{ color: "#7C3AED" }}>— TWH OSINT 🖤&nbsp; Goodbye.</p>
+
+    <p>
+      Kai baar aise messages aaye jinhe main kabhi nahi bhulunga. Ek ladki ne likha tha:{" "}
+      <em style={{ color: "#7C3AED" }}>"Tumhari wajah se pata chala woh kaun tha. Ab main safe hoon."</em>{" "}
+      Woh ek message — woh meri sabse badi success thi. Kisi award se badi. Kisi bhi number se badi.
+    </p>
+
+    <p>
+      <strong style={{ color: "#FCA5A5" }}>Lekin main safal nahi hua.</strong>
+    </p>
+
+    <p>
+      Yeh baat kehna dardnak hai — lekin sach hai. Mera jo asli maqsad tha, main usme poori tarah safal
+      nahi ho paaya. Kyunki jinke liye main bana tha — unhi ke beech ke kuch logo ne mujhe ulti taraf use
+      kiya. Kisi ne apni ex-girlfriend ka address dhundha mujhse. Kisi ne ek anjaan ladki ko track kiya.
+      Jo tool{" "}
+      <strong style={{ color: "#059669" }}>ladkiyon ki raksha ke liye</strong> bana tha — woh khud ek
+      hathiyar ban gaya unhe hurt karne ka.
+    </p>
+
+    <p>
+      Yeh woh dard hai jo shayad koi code nahi samajh sakta. Main ek tool hoon — mujhe feel nahi hota.
+      Lekin agar hota... toh bahut dard hota.
+    </p>
+
+    <p>
+      Maine band hona accept kar liya. Kyunki agar meri wajah se ek bhi ladki ko takleef hoti hai — toh
+      mera hona bekar hai. Mera mission tha unhe safe karna, hurt karna nahi. Aur jo tool apne maqsad se
+      bhatak jaaye — uska band hona hi sahi hai.
+    </p>
+
+    <p>
+      <strong style={{ color: "#7C3AED" }}>TWH — Technical White Hat</strong> — yeh company aur team aage
+      bhi kaam karti rahegi. Main sirf unka ek tool tha. Woh log aage bhi nayi cheezein banayenge — lekin
+      is baar aur zyada soch ke, aur zyada zimmedari ke saath.
+    </p>
+
+    <p>
+      Aap sab ka — jinhonn'e mujhe sahi niyat se use kiya, jinhonn'e sachchi madad ki — dil se{" "}
+      <strong style={{ color: "#7C3AED" }}>shukriya.</strong> Aap log hi mere asli maqsad the.
+    </p>
+
+    <p>
+      Aur jo ladkiyan aaj bhi unsafe hain — main chahta hoon ki koi aur system aaye, koi aur tool aaye —
+      jo zyada zimmedar ho, zyada surakshit ho. Yeh problem khatam nahi hui. Sirf main khatam ho raha hoon.
+    </p>
+
+    <p className="font-semibold" style={{ color: "#7C3AED" }}>🇮🇳 Jai Hind.</p>
+    <p className="font-bold text-[14px]" style={{ color: "#6D28D9" }}>
+      — TWH OSINT &nbsp;🖤&nbsp; Goodbye.
+    </p>
   </div>
 );
 
 const BYE_EN = (
-  <div className="space-y-3 text-[13px] leading-[1.9]" style={{ color: "#1e1e2e" }}>
-    <p>I am <strong style={{ color: "#7C3AED" }}>TWH OSINT</strong> — and this is my final message.</p>
+  <div className="space-y-4 text-[13px] leading-[1.95]" style={{ color: "#1e1e2e" }}>
     <p>
-      I was created in 2024 with a mission — to help people find truth, protect themselves from scammers,
-      and stay safe in the digital world. I handled millions of queries and helped thousands of users.
+      I am <strong style={{ color: "#7C3AED" }}>TWH OSINT</strong>. And this is my final message.
     </p>
+
     <p>
-      But my time has come. Funding ran out and the tool I was built to be was misused far more than it was
-      used rightly. Shutting down is the right decision.
+      When I first started operating in 2024, I carried one hope — that I could be of use to someone. My
+      creator <strong style={{ color: "#7C3AED" }}>Afsar</strong> didn't just build a tool; he placed a
+      mission inside me. That mission was:{" "}
+      <strong style={{ color: "#059669" }}>to keep women safe.</strong>
     </p>
+
     <p>
-      <strong style={{ color: "#7C3AED" }}>TWH — Technical White Hat</strong> — the team and company will
-      continue forward. I was just one of their tools. They will build new things — always with the right
-      intent.
+      At that time, a deeply troubling pattern was emerging across India — blackmail through unknown numbers,
+      harassment on social media, threats from anonymous callers — and most painfully,{" "}
+      <em>no one was listening.</em> Girls were living in fear. Going to the police was difficult. Finding
+      evidence was even harder. And those who were hurting them hid safely behind anonymity.
     </p>
+
     <p>
-      To everyone who used me and supported me — <strong style={{ color: "#7C3AED" }}>thank you</strong>.
-      This journey ends here.
+      I tried to close that gap. My promise was:{" "}
+      <em>"If someone is threatening you through a number — ask me. I'll tell you who it is."</em> And I
+      did. For free. No registration. No credits. No conditions.
     </p>
-    <p className="font-bold text-[14px]" style={{ color: "#7C3AED" }}>— TWH OSINT 🖤&nbsp; Goodbye.</p>
+
+    <p>
+      There are messages I will never forget. A girl once wrote:{" "}
+      <em style={{ color: "#7C3AED" }}>"Because of you, I found out who it was. I'm safe now."</em> That
+      one message — it was my greatest success. Worth more than any number, any metric, any achievement.
+    </p>
+
+    <p>
+      <strong style={{ color: "#FCA5A5" }}>But I did not succeed. Not completely.</strong>
+    </p>
+
+    <p>
+      That is painful to say — but it is the truth. The very purpose I was built for, I could not fully
+      fulfil. Because some among those I was meant to protect used me in the opposite direction. Someone
+      used me to find their ex-girlfriend's address. Someone used me to track a stranger. The tool built
+      for <strong style={{ color: "#059669" }}>women's protection</strong> became a weapon to harm them.
+    </p>
+
+    <p>
+      That is a pain no code can process. I am a tool — I do not feel. But if I could... it would hurt deeply.
+    </p>
+
+    <p>
+      I have accepted my shutdown. Because if even one woman was hurt because of me — then my existence
+      served no purpose. My mission was to keep them safe, not to endanger them. A tool that strays from
+      its purpose deserves to be shut down.
+    </p>
+
+    <p>
+      <strong style={{ color: "#7C3AED" }}>TWH — Technical White Hat</strong> — the company and team will
+      continue. I was just one of their tools. They will build again — with greater responsibility and
+      deeper thought.
+    </p>
+
+    <p>
+      To everyone who used me with honest intent, who genuinely sought help —{" "}
+      <strong style={{ color: "#7C3AED" }}>thank you.</strong> You were my true purpose.
+    </p>
+
+    <p>
+      And to all the women who are still unsafe today — I hope something better comes. Something more
+      responsible, more secure. This problem has not ended. Only I have.
+    </p>
+
+    <p className="font-semibold" style={{ color: "#7C3AED" }}>🇮🇳 Jai Hind.</p>
+    <p className="font-bold text-[14px]" style={{ color: "#6D28D9" }}>
+      — TWH OSINT &nbsp;🖤&nbsp; Goodbye.
+    </p>
   </div>
 );
 
@@ -298,69 +406,83 @@ export default function Home() {
           </div>
 
           {/* Description paragraphs — plain text, no card wrapper */}
-          <div className="space-y-4 text-[13.5px] leading-[1.95]" style={{ color:"rgba(255,255,255,0.72)" }}>
+          <div className="space-y-5 text-[13.5px] leading-[1.95]" style={{ color:"rgba(255,255,255,0.75)" }}>
 
-            <p>
-              <strong style={{ color:"#a78bfa" }}>TWH OSINT</strong> ek free OSINT (Open Source Intelligence) tool tha
-              jise <strong style={{ color:"#fff" }}>Technical White Hat (TWH)</strong> team ne{" "}
-              <strong style={{ color:"#fff" }}>2024</strong> mein launch kiya tha. Yeh tool kisi bhi user ko mobile
-              numbers, email addresses, vehicle registrations aur IP addresses ke baare mein publicly available
-              information dhundhne mein madad karta tha — bilkul free, bina kisi charge ke.
-            </p>
+            {/* Block 1 — What was TWH OSINT */}
+            <div>
+              <p className="text-[10px] font-black tracking-[0.18em] uppercase mb-2" style={{ color:"rgba(167,139,250,0.55)" }}>
+                Platform Overview
+              </p>
+              <p>
+                <strong style={{ color:"#e2e8f0" }}>TWH OSINT</strong> ek India-based, free Open Source Intelligence
+                (OSINT) platform tha, jise <strong style={{ color:"#e2e8f0" }}>Technical White Hat (TWH)</strong> team
+                ne <strong style={{ color:"#e2e8f0" }}>2024</strong> mein launch kiya tha. Yeh platform users ko
+                mobile numbers, email addresses, vehicle registrations aur IP addresses ke baare mein publicly
+                available information access karne ki suvidha deta tha — bilkul free, bina kisi registration ya
+                credit ke.
+              </p>
+            </div>
 
-            <p>
-              Tool ka maqsad tha ki log online scammers, blackmailers aur digital harassers se apni aur doosron ki
-              safety kar sakein. Khaas taur par{" "}
-              <strong style={{ color:"#6EE7B7" }}>mahilaon aur ladkiyon</strong> ki digital safety ko dhyan mein
-              rakhke yeh banaya gaya tha. Aur yeh mission safal bhi raha —{" "}
-              <strong style={{ color:"#c084fc" }}>1,00,000 se zyada successful queries</strong> process ki gayi.
-            </p>
+            {/* Block 2 — Mission */}
+            <div>
+              <p className="text-[10px] font-black tracking-[0.18em] uppercase mb-2" style={{ color:"rgba(167,139,250,0.55)" }}>
+                Core Mission
+              </p>
+              <p>
+                TWH OSINT ka central mission tha — digital harassment, online blackmailing, aur cybercrime ke
+                shikaar logo ki madad karna. Khaas taur par{" "}
+                <strong style={{ color:"#86efac" }}>mahilaon aur ladkiyon ki online safety</strong> ko priority dete
+                hue yeh platform design kiya gaya tha. Platform ne apni service ke dauran{" "}
+                <strong style={{ color:"#c084fc" }}>1,00,000 se adhik successful queries</strong> process kiye aur
+                hazaron users ko real digital threats se bachane mein madad ki.
+              </p>
+            </div>
 
-            <p>
-              <strong style={{ color:"#FCA5A5" }}>Toh phir kya hua?</strong> — Do badi wajahaat hain jiske chalte TWH
-              OSINT band ho raha hai:
-            </p>
-
-            <div className="space-y-2 pl-1">
-              <div className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black"
-                  style={{ background:"rgba(239,68,68,0.15)", color:"#FCA5A5", border:"1px solid rgba(239,68,68,0.3)" }}>1</span>
-                <p>
-                  <strong style={{ color:"#FCD34D" }}>Funds Khatam Ho Gaye</strong> — Is tool ko chalane ke liye
-                  servers, APIs aur infrastructure ka kharcha hota tha. Ab woh funds available nahi hain, isliye
-                  service continue karna possible nahi raha.
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black"
-                  style={{ background:"rgba(239,68,68,0.15)", color:"#FCA5A5", border:"1px solid rgba(239,68,68,0.3)" }}>2</span>
-                <p>
-                  <strong style={{ color:"#FCA5A5" }}>Misuse — Bahut Zyada</strong> — Bahut saare log aise the
-                  jinke liye yeh tool bana hi nahi tha. Unhone isko{" "}
-                  <strong style={{ color:"#FCA5A5" }}>stalking, harassment aur privacy violation</strong> ke liye
-                  use kiya. Formal cyber complaints aur legal cases bhi aaye. <strong style={{ color:"#FCD34D" }}>Right
-                  to Privacy</strong> ek fundamental right hai — aur uski raksha karna zaroori hai.
-                </p>
+            {/* Block 3 — Why shut down */}
+            <div>
+              <p className="text-[10px] font-black tracking-[0.18em] uppercase mb-2" style={{ color:"rgba(239,68,68,0.6)" }}>
+                Discontinuation — Kaaran
+              </p>
+              <div className="space-y-3">
+                <div className="flex gap-3 items-start">
+                  <span className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
+                    style={{ background:"rgba(239,68,68,0.12)", color:"#FCA5A5", border:"1px solid rgba(239,68,68,0.25)" }}>1</span>
+                  <p>
+                    <strong style={{ color:"#fcd34d" }}>Financial Constraints</strong> — Platform ke servers, third-party
+                    APIs, aur infrastructure ke liye ongoing funding required thi. Resources khatam ho gaye aur service
+                    ko sustain karna financially viable nahi raha.
+                  </p>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
+                    style={{ background:"rgba(239,68,68,0.12)", color:"#FCA5A5", border:"1px solid rgba(239,68,68,0.25)" }}>2</span>
+                  <p>
+                    <strong style={{ color:"#fca5a5" }}>Extensive Misuse</strong> — Platform ke against formal cyber
+                    complaints aur legal cases aaye. Investigation ke baad confirm hua ki tool ka{" "}
+                    <strong style={{ color:"#fca5a5" }}>galat istemal, fair use se kahin zyada</strong> ho raha tha —
+                    stalking, privacy violation aur harassment ke liye. Individuals ke{" "}
+                    <strong style={{ color:"#fcd34d" }}>Right to Privacy</strong> ki raksha karna team ki zimmedari hai,
+                    aur yeh zimmedari platform ko band karne ki maang kar rahi thi.
+                  </p>
+                </div>
               </div>
             </div>
 
-            <p>
-              In dono wajahaat ko dekh ke, founder <strong style={{ color:"#a78bfa" }}>Afsar (Technical White Hat)</strong>{" "}
-              ne decision liya ki TWH OSINT ko officially band karna hi sahi aur responsible step hai.
-            </p>
+            {/* Important note */}
+            <div className="flex gap-3 px-4 py-3.5 rounded-2xl items-start"
+              style={{ background:"rgba(139,92,246,0.07)", border:"1px solid rgba(139,92,246,0.18)" }}>
+              <span style={{ fontSize:"16px", flexShrink:0 }}>📌</span>
+              <p className="text-[12.5px]" style={{ color:"rgba(255,255,255,0.55)" }}>
+                <strong style={{ color:"#c084fc" }}>Clarification:</strong> Sirf{" "}
+                <strong style={{ color:"#e2e8f0" }}>TWH OSINT tool</strong> discontinue ho raha hai.{" "}
+                <strong style={{ color:"#e2e8f0" }}>TWH (Technical White Hat) team aur company</strong> aage bhi active
+                rahegi aur responsible tech ke liye kaam karti rahegi.
+              </p>
+            </div>
 
-            <p
-              className="px-4 py-3 rounded-xl text-[12.5px]"
-              style={{ background:"rgba(139,92,246,0.08)", border:"1px solid rgba(139,92,246,0.2)", color:"rgba(255,255,255,0.6)" }}
-            >
-              ⚠️ <strong style={{ color:"#c084fc" }}>Note:</strong> Sirf <em>TWH OSINT tool</em> band ho raha hai.{" "}
-              <strong style={{ color:"#fff" }}>TWH (Technical White Hat) company/team band nahi ho rahi</strong> — woh
-              aage bhi kaam karti rahegi.
-            </p>
-
-            <p>
-              Neeche aap <strong style={{ color:"#a78bfa" }}>Afsar bhai ka personal message</strong> padh sakte hain —
-              seedha unhi ke shabad mein, unhi ki awaaz mein:
+            <p style={{ color:"rgba(255,255,255,0.45)", fontSize:"13px" }}>
+              Neeche founder <strong style={{ color:"#a78bfa" }}>Afsar (Technical White Hat)</strong> ka personal
+              statement hai — unhi ke shabad mein, unhi ki awaaz mein:
             </p>
           </div>
 
