@@ -289,25 +289,11 @@ export default function Home() {
             {/* Name + badges */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Gold TWH logo inline */}
-                <img src={logoHeroPath} alt="TWH" className="w-4 h-4 object-contain" />
                 <span
                   className="font-black text-[15px]"
-                  style={{
-                    background: "linear-gradient(90deg, #D4AF37, #F5E17A, #B8960C)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text",
-                    letterSpacing: "0.04em",
-                  }}
+                  style={{ color: "#1e1e2e" }}
                 >
-                  TWH
-                </span>
-                <span
-                  className="text-[11px] font-bold"
-                  style={{ color: "#374151" }}
-                >
-                  — Afsar
+                  Afsar
                 </span>
                 {/* Verified badge */}
                 <span
@@ -342,6 +328,43 @@ export default function Home() {
             >
               {lang === "hi" ? "🌐 English" : "🇮🇳 Hinglish"}
             </button>
+          </div>
+
+          {/* ── Description block above message ── */}
+          <div
+            className="mx-5 mt-5 mb-0 rounded-2xl px-5 py-4"
+            style={{
+              background: "rgba(124,58,237,0.06)",
+              border: "1px solid rgba(124,58,237,0.15)",
+            }}
+          >
+            <p
+              className="text-[11px] font-black tracking-widest uppercase mb-3"
+              style={{ color: "#7C3AED" }}
+            >
+              📌 Kya Ho Raha Hai? — Poori Baat
+            </p>
+            <div className="space-y-2 text-[12.5px] leading-[1.85]" style={{ color: "#374151" }}>
+              <p>
+                <strong style={{ color: "#1e1e2e" }}>TWH OSINT</strong> ek free OSINT (Open Source Intelligence) tool tha jo <strong>Technical White Hat (TWH)</strong> team ne 2024 mein banaya tha. Iska kaam tha — mobile numbers, emails, vehicles aur IPs ke baare mein publicly available data dhundhna, taaki log online scammers, blackmailers aur digital threats se apni safety kar sakein.
+              </p>
+              <p>
+                Yeh tool bilkul <strong>free</strong> tha — kisi se koi paisa nahi liya gaya. Aur isme <strong style={{ color: "#c026d3" }}>1,00,000+ successful queries</strong> process ki gayi.
+              </p>
+              <p>
+                <strong style={{ color: "#dc2626" }}>Kyun band ho raha hai?</strong> — Do wajahaat hain:
+              </p>
+              <ol className="list-decimal list-inside space-y-1 pl-1" style={{ color: "#374151" }}>
+                <li><strong>Funds khatam ho gaye</strong> — is tool ko chalane ke liye jo resources chahiye the, woh ab available nahi hain.</li>
+                <li><strong>Misuse zyada hua</strong> — kai logo ne is tool ko galat tarike se use kiya — jin logo ke liye yeh bana hi nahi tha, unhone isko stalking, harassment aur privacy violation ke liye use kiya. Bahut saari complaints aur formal cyber cases bhi aaye.</li>
+              </ol>
+              <p>
+                Isliye, <strong>Right to Privacy</strong> aur responsible tech ke naam par — TWH team ne faisla liya ki is tool ko band karna sahi hai. <strong style={{ color: "#7C3AED" }}>TWH company band nahi ho rahi</strong> — sirf yeh ek tool, <em>TWH OSINT</em>, officially discontinue ho raha hai.
+              </p>
+              <p>
+                Neeche founder <strong>Afsar (Technical White Hat)</strong> ka official statement hai — Hinglish aur English dono mein.
+              </p>
+            </div>
           </div>
 
           {/* ── Message body ── */}
@@ -519,7 +542,7 @@ export default function Home() {
                   boxShadow: "0 0 16px rgba(124,58,237,0.3)",
                 }}
               >
-                <img src={logoHeroPath} alt="TWH OSINT" className="w-8 h-8 object-contain" />
+                <img src="/twh-osint-logo.png" alt="TWH OSINT" className="w-10 h-10 object-contain" />
               </div>
               <span
                 className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center"
