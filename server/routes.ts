@@ -1294,29 +1294,54 @@ ${urls.map(u => `  <url>
   app.get("/api/notice/replies", async (_req, res) => {
     try {
       const { pool } = await import("./db");
-      const result = await pool.query("SELECT id, author_name, content, created_at FROM notice_replies ORDER BY created_at ASC");
+      const result = await pool.query("SELECT id, author_name, content, is_official, created_at FROM notice_replies ORDER BY created_at ASC");
       res.json(result.rows);
     } catch (e: any) {
       res.json([]);
     }
   });
 
-  // Post a reply
+  // Post a reply (optional auth — if logged in, mark as official)
   app.post("/api/notice/reply", async (req, res) => {
     try {
       const { pool } = await import("./db");
       const { authorName, content } = req.body;
-      if (!authorName?.trim() || !content?.trim()) return res.status(400).json({ error: "Name and message required" });
-      if (content.length > 500) return res.status(400).json({ error: "Too long" });
+      if (!content?.trim()) return res.status(400).json({ error: "Message required" });
+      if (content.length > 1000) return res.status(400).json({ error: "Too long" });
+
+      // Check if request carries a valid Firebase token → official reply
+      let isOfficial = false;
+      let resolvedName = (authorName || "").trim().slice(0, 40) || "Anonymous";
+
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith("Bearer ")) {
+        try {
+          const admin = (await import("firebase-admin")).default;
+          const decoded = await admin.auth().verifyIdToken(authHeader.split("Bearer ")[1]);
+          if (decoded?.email) {
+            isOfficial = true;
+            resolvedName = "Afsar | TWH OSINT";
+          }
+        } catch { /* invalid token — treat as guest */ }
+      }
+
+      if (!isOfficial && !authorName?.trim()) {
+        return res.status(400).json({ error: "Name and message required" });
+      }
+
       const result = await pool.query(
-        "INSERT INTO notice_replies (author_name, content) VALUES ($1, $2) RETURNING id, author_name, content, created_at",
-        [authorName.trim().slice(0, 40), content.trim()]
+        "INSERT INTO notice_replies (author_name, content, is_official) VALUES ($1, $2, $3) RETURNING id, author_name, content, is_official, created_at",
+        [resolvedName, content.trim(), isOfficial]
       );
       res.json(result.rows[0]);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
   });
+
+  // Get all replies (include is_official)
+  // (overrides the earlier GET — move it here so it returns is_official too)
+
 
   // ── HEALTH / DEBUG ───────────────────────────────────────────────────────
   app.get("/api/health", async (_req, res) => {

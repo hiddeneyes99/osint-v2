@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Navbar } from "@/components/Navbar";
 import { useSEO } from "@/hooks/use-seo";
+import { useAuth } from "@/hooks/use-auth";
 
 const TWH_AVATAR = "/twh-afsar.jpeg";
 const TWH_OSINT_LOGO = "/twh-osint-logo.png";
@@ -305,6 +306,7 @@ export default function Home() {
     canonical: "https://twh-osint.vercel.app/",
   });
 
+  const { isAuthenticated } = useAuth();
   const [lang, setLang] = useState<"hi"|"en">("hi");
   const [byeLang, setByeLang] = useState<"hi"|"en">("hi");
   const [likes, setLikes] = useState(0);
@@ -346,12 +348,16 @@ export default function Home() {
   };
 
   const handleReply = async () => {
-    if (!name.trim() || !text.trim()) { setErr("Naam aur message dono likho."); return; }
+    if (!isAuthenticated && !name.trim()) { setErr("Naam likho."); return; }
+    if (!text.trim()) { setErr("Message likho."); return; }
     setPosting(true); setErr("");
     try {
+      const token = (window as any).firebaseToken;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (isAuthenticated && token) headers["Authorization"] = `Bearer ${token}`;
       const r = await fetch("/api/notice/reply", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ authorName: name, content: text }),
       });
       const d = await r.json();
@@ -584,35 +590,57 @@ export default function Home() {
           {/* Input area */}
           <div className="px-5 py-4" style={{ borderBottom:"1px solid rgba(139,92,246,0.07)" }}>
             <div className="flex gap-3">
-              <div className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-white text-[13px] mt-0.5"
-                style={{ background: name ? colorFor(name) : "#D1D5DB" }}>
-                {name ? initials(name) : "?"}
-              </div>
+              {/* Avatar */}
+              {isAuthenticated ? (
+                <div className="relative flex-shrink-0 mt-0.5">
+                  <img src={TWH_AVATAR} alt="Afsar" className="w-9 h-9 rounded-full object-cover"
+                    style={{ border:"2px solid #8B5CF6" }} />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center"
+                    style={{ background:"#7C3AED", border:"1.5px solid white", fontSize:"7px", color:"white" }}>✓</span>
+                </div>
+              ) : (
+                <div className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-white text-[13px] mt-0.5"
+                  style={{ background: name ? colorFor(name) : "#D1D5DB" }}>
+                  {name ? initials(name) : "?"}
+                </div>
+              )}
+
               <div className="flex-1 flex flex-col gap-2">
-                <input
-                  className="w-full rounded-xl px-3 py-2 text-[13px] outline-none"
-                  style={{ background:"rgba(248,245,255,0.9)", border:"1px solid rgba(139,92,246,0.2)", color:"#1e1e2e" }}
-                  placeholder="Apna naam likho..."
-                  value={name} maxLength={40}
-                  onChange={e => setName(e.target.value)}
-                />
+                {/* If logged in — show official label, no name field */}
+                {isAuthenticated ? (
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[12px] font-bold" style={{ color:"#1e1e2e" }}>Afsar | TWH OSINT</span>
+                    <Badge label="✦ Verified" />
+                    <Badge label="Official" color="#dc2626" bg="rgba(220,38,38,0.08)" border="rgba(220,38,38,0.3)" />
+                  </div>
+                ) : (
+                  <input
+                    className="w-full rounded-xl px-3 py-2 text-[13px] outline-none"
+                    style={{ background:"rgba(248,245,255,0.9)", border:"1px solid rgba(139,92,246,0.2)", color:"#1e1e2e" }}
+                    placeholder="Apna naam likho..."
+                    value={name} maxLength={40}
+                    onChange={e => setName(e.target.value)}
+                  />
+                )}
                 <textarea
                   className="w-full rounded-xl px-3 py-2 text-[13px] outline-none resize-none"
                   style={{ background:"rgba(248,245,255,0.9)", border:"1px solid rgba(139,92,246,0.2)", color:"#1e1e2e", minHeight:"72px" }}
-                  placeholder="Apna message likho..."
-                  value={text} maxLength={500}
+                  placeholder={isAuthenticated ? "Official reply likho..." : "Apna message likho..."}
+                  value={text} maxLength={1000}
                   onChange={e => setText(e.target.value)}
                 />
                 {err && <p className="text-[11px] text-red-500">{err}</p>}
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px]" style={{ color:"#9CA3AF" }}>{text.length}/500</span>
-                  <button onClick={handleReply} disabled={posting || !name.trim() || !text.trim()}
+                  <span className="text-[10px]" style={{ color:"#9CA3AF" }}>{text.length}/1000</span>
+                  <button onClick={handleReply}
+                    disabled={posting || (!isAuthenticated && !name.trim()) || !text.trim()}
                     className="px-4 py-1.5 rounded-full text-[12px] font-bold text-white transition-all active:scale-95"
                     style={{
-                      background: posting || !name.trim() || !text.trim() ? "#D1D5DB" : "linear-gradient(135deg,#7C3AED,#6D28D9)",
-                      cursor: posting || !name.trim() || !text.trim() ? "not-allowed" : "pointer",
+                      background: posting || (!isAuthenticated && !name.trim()) || !text.trim()
+                        ? "#D1D5DB" : "linear-gradient(135deg,#7C3AED,#6D28D9)",
+                      cursor: posting || (!isAuthenticated && !name.trim()) || !text.trim() ? "not-allowed" : "pointer",
                     }}>
-                    {posting ? "Post ho raha hai..." : "Reply Karo"}
+                    {posting ? "Post ho raha hai..." : isAuthenticated ? "Official Reply Karo" : "Reply Karo"}
                   </button>
                 </div>
               </div>
@@ -620,7 +648,7 @@ export default function Home() {
           </div>
 
           {/* Reply list */}
-          <div className="px-5 py-2 pb-3">
+          <div className="px-5 py-2 pb-1">
             {replies.length === 0 ? (
               <p className="text-[12px] py-5 text-center" style={{ color:"#9CA3AF" }}>
                 Abhi koi reply nahi. Pehle tum karo! 👇
@@ -630,13 +658,29 @@ export default function Home() {
                 {replies.map(r => (
                   <div key={r.id} className="py-3.5 flex gap-3"
                     style={{ borderBottom:"1px solid rgba(139,92,246,0.07)" }}>
-                    <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-white text-[12px]"
-                      style={{ background: colorFor(r.author_name) }}>
-                      {initials(r.author_name)}
-                    </div>
+                    {/* Official reply — show Afsar's photo */}
+                    {r.is_official ? (
+                      <div className="relative flex-shrink-0">
+                        <img src={TWH_AVATAR} alt="Afsar" className="w-8 h-8 rounded-full object-cover"
+                          style={{ border:"2px solid #8B5CF6" }} />
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center"
+                          style={{ background:"#7C3AED", border:"1.5px solid white", fontSize:"6px", color:"white" }}>✓</span>
+                      </div>
+                    ) : (
+                      <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-white text-[12px]"
+                        style={{ background: colorFor(r.author_name) }}>
+                        {initials(r.author_name)}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[13px] font-bold" style={{ color:"#1e1e2e" }}>{r.author_name}</span>
+                        {r.is_official && (
+                          <>
+                            <Badge label="✦ Verified" />
+                            <Badge label="Official" color="#dc2626" bg="rgba(220,38,38,0.08)" border="rgba(220,38,38,0.3)" />
+                          </>
+                        )}
                         <span className="text-[10px]" style={{ color:"#9CA3AF" }}>{timeAgo(r.created_at)}</span>
                       </div>
                       <p className="text-[13px] mt-0.5 break-words" style={{ color:"#374151", lineHeight:1.7 }}>
@@ -648,6 +692,25 @@ export default function Home() {
               </div>
             )}
             <div ref={endRef} />
+          </div>
+
+          {/* Telegram link */}
+          <div className="px-5 py-4 flex items-center gap-3"
+            style={{ borderTop:"1px solid rgba(139,92,246,0.1)", background:"rgba(37,99,235,0.04)" }}>
+            <span style={{ fontSize:"18px" }}>✈️</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-semibold" style={{ color:"#374151" }}>
+                Koi help chahiye ya baat karni hai?
+              </p>
+              <p className="text-[11px]" style={{ color:"#9CA3AF" }}>
+                Humare Telegram group mein aao — direct baat kar sakte ho.
+              </p>
+            </div>
+            <a href="https://t.me/Technical_whitehat" target="_blank" rel="noopener noreferrer"
+              className="flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold text-white transition-all active:scale-95"
+              style={{ background:"linear-gradient(135deg,#2563EB,#1d4ed8)", textDecoration:"none" }}>
+              Join Group →
+            </a>
           </div>
         </motion.div>
 
