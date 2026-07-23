@@ -144,3 +144,18 @@ export const noticeLikes = pgTable("notice_likes", {
 
 export type NoticeReply = typeof noticeReplies.$inferSelect;
 export type NoticeLike = typeof noticeLikes.$inferSelect;
+
+// ── Premium Users ────────────────────────────────────────────────────────────
+export const premiumUsers = pgTable("premium_users", {
+  id: serial("id").primaryKey(),
+  username: varchar("username", { length: 64 }).notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("premium"),
+  status: text("status").notNull().default("active"), // "active" | "disabled"
+  expiresAt: timestamp("expires_at"),
+  lastLogin: timestamp("last_login"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type PremiumUser = typeof premiumUsers.$inferSelect;
+export type InsertPremiumUser = typeof premiumUsers.$inferInsert;

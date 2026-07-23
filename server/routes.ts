@@ -2551,5 +2551,210 @@ ${urls.map(u => `  <url>
     );
   }
 
+  // ── PREMIUM ACCESS SYSTEM ─────────────────────────────────────────────────
+  {
+    const bcrypt = await import("bcryptjs");
+    const { signPremiumToken, verifyPremiumToken, parseCookiesPremium, requirePremium } = await import("./middleware/premium-auth");
+    const { premiumUsers } = await import("@shared/schema");
+    const { eq, desc } = await import("drizzle-orm");
+    const { db } = await import("./db");
+    const { nanoid } = await import("nanoid");
+
+    // Ensure premium_users table exists
+    try {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS premium_users (
+          id SERIAL PRIMARY KEY,
+          username VARCHAR(64) NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'premium',
+          status TEXT NOT NULL DEFAULT 'active',
+          expires_at TIMESTAMP,
+          last_login TIMESTAMP,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+    } catch (e: any) {
+      console.error("[premium] Table init error:", e.message);
+    }
+
+    function premiumCookieHeader(token: string) {
+      return [
+        `premiumAuth=${encodeURIComponent(token)}`,
+        "HttpOnly",
+        "Path=/",
+        "Max-Age=604800", // 7 days
+        "Secure",
+        "SameSite=None",
+      ].join("; ");
+    }
+
+    function generateRandomUsername() {
+      return "user_" + nanoid(8).toLowerCase();
+    }
+    function generateRandomPassword() {
+      return nanoid(12);
+    }
+
+    // ── PUBLIC: Premium Login ─────────────────────────────────────────────
+    app.post("/api/premium/login", async (req, res) => {
+      const { username, password } = req.body;
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
+      try {
+        const [user] = await db.select().from(premiumUsers).where(eq(premiumUsers.username, username.trim()));
+        if (!user) return res.status(401).json({ message: "Invalid credentials" });
+        if (user.status !== "active") return res.status(403).json({ message: "Account is disabled" });
+        if (user.expiresAt && new Date() > user.expiresAt) {
+          return res.status(403).json({ message: "Account has expired" });
+        }
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        if (!valid) return res.status(401).json({ message: "Invalid credentials" });
+
+        // Update last login
+        await db.update(premiumUsers).set({ lastLogin: new Date() }).where(eq(premiumUsers.id, user.id));
+
+        const token = signPremiumToken(user.id);
+        res.setHeader("Set-Cookie", premiumCookieHeader(token));
+        res.json({ success: true, user: { id: user.id, username: user.username, role: user.role } });
+      } catch (err: any) {
+        console.error("[premium/login]", err);
+        res.status(500).json({ message: "Login failed" });
+      }
+    });
+
+    // ── PUBLIC: Premium Logout ────────────────────────────────────────────
+    app.post("/api/premium/logout", (_req, res) => {
+      res.setHeader("Set-Cookie", "premiumAuth=; HttpOnly; Path=/; Max-Age=0; SameSite=None; Secure");
+      res.json({ success: true });
+    });
+
+    // ── PUBLIC: Verify premium session / get current user ────────────────
+    app.get("/api/premium/me", async (req, res) => {
+      const cookies = parseCookiesPremium(req);
+      const raw = cookies["premiumAuth"] || req.headers["x-premium-token"];
+      if (!raw) return res.status(401).json({ message: "Not authenticated" });
+
+      const { verifyPremiumToken: verify } = await import("./middleware/premium-auth");
+      const userId = verify(raw as string);
+      if (!userId) return res.status(401).json({ message: "Invalid session" });
+
+      try {
+        const [user] = await db.select().from(premiumUsers).where(eq(premiumUsers.id, userId));
+        if (!user) return res.status(401).json({ message: "User not found" });
+        if (user.status !== "active") return res.status(403).json({ message: "Account disabled" });
+        if (user.expiresAt && new Date() > user.expiresAt) return res.status(403).json({ message: "Account expired" });
+        res.json({ id: user.id, username: user.username, role: user.role, expiresAt: user.expiresAt });
+      } catch (err: any) {
+        res.status(500).json({ message: "Verification failed" });
+      }
+    });
+
+    // ── ADMIN: List premium users ─────────────────────────────────────────
+    app.get("/api/admin/premium-users", requireAdminSession, async (_req, res) => {
+      try {
+        const users = await db.select({
+          id: premiumUsers.id,
+          username: premiumUsers.username,
+          role: premiumUsers.role,
+          status: premiumUsers.status,
+          expiresAt: premiumUsers.expiresAt,
+          lastLogin: premiumUsers.lastLogin,
+          createdAt: premiumUsers.createdAt,
+        }).from(premiumUsers).orderBy(desc(premiumUsers.createdAt));
+        res.json(users);
+      } catch (err: any) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+
+    // ── ADMIN: Create premium user ────────────────────────────────────────
+    app.post("/api/admin/premium-users", requireAdminSession, async (req, res) => {
+      let { username, password, expiresAt, generateRandom } = req.body;
+      if (generateRandom) {
+        username = generateRandomUsername();
+        password = generateRandomPassword();
+      }
+      if (!username?.trim() || !password?.trim()) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
+      try {
+        const hash = await bcrypt.hash(password, 12);
+        const [user] = await db.insert(premiumUsers).values({
+          username: username.trim(),
+          passwordHash: hash,
+          expiresAt: expiresAt ? new Date(expiresAt) : null,
+        }).returning({
+          id: premiumUsers.id,
+          username: premiumUsers.username,
+          role: premiumUsers.role,
+          status: premiumUsers.status,
+          expiresAt: premiumUsers.expiresAt,
+          createdAt: premiumUsers.createdAt,
+        });
+        // Return plain password only on creation so admin can share it
+        res.json({ ...user, plainPassword: password });
+      } catch (err: any) {
+        if (err.message?.includes("unique")) {
+          return res.status(409).json({ message: "Username already exists" });
+        }
+        res.status(500).json({ message: err.message });
+      }
+    });
+
+    // ── ADMIN: Toggle status ──────────────────────────────────────────────
+    app.patch("/api/admin/premium-users/:id/toggle", requireAdminSession, async (req, res) => {
+      const id = parseInt(req.params.id);
+      try {
+        const [current] = await db.select({ status: premiumUsers.status }).from(premiumUsers).where(eq(premiumUsers.id, id));
+        if (!current) return res.status(404).json({ message: "User not found" });
+        const newStatus = current.status === "active" ? "disabled" : "active";
+        await db.update(premiumUsers).set({ status: newStatus }).where(eq(premiumUsers.id, id));
+        res.json({ success: true, status: newStatus });
+      } catch (err: any) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+
+    // ── ADMIN: Reset password ─────────────────────────────────────────────
+    app.post("/api/admin/premium-users/:id/reset-password", requireAdminSession, async (req, res) => {
+      const id = parseInt(req.params.id);
+      let { newPassword } = req.body;
+      if (!newPassword?.trim()) newPassword = generateRandomPassword();
+      try {
+        const hash = await bcrypt.hash(newPassword, 12);
+        await db.update(premiumUsers).set({ passwordHash: hash }).where(eq(premiumUsers.id, id));
+        res.json({ success: true, plainPassword: newPassword });
+      } catch (err: any) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+
+    // ── ADMIN: Update expiry ──────────────────────────────────────────────
+    app.patch("/api/admin/premium-users/:id/expiry", requireAdminSession, async (req, res) => {
+      const id = parseInt(req.params.id);
+      const { expiresAt } = req.body;
+      try {
+        await db.update(premiumUsers).set({ expiresAt: expiresAt ? new Date(expiresAt) : null }).where(eq(premiumUsers.id, id));
+        res.json({ success: true });
+      } catch (err: any) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+
+    // ── ADMIN: Delete premium user ────────────────────────────────────────
+    app.delete("/api/admin/premium-users/:id", requireAdminSession, async (req, res) => {
+      const id = parseInt(req.params.id);
+      try {
+        await db.delete(premiumUsers).where(eq(premiumUsers.id, id));
+        res.json({ success: true });
+      } catch (err: any) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+  }
+  // ── END PREMIUM ACCESS SYSTEM ─────────────────────────────────────────────
+
   return httpServer;
 }

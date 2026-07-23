@@ -13,6 +13,7 @@ import AboutUs from "@/pages/AboutUs";
 import ContactUs from "@/pages/ContactUs";
 import HistoryPage from "@/pages/History";
 import TWHPage from "@/pages/TWH";
+import PremiumLogin from "@/pages/PremiumLogin";
 import { MatrixBackground } from "@/components/MatrixBackground";
 import { BroadcastNotifications } from "@/components/BroadcastNotifications";
 
@@ -24,6 +25,8 @@ function Router() {
       <Route path="/history" component={HistoryPage} />
       <Route path="/secret" component={AdminLogin} />
       <Route path="/admin" component={AdminLogin} />
+      <Route path="/premium" component={PremiumLogin} />
+      <Route path="/premium-login" component={PremiumLogin} />
       <Route path="/privacy" component={PrivacyPolicy} />
       <Route path="/terms" component={TermsOfService} />
       <Route path="/about" component={AboutUs} />

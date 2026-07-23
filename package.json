@@ -5,6 +5,7 @@
   "license": "MIT",
   "packageManager": "pnpm@10.34.4",
   "scripts": {
+    "predev": "node -e \"const fs=require('fs');const p='node_modules/@rollup/rollup-linux-x64-gnu/rollup.linux-x64-gnu.node';if(!fs.existsSync(p)){const http=require('http'),{execSync}=require('child_process'),t='/tmp/rl.tgz',w=require('fs').createWriteStream(t);http.get('http://package-firewall.replit.local/npm/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.62.2.tgz',(r)=>{r.pipe(w);w.on('finish',()=>{execSync('mkdir -p node_modules/@rollup/rollup-linux-x64-gnu && cd node_modules/@rollup/rollup-linux-x64-gnu && tar -xzf /tmp/rl.tgz --strip-components=1');console.log('[predev] rollup native installed');})}).on('error',e=>console.warn('[predev] warn:',e.message));}else{console.log('[predev] rollup native ok');}\" 2>/dev/null; sleep 1",
     "dev": "NODE_ENV=development node_modules/.bin/tsx server/index.ts",
     "build": "node_modules/.bin/tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
@@ -43,8 +44,10 @@
     "@radix-ui/react-tooltip": "^1.2.0",
     "@radix-ui/react-visually-hidden": "^1.2.6",
     "@tanstack/react-query": "^5.60.5",
+    "@types/bcryptjs": "^2.4.6",
     "@types/memoizee": "^0.4.12",
     "@types/multer": "^2.1.0",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
