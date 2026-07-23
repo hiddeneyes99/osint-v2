@@ -118,7 +118,7 @@
     "es5-ext": "0.10.30"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.62.0",
+    "@rollup/rollup-linux-x64-gnu": "^4.62.2",
     "bufferutil": "^4.0.8"
   }
 }

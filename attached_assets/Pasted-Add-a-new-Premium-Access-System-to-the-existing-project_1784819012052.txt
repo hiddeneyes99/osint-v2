@@ -1,0 +1,118 @@
+Add a new Premium Access System to the existing project WITHOUT changing or breaking any existing functionality, UI, APIs, routes, admin panel, services, database structure, or design.
+
+IMPORTANT:
+- Do NOT modify any existing features.
+- Do NOT change the current login (if any).
+- Do NOT remove or rename existing files.
+- Only ADD the new feature.
+
+Requirements:
+
+1. Create a Premium Authentication System.
+
+2. Admin Panel:
+- Add a new menu called "Premium Users".
+- Admin can:
+  - Create Premium User
+  - Generate random username and password
+  - Set custom username/password
+  - Set expiry date (optional)
+  - Enable/Disable account
+  - Delete account
+  - Reset password
+  - View login history (optional)
+
+3. Premium Login Page
+- Create a separate login page.
+- Only Premium accounts can log in.
+- Store passwords securely using bcrypt hashing.
+- Use secure sessions or JWT.
+- Never store plain-text passwords.
+
+4. Premium Role
+When a Premium user is logged in:
+- Bypass Maintenance/Shutdown page.
+- Access Premium-only tools.
+- Continue using the existing website normally.
+- No admin permissions.
+
+5. Normal Users
+- Nothing changes.
+- If Shutdown Mode is enabled, they should still see the shutdown page.
+- Existing behaviour must remain exactly the same.
+
+6. Backend Protection
+Every protected route and API must verify:
+- User is authenticated.
+- User role == premium.
+- Account is active.
+- Account is not expired.
+
+Never rely on frontend checks.
+
+7. Session
+- Keep users logged in until logout or session expiry.
+- Add Logout button.
+
+8. Middleware
+Create reusable middleware:
+- requirePremium()
+- requireAdmin()
+
+9. Database
+Create a separate Premium Users collection/table/file.
+
+Fields:
+- id
+- username
+- passwordHash
+- role = premium
+- status
+- createdAt
+- expiresAt
+- lastLogin
+
+Do NOT modify the existing user database.
+
+10. UI
+
+The Premium Login page must use the EXACT same design language as the existing website.
+
+- Use the same theme.
+- Same colors.
+- Same typography.
+- Same buttons.
+- Same cards.
+- Same navbar style.
+- Same footer.
+- Same animations.
+- Same spacing.
+- Same responsive layout.
+
+The website should look identical to the normal version.
+
+The ONLY difference is:
+- Premium users must log in before accessing the website.
+
+After login:
+- Redirect them to the normal homepage/dashboard.
+- Do NOT create a separate Premium dashboard.
+- Do NOT create a different theme.
+- Do NOT redesign anything.
+- Premium-only tools should appear naturally inside the existing interface.
+- The user should feel like they are using the exact same website.
+
+11. Code Quality
+- Clean project structure.
+- Proper error handling.
+- Modular code.
+- Comments where necessary.
+
+12. Final Requirement
+The update must be fully backward compatible.
+
+Do NOT break or modify any existing functionality.
+
+Everything that currently works must continue working exactly as before.
+
+Only ADD the Premium Access feature while preserving the entire existing website, UI, APIs, routes, services, and design.
