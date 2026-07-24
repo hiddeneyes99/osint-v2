@@ -4,6 +4,13 @@
 
 This is a full-stack OSINT (Open Source Intelligence) platform with a cyberpunk-themed UI. The application provides information lookup services for mobile numbers, Aadhar cards, vehicle registrations, and IP addresses. Users authenticate via Firebase, receive credits for queries, and can view their search history.
 
+## Running on Replit
+
+- Install dependencies with `npm install`
+- Start the development server with `npm run dev`
+- The app is served on port `5000`
+- A PostgreSQL connection is used when `SUPABASE_DB_URL` or `DATABASE_URL` is configured
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
