@@ -310,59 +310,66 @@ export default function Dashboard() {
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <div className="flex-1 flex items-center justify-center p-4">
-          <CyberCard className="max-w-md w-full text-center py-12">
-            <div className="icon3d t-orange w-16 h-16 rounded-2xl mx-auto mb-5">
-              <span className="e text-3xl select-none">⚠️</span>
+          <div className="max-w-md w-full">
+            <CyberCard className="w-full text-center py-12">
+              <div className="icon3d t-orange w-16 h-16 rounded-2xl mx-auto mb-5">
+                <span className="e text-3xl select-none">⚠️</span>
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">Access Required</h2>
+              <p className="text-white/40 text-sm mb-8">Sign in to access the intelligence platform.</p>
+              <CyberButton className="w-full" onClick={() => setIsAuthModalOpen(true)}>
+                Sign In
+              </CyberButton>
+            </CyberCard>
+
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => { setIsPremiumLoginOpen(v => !v); setPremiumLoginError(""); }}
+                className="text-violet-400 text-xs hover:text-violet-300 transition-colors underline underline-offset-2"
+              >
+                Have premium access? Login here
+              </button>
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">Access Required</h2>
-            <p className="text-white/40 text-sm mb-8">Sign in to access the intelligence platform.</p>
-            <CyberButton className="w-full mb-3" onClick={() => setIsAuthModalOpen(true)}>
-              Sign In
-            </CyberButton>
-            <button
-              onClick={() => { setIsPremiumLoginOpen(v => !v); setPremiumLoginError(""); }}
-              className="text-violet-400 text-xs hover:text-violet-300 transition-colors underline underline-offset-2"
-            >
-              Have a premium access code? Login here
-            </button>
 
             {isPremiumLoginOpen && (
-              <form onSubmit={handlePremiumLogin} className="mt-6 text-left space-y-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">Email</label>
-                  <input
-                    type="email"
-                    required
-                    value={premiumLoginForm.email}
-                    onChange={e => setPremiumLoginForm(f => ({ ...f, email: e.target.value }))}
-                    placeholder="your@email.com"
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={premiumLoginForm.password}
-                    onChange={e => setPremiumLoginForm(f => ({ ...f, password: e.target.value }))}
-                    placeholder="••••••••"
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50"
-                  />
-                </div>
-                {premiumLoginError && (
-                  <p className="text-red-400 text-xs">{premiumLoginError}</p>
-                )}
-                <button
-                  type="submit"
-                  disabled={isPremiumLoggingIn}
-                  className="w-full py-2.5 rounded-lg text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  {isPremiumLoggingIn ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Logging in…</> : "Premium Login"}
-                </button>
-              </form>
+              <div className="mt-3 rounded-2xl border border-violet-500/20 p-5 space-y-3" style={{ background: "rgba(9,5,26,0.9)" }}>
+                <form onSubmit={handlePremiumLogin} className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={premiumLoginForm.email}
+                      onChange={e => setPremiumLoginForm(f => ({ ...f, email: e.target.value }))}
+                      placeholder="your@email.com"
+                      className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">Password</label>
+                    <input
+                      type="password"
+                      required
+                      value={premiumLoginForm.password}
+                      onChange={e => setPremiumLoginForm(f => ({ ...f, password: e.target.value }))}
+                      placeholder="••••••••"
+                      className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50"
+                    />
+                  </div>
+                  {premiumLoginError && <p className="text-red-400 text-xs">{premiumLoginError}</p>}
+                  <button
+                    type="submit"
+                    disabled={isPremiumLoggingIn}
+                    className="w-full py-2.5 rounded-lg text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    {isPremiumLoggingIn
+                      ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Logging in…</>
+                      : "Premium Login"}
+                  </button>
+                </form>
+              </div>
             )}
-          </CyberCard>
+          </div>
         </div>
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       </div>

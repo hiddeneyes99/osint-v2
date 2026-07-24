@@ -9,7 +9,7 @@ import {
   Activity, FileText, Gauge, MessageSquare, LogIn, TrendingUp, Zap,
   Send, StickyNote, Clock, Bot, Plus, X, ChevronDown,
   Power, Smartphone, Car, Globe, Mail, ToggleLeft, ToggleRight,
-  Bell, MonitorPlay, Menu, Crown, Key, Eye, EyeOff, Copy, CheckCircle2, XCircle, RotateCcw, CalendarClock
+  Bell, MonitorPlay, Menu, Crown, Key, Eye, EyeOff, Copy, CheckCircle2, XCircle, RotateCcw, CalendarClock, KeyRound
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect, useRef } from "react";
@@ -207,6 +207,27 @@ export default function AdminLogin() {
       return res.json();
     },
     onSuccess: () => { refetchPremiumUsers(); toast({ title: "Premium user deleted" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const [setPasswordDialog, setSetPasswordDialog] = useState<{ id: number; email: string } | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+
+  const setPasswordMutation = useMutation({
+    mutationFn: async ({ id, password }: { id: number; password: string }) => {
+      const res = await fetch(`/api/admin/premium-users/${id}/password`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+      return res.json();
+    },
+    onSuccess: () => {
+      setSetPasswordDialog(null);
+      setNewPassword("");
+      toast({ title: "Password updated", description: "User can now login with the new password." });
+    },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -1995,6 +2016,14 @@ export default function AdminLogin() {
                                     className="p-1.5 rounded-lg border border-white/[0.08] hover:bg-white/[0.06] transition-all text-white/40 hover:text-white/80"
                                   >
                                     {isActive ? <ToggleRight className="w-3.5 h-3.5 text-emerald-400" /> : <ToggleLeft className="w-3.5 h-3.5 text-white/30" />}
+                                  </button>
+                                  {/* Set Password */}
+                                  <button
+                                    onClick={() => { setSetPasswordDialog({ id: u.id, email: u.email ?? "" }); setNewPassword(""); }}
+                                    title="Set Password"
+                                    className="p-1.5 rounded-lg border border-white/[0.08] hover:bg-violet-500/10 transition-all text-white/40 hover:text-violet-400"
+                                  >
+                                    <KeyRound className="w-3.5 h-3.5" />
                                   </button>
                                   {/* Remove */}
                                   <button
@@ -3892,6 +3921,39 @@ export default function AdminLogin() {
               </div>
             </div>
           </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Set Password Dialog ── */}
+      <Dialog open={!!setPasswordDialog} onOpenChange={v => { if (!v) { setSetPasswordDialog(null); setNewPassword(""); } }}>
+        <DialogContent className="max-w-sm border border-violet-500/20" style={{ background: "#09051A" }}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <KeyRound className="w-4 h-4 text-violet-400" /> Set Password
+            </DialogTitle>
+            <DialogDescription className="text-white/40 text-xs">
+              Setting password for <span className="text-violet-300 font-mono">{setPasswordDialog?.email}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">New Password</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50"
+              />
+            </div>
+            <button
+              onClick={() => setPasswordDialog && newPassword.trim() && setPasswordMutation.mutate({ id: setPasswordDialog.id, password: newPassword.trim() })}
+              disabled={setPasswordMutation.isPending || !newPassword.trim()}
+              className="w-full py-2.5 rounded-lg text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {setPasswordMutation.isPending ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving…</> : <><KeyRound className="w-3.5 h-3.5" /> Save Password</>}
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
       </div>

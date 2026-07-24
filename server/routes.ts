@@ -2702,6 +2702,22 @@ ${urls.map(u => `  <url>
       }
     });
 
+    // ── ADMIN: Set/update password ────────────────────────────────────────
+    app.patch("/api/admin/premium-users/:id/password", requireAdminSession, async (req, res) => {
+      const id = parseInt(req.params.id);
+      const { password } = req.body;
+      if (!password?.trim()) return res.status(400).json({ message: "Password is required" });
+      try {
+        const bcrypt = await import("bcryptjs");
+        const passwordHash = await bcrypt.hash(password.trim(), 10);
+        const [updated] = await db.update(premiumUsers).set({ passwordHash }).where(eq(premiumUsers.id, id)).returning({ id: premiumUsers.id });
+        if (!updated) return res.status(404).json({ message: "User not found" });
+        res.json({ success: true });
+      } catch (err: any) {
+        res.status(500).json({ message: err.message });
+      }
+    });
+
     // ── ADMIN: Toggle status ──────────────────────────────────────────────
     app.patch("/api/admin/premium-users/:id/toggle", requireAdminSession, async (req, res) => {
       const id = parseInt(req.params.id);

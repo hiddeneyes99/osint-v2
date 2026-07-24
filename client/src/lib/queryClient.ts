@@ -4,8 +4,14 @@ const API_BASE = (import.meta.env.VITE_API_URL as string) || "";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()).catch(() => "Unknown Error");
+    let text = `${res.status} ${res.statusText}`;
+    try { text = await res.text(); } catch {}
     throw new Error(`${res.status}: ${text}`);
+  }
+  // Guard: if the server returned HTML (Vite catch-all) instead of JSON, treat as 404
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.includes("application/json") && !ct.includes("text/plain")) {
+    throw new Error(`404: API route not found`);
   }
 }
 
