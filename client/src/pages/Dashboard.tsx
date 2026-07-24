@@ -452,6 +452,51 @@ export default function Dashboard() {
 
       <main className="flex-1 container px-4 py-4 md:py-8 pb-24 lg:pb-8">
         <ServiceStatusBar />
+        <div
+          className="mb-4 flex flex-col gap-3 rounded-2xl border border-sky-400/25 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+          style={{
+            background: "linear-gradient(135deg, rgba(14,165,233,0.12), rgba(139,92,246,0.08))",
+            boxShadow: "0 0 28px -12px rgba(14,165,233,0.55)",
+          }}
+          data-testid="telegram-connect-card"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-400/15 text-sky-300 ring-1 ring-sky-300/25">
+              <Send className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white">
+                {(user as any)?.telegramChatId ? "Telegram Bot Connected" : "Connect Your Telegram Bot"}
+              </div>
+              <div className="mt-0.5 text-[11px] text-white/45">
+                {(user as any)?.telegramChatId
+                  ? "You are receiving alerts for your searches."
+                  : "Open the bot, send /start, and link your account automatically."}
+              </div>
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={() => setIsTgModalOpen(true)}
+              className="rounded-xl border border-white/15 bg-white/[0.06] px-3.5 py-2 text-[11px] font-semibold text-white/70 transition hover:bg-white/[0.1] hover:text-white"
+              data-testid="button-telegram-instructions"
+            >
+              Instructions
+            </button>
+            <a
+              href={`https://t.me/twhosint_bot${user?.id ? `?start=${user.id}` : ""}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => { setTgLinkClicked(true); startTgPolling(); }}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 px-3.5 py-2 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400"
+              data-testid="button-open-telegram-bot"
+            >
+              <Send className="h-3.5 w-3.5" />
+              {((user as any)?.telegramChatId) ? "Open Telegram" : "Open Telegram Bot"}
+            </a>
+          </div>
+        </div>
         <div className="flex flex-col lg:flex-row gap-5 h-full">
           {/* Sidebar / Tools Selector */}
           <div className="w-full lg:w-64 flex-shrink-0">
