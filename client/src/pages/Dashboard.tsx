@@ -300,29 +300,6 @@ export default function Dashboard() {
     });
   };
 
-  if (!isAuthenticated && !isPremium) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="max-w-md w-full">
-            <CyberCard className="w-full text-center py-12">
-              <div className="icon3d t-orange w-16 h-16 rounded-2xl mx-auto mb-5">
-                <span className="e text-3xl select-none">⚠️</span>
-              </div>
-              <h2 className="text-xl font-bold text-white mb-2">Access Required</h2>
-              <p className="text-white/40 text-sm mb-8">Sign in to access the intelligence platform.</p>
-              <CyberButton className="w-full" onClick={() => setIsAuthModalOpen(true)}>
-                Sign In
-              </CyberButton>
-            </CyberCard>
-          </div>
-        </div>
-        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden">
       <Navbar />
