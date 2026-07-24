@@ -17,7 +17,7 @@ import {
   premiumUsers,
 } from "@shared/schema";
 import { z } from "zod";
-import { firebaseAuthMiddleware as requireAuth } from "./middleware/firebase-auth";
+import { firebaseAuthMiddleware as requireAuth, requireFirebaseOrPremium } from "./middleware/firebase-auth";
 import { sql, eq, desc } from "drizzle-orm";
 import { db } from "./db";
 import { signPremiumToken, parseCookiesPremium, verifyPremiumToken } from "./middleware/premium-auth";
@@ -1690,7 +1690,7 @@ ${urls.map(u => `  <url>
   };
 
   // 1. Mobile Info
-  app.post(api.services.mobile.path, requireAuth, async (req, res) => {
+  app.post(api.services.mobile.path, requireFirebaseOrPremium, async (req, res) => {
     const result = mobileInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid mobile number" });
     await handleServiceRequest(req, res, "mobile", result.data.number, async () => {
@@ -1758,7 +1758,7 @@ ${urls.map(u => `  <url>
   });
 
   // 2. Aadhar Info
-  app.post(api.services.aadhar.path, requireAuth, async (req, res) => {
+  app.post(api.services.aadhar.path, requireFirebaseOrPremium, async (req, res) => {
     const result = aadharInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid Aadhar number" });
     await handleServiceRequest(req, res, "aadhar", result.data.number, async () => {
@@ -1808,7 +1808,7 @@ ${urls.map(u => `  <url>
   });
 
   // 3. Vehicle Info
-  app.post(api.services.vehicle.path, requireAuth, async (req, res) => {
+  app.post(api.services.vehicle.path, requireFirebaseOrPremium, async (req, res) => {
     const result = vehicleInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid vehicle registration number" });
     const vehicleApiUrl = process.env.VEHICLE_API_URL;
@@ -1841,7 +1841,7 @@ ${urls.map(u => `  <url>
   });
 
   // 4. Email / Gmail Info
-  app.post(api.services.email.path, requireAuth, async (req, res) => {
+  app.post(api.services.email.path, requireFirebaseOrPremium, async (req, res) => {
     const result = emailInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid email address" });
     await handleServiceRequest(req, res, "email", result.data.email, async () => {
@@ -1872,7 +1872,7 @@ ${urls.map(u => `  <url>
   });
 
   // 5. IP Info
-  app.post(api.services.ip.path, requireAuth, async (req, res) => {
+  app.post(api.services.ip.path, requireFirebaseOrPremium, async (req, res) => {
     const result = ipInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid IP address" });
     await handleServiceRequest(req, res, "ip", result.data.ip, async () => {

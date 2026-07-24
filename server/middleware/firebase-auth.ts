@@ -48,6 +48,61 @@ if (!admin.apps.length) {
   }
 }
 
+/**
+ * Combined middleware: accepts Firebase Bearer token OR a valid premiumAuth cookie.
+ * Premium-only users (logged in via /api/premium/login, no Firebase session) are
+ * auto-provisioned in the users table so handleServiceRequest can find them.
+ */
+export const requireFirebaseOrPremium = async (req: any, res: Response, next: NextFunction) => {
+  // ── 1. Try Firebase Bearer token first ───────────────────────────────────
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return firebaseAuthMiddleware(req, res, next);
+  }
+
+  // ── 2. Fall back to premiumAuth cookie ───────────────────────────────────
+  const { parseCookiesPremium, verifyPremiumToken } = await import("./premium-auth");
+  const { db } = await import("../db");
+  const { premiumUsers } = await import("@shared/schema");
+  const { storage } = await import("../storage");
+  const { eq } = await import("drizzle-orm");
+
+  const cookies = parseCookiesPremium(req);
+  const raw = cookies["premiumAuth"] || req.headers["x-premium-token"];
+  if (!raw) return res.status(401).json({ message: "Unauthorized" });
+
+  const premiumId = verifyPremiumToken(raw as string);
+  if (!premiumId) return res.status(401).json({ message: "Unauthorized" });
+
+  try {
+    const [pu] = await db.select().from(premiumUsers).where(eq(premiumUsers.id, premiumId));
+    if (!pu) return res.status(401).json({ message: "Unauthorized" });
+    if (pu.status !== "active") return res.status(403).json({ message: "Premium account disabled" });
+    if (pu.expiresAt && new Date() > pu.expiresAt) return res.status(403).json({ message: "Premium account expired" });
+
+    // Find or create the user record in the main users table
+    const email = pu.email.toLowerCase().trim();
+    let user = await storage.getUserByEmail(email);
+    if (!user) {
+      // Auto-provision a users-table record for premium-only users
+      const syntheticId = `premium_${pu.id}`;
+      user = await storage.createUser({
+        id: syntheticId,
+        email,
+        username: email.split("@")[0] + "_premium",
+        role: "user",
+      });
+    }
+
+    req.user = { id: user.id, email: user.email, claims: { sub: user.id } };
+    req.premiumUser = pu;
+    next();
+  } catch (err) {
+    console.error("[requireFirebaseOrPremium] error:", err);
+    return res.status(500).json({ message: "Authentication error" });
+  }
+};
+
 export const firebaseAuthMiddleware = async (req: any, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
