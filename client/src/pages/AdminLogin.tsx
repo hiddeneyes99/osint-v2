@@ -101,7 +101,7 @@ export default function AdminLogin() {
 
   // ── Premium Users state ─────────────────────────────────────────────────
   const [premiumCreateOpen, setPremiumCreateOpen] = useState(false);
-  const [premiumCreateForm, setPremiumCreateForm] = useState({ email: "", expiresAt: "" });
+  const [premiumCreateForm, setPremiumCreateForm] = useState({ email: "", password: "", expiresAt: "" });
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -184,7 +184,7 @@ export default function AdminLogin() {
     onSuccess: () => {
       refetchPremiumUsers();
       setPremiumCreateOpen(false);
-      setPremiumCreateForm({ email: "", expiresAt: "" });
+      setPremiumCreateForm({ email: "", password: "", expiresAt: "" });
       toast({ title: "Premium user added", description: "They'll receive premium access automatically on next login." });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -2037,9 +2037,22 @@ export default function AdminLogin() {
                     </div>
 
                     <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">Password</label>
+                      <input
+                        type="password"
+                        value={premiumCreateForm.password}
+                        onChange={e => setPremiumCreateForm(f => ({ ...f, password: e.target.value }))}
+                        placeholder="Set a login password"
+                        className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50"
+                      />
+                      <p className="text-[10px] text-white/25">User can login at /dashboard with this password</p>
+                    </div>
+
+                    <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide flex items-center gap-1.5"><CalendarClock className="w-3 h-3" /> Expiry Date (optional)</label>
                       <input type="datetime-local" value={premiumCreateForm.expiresAt}
                         onChange={e => setPremiumCreateForm(f => ({ ...f, expiresAt: e.target.value }))}
+                        style={{ colorScheme: "dark" }}
                         className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50" />
                     </div>
 

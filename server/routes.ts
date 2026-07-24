@@ -2600,6 +2600,27 @@ ${urls.map(u => `  <url>
       console.error("[premium] Table init error:", e.message);
     }
 
+    // ── PUBLIC: Premium Login (email + password) ─────────────────────────
+    app.post("/api/premium/login", async (req, res) => {
+      const { email, password } = req.body;
+      if (!email || !password) return res.status(400).json({ message: "Email and password required" });
+      try {
+        const bcrypt = await import("bcryptjs");
+        const [user] = await db.select().from(premiumUsers).where(eq(premiumUsers.email, email.trim().toLowerCase()));
+        if (!user || !user.passwordHash) return res.status(401).json({ message: "Invalid email or password" });
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        if (!valid) return res.status(401).json({ message: "Invalid email or password" });
+        if (user.status !== "active") return res.status(403).json({ message: "Account is disabled" });
+        if (user.expiresAt && new Date() > user.expiresAt) return res.status(403).json({ message: "Account has expired" });
+        const token = signPremiumToken(user.id);
+        res.setHeader("Set-Cookie", `premiumAuth=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=604800; Secure; SameSite=None`);
+        db.update(premiumUsers).set({ lastLogin: new Date() }).where(eq(premiumUsers.id, user.id)).catch(() => {});
+        res.json({ id: user.id, email: user.email, role: user.role, expiresAt: user.expiresAt });
+      } catch (err: any) {
+        res.status(500).json({ message: "Login failed" });
+      }
+    });
+
     // ── PUBLIC: Premium Logout ────────────────────────────────────────────
     app.post("/api/premium/logout", (_req, res) => {
       res.setHeader("Set-Cookie", "premiumAuth=; HttpOnly; Path=/; Max-Age=0; SameSite=None; Secure");
@@ -2654,8 +2675,15 @@ ${urls.map(u => `  <url>
         return res.status(400).json({ message: "Email is required" });
       }
       try {
+        const { password } = req.body;
+        let passwordHash: string | null = null;
+        if (password?.trim()) {
+          const bcrypt = await import("bcryptjs");
+          passwordHash = await bcrypt.hash(password.trim(), 10);
+        }
         const [user] = await db.insert(premiumUsers).values({
           email: email.trim().toLowerCase(),
+          passwordHash,
           expiresAt: expiresAt ? new Date(expiresAt) : null,
         }).returning({
           id: premiumUsers.id,
