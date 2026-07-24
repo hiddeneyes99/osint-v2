@@ -2858,9 +2858,20 @@ ${urls.map(u => `  <url>
     app.patch("/api/admin/premium-users/:id/expiry", requireAdminSession, async (req, res) => {
       const id = parseInt(req.params.id);
       const { expiresAt } = req.body;
+      if (!Number.isInteger(id)) {
+        return res.status(400).json({ message: "Invalid user id" });
+      }
       try {
-        await db.update(premiumUsers).set({ expiresAt: expiresAt ? new Date(expiresAt) : null }).where(eq(premiumUsers.id, id));
-        res.json({ success: true });
+        const parsedExpiry = expiresAt ? new Date(expiresAt) : null;
+        if (parsedExpiry && Number.isNaN(parsedExpiry.getTime())) {
+          return res.status(400).json({ message: "Invalid expiry date" });
+        }
+        const [updated] = await db.update(premiumUsers)
+          .set({ expiresAt: parsedExpiry })
+          .where(eq(premiumUsers.id, id))
+          .returning({ id: premiumUsers.id, expiresAt: premiumUsers.expiresAt });
+        if (!updated) return res.status(404).json({ message: "User not found" });
+        res.json({ success: true, ...updated });
       } catch (err: any) {
         res.status(500).json({ message: err.message });
       }

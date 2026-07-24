@@ -102,6 +102,8 @@ export default function AdminLogin() {
   // ── Premium Users state ─────────────────────────────────────────────────
   const [premiumCreateOpen, setPremiumCreateOpen] = useState(false);
   const [premiumCreateForm, setPremiumCreateForm] = useState({ email: "", password: "", expiresAt: "" });
+  const [premiumExpiryTarget, setPremiumExpiryTarget] = useState<PremiumUserRow | null>(null);
+  const [premiumExpiryValue, setPremiumExpiryValue] = useState("");
   const [premiumSettingsTarget, setPremiumSettingsTarget] = useState<PremiumUserRow | null>(null);
   const [premiumSettingsForm, setPremiumSettingsForm] = useState({
     showAds: true,
@@ -211,6 +213,40 @@ export default function AdminLogin() {
       return res.json();
     },
     onSuccess: () => { refetchPremiumUsers(); toast({ title: "Status updated" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const openPremiumExpiry = (user: PremiumUserRow) => {
+    setPremiumExpiryTarget(user);
+    if (!user.expiresAt) {
+      setPremiumExpiryValue("");
+      return;
+    }
+    const date = new Date(user.expiresAt);
+    const pad = (value: number) => String(value).padStart(2, "0");
+    setPremiumExpiryValue(
+      `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`,
+    );
+  };
+
+  const updatePremiumExpiryMutation = useMutation({
+    mutationFn: async ({ id, expiresAt }: { id: number; expiresAt: string }) => {
+      const res = await fetch(`/api/admin/premium-users/${id}/expiry`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Failed to update expiry");
+      return data;
+    },
+    onSuccess: () => {
+      refetchPremiumUsers();
+      setPremiumExpiryTarget(null);
+      setPremiumExpiryValue("");
+      toast({ title: "Expiry updated", description: "Premium access expiry has been updated." });
+    },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -2111,6 +2147,14 @@ export default function AdminLogin() {
                                    >
                                      <Gauge className="w-3 h-3" /> Configure Controls
                                    </button>
+                                   {/* Set or remove expiry */}
+                                   <button
+                                     onClick={() => openPremiumExpiry(u)}
+                                     title="Set expiry date"
+                                     className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-400/30 bg-amber-500/10 hover:bg-amber-500/20 transition-all text-[10px] font-bold text-amber-200 whitespace-nowrap"
+                                   >
+                                     <CalendarClock className="w-3 h-3" /> Expiry
+                                   </button>
                                   {/* Toggle active/disabled */}
                                   <button
                                     onClick={() => togglePremiumMutation.mutate(u.id)}
@@ -2145,6 +2189,55 @@ export default function AdminLogin() {
                   </div>
                 )}
               </div>
+
+               {/* ── Premium Expiry Dialog ── */}
+               <Dialog open={!!premiumExpiryTarget} onOpenChange={(open) => !open && setPremiumExpiryTarget(null)}>
+                 <DialogContent className="max-w-sm border border-amber-500/20" style={{ background: "#09051A" }}>
+                   <DialogHeader>
+                     <DialogTitle className="flex items-center gap-2 text-white">
+                       <CalendarClock className="w-4 h-4 text-amber-400" /> Premium Expiry
+                     </DialogTitle>
+                     <DialogDescription className="text-white/40 text-xs">
+                       Choose when premium access ends for <span className="text-amber-300 font-mono">{premiumExpiryTarget?.email}</span>.
+                     </DialogDescription>
+                   </DialogHeader>
+                   <div className="space-y-4 mt-2">
+                     <div className="space-y-1.5">
+                       <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">
+                         Expiry date and time
+                       </label>
+                       <input
+                         type="datetime-local"
+                         value={premiumExpiryValue}
+                         onChange={e => setPremiumExpiryValue(e.target.value)}
+                         style={{ colorScheme: "dark" }}
+                         className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-amber-500/50"
+                       />
+                       <p className="text-[10px] text-white/25">Leave empty to keep this premium user active without an expiry.</p>
+                     </div>
+                     <div className="flex gap-2">
+                       <Button
+                         variant="outline"
+                         className="flex-1 border-white/[0.1] bg-white/[0.03] text-white/70 hover:bg-white/[0.08] hover:text-white"
+                         disabled={updatePremiumExpiryMutation.isPending || !premiumExpiryValue}
+                         onClick={() => setPremiumExpiryValue("")}
+                       >
+                         Never expire
+                       </Button>
+                       <Button
+                         className="flex-1 bg-amber-600 hover:bg-amber-500 text-white"
+                         disabled={updatePremiumExpiryMutation.isPending}
+                         onClick={() => premiumExpiryTarget && updatePremiumExpiryMutation.mutate({
+                           id: premiumExpiryTarget.id,
+                           expiresAt: premiumExpiryValue,
+                         })}
+                       >
+                         {updatePremiumExpiryMutation.isPending ? "Saving…" : "Save Expiry"}
+                       </Button>
+                     </div>
+                   </div>
+                 </DialogContent>
+               </Dialog>
 
               {/* ── Per-user Premium Controls Dialog ── */}
               <Dialog open={!!premiumSettingsTarget} onOpenChange={(open) => !open && setPremiumSettingsTarget(null)}>
