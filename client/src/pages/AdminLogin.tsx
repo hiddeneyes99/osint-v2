@@ -1994,7 +1994,7 @@ export default function AdminLogin() {
                   <h2 className="text-lg font-bold text-white flex items-center gap-2">
                     <Crown className="w-5 h-5 text-violet-400" /> Premium Users
                   </h2>
-                  <p className="text-xs text-white/30 mt-0.5">Premium access is granted automatically when a registered email logs in through the normal login.</p>
+                  <p className="text-xs text-white/30 mt-0.5">Manage premium access and individual limits. Changes apply immediately.</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => refetchPremiumUsers()}
@@ -2005,6 +2005,36 @@ export default function AdminLogin() {
                     className="btn-primary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs">
                     <Plus className="w-3.5 h-3.5" /> Add User
                   </button>
+                </div>
+              </div>
+
+              {/* Clearly visible explanation of where the requested controls live */}
+              <div className="rounded-2xl border border-violet-500/25 bg-violet-500/[0.07] p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-400/25 flex items-center justify-center shrink-0">
+                    <Gauge className="w-4 h-4 text-violet-300" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-violet-100">Premium Controls</p>
+                    <p className="text-xs text-white/50 mt-1">
+                      Har user ke liye ads, daily search limit, aur minute/hour request limits yahin se set karein.
+                      Neeche user ki row mein <span className="font-semibold text-violet-200">Configure Controls</span> dabayein.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                      <div className="rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2">
+                        <p className="text-[10px] text-amber-300 font-semibold uppercase tracking-wider">Ads</p>
+                        <p className="text-[10px] text-white/35 mt-0.5">Show or hide ads</p>
+                      </div>
+                      <div className="rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2">
+                        <p className="text-[10px] text-blue-300 font-semibold uppercase tracking-wider">Daily Searches</p>
+                        <p className="text-[10px] text-white/35 mt-0.5">Custom number or unlimited</p>
+                      </div>
+                      <div className="rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2">
+                        <p className="text-[10px] text-emerald-300 font-semibold uppercase tracking-wider">Rate Limits</p>
+                        <p className="text-[10px] text-white/35 mt-0.5">Requests per minute/hour</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -2076,10 +2106,10 @@ export default function AdminLogin() {
                                    {/* Per-user premium controls */}
                                    <button
                                      onClick={() => openPremiumSettings(u)}
-                                     title="Configure premium controls"
-                                     className="px-2 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 transition-all text-[10px] font-semibold text-violet-300"
+                                     title="Configure ads, search limits, and rate limits"
+                                     className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-violet-400/40 bg-violet-500/15 hover:bg-violet-500/25 transition-all text-[10px] font-bold text-violet-200 whitespace-nowrap"
                                    >
-                                     Configure
+                                     <Gauge className="w-3 h-3" /> Configure Controls
                                    </button>
                                   {/* Toggle active/disabled */}
                                   <button
@@ -2246,7 +2276,7 @@ export default function AdminLogin() {
                     <DialogTitle className="flex items-center gap-2 text-white">
                       <Crown className="w-4 h-4 text-violet-400" /> Add Premium User
                     </DialogTitle>
-                    <DialogDescription className="text-white/40 text-xs">Enter the email and a password. The user logs in at <span className="text-violet-400">/premium-login</span> with these credentials.</DialogDescription>
+                    <DialogDescription className="text-white/40 text-xs">Enter the email used by the user’s normal Firebase login. Premium access is applied automatically when that email signs in.</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 mt-2">
                     <div className="space-y-1">
