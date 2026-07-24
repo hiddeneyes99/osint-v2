@@ -148,8 +148,9 @@ export type NoticeLike = typeof noticeLikes.$inferSelect;
 // ── Premium Users ────────────────────────────────────────────────────────────
 export const premiumUsers = pgTable("premium_users", {
   id: serial("id").primaryKey(),
-  username: varchar("username", { length: 64 }).notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  email: text("email").unique(),                 // Firebase email — used to auto-grant premium on login
+  username: varchar("username", { length: 64 }), // legacy, no longer used for auth
+  passwordHash: text("password_hash"),           // legacy, no longer used for auth
   role: text("role").notNull().default("premium"),
   status: text("status").notNull().default("active"), // "active" | "disabled"
   expiresAt: timestamp("expires_at"),

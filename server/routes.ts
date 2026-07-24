@@ -14,10 +14,13 @@ import {
   emailInfoSchema,
   ipInfoSchema,
   users,
+  premiumUsers,
 } from "@shared/schema";
 import { z } from "zod";
 import { firebaseAuthMiddleware as requireAuth } from "./middleware/firebase-auth";
-import { sql } from "drizzle-orm";
+import { sql, eq, desc } from "drizzle-orm";
+import { db } from "./db";
+import { signPremiumToken } from "./middleware/premium-auth";
 import {
   sendTelegramAdmin,
   sendTelegramToUser,
@@ -1427,6 +1430,24 @@ ${urls.map(u => `  <url>
         ]).catch(() => {});
       }
 
+      // ── Auto-detect premium role ──────────────────────────────────────────
+      // If this Firebase user's email is in premium_users, issue the premium
+      // cookie automatically — no separate login step needed.
+      try {
+        const userEmail = (req.user.email ?? "").toLowerCase().trim();
+        if (userEmail) {
+          const [pu] = await db.select().from(premiumUsers).where(eq(premiumUsers.email, userEmail));
+          if (pu && pu.status === "active" && (!pu.expiresAt || new Date() < pu.expiresAt)) {
+            const token = signPremiumToken(pu.id);
+            res.setHeader("Set-Cookie", `premiumAuth=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=604800; Secure; SameSite=None`);
+            db.update(premiumUsers).set({ lastLogin: new Date() }).where(eq(premiumUsers.id, pu.id)).catch(() => {});
+          } else {
+            // Clear any stale premium cookie (account disabled, expired, or removed)
+            res.setHeader("Set-Cookie", "premiumAuth=; HttpOnly; Path=/; Max-Age=0; SameSite=None; Secure");
+          }
+        }
+      } catch { /* best-effort — never block auth */ }
+
       res.json(user);
     } catch (error) {
       console.error("[auth/user] DB error — returning fallback user:", error);
@@ -2552,21 +2573,18 @@ ${urls.map(u => `  <url>
   }
 
   // ── PREMIUM ACCESS SYSTEM ─────────────────────────────────────────────────
+  // Premium is granted automatically: when a Firebase user logs in via
+  // /api/auth/user, the server checks premium_users by email and sets the
+  // premiumAuth cookie if matched. No separate login needed.
   {
-    const bcrypt = await import("bcryptjs");
-    const { signPremiumToken, verifyPremiumToken, parseCookiesPremium, requirePremium } = await import("./middleware/premium-auth");
-    const { premiumUsers } = await import("@shared/schema");
-    const { eq, desc } = await import("drizzle-orm");
-    const { db } = await import("./db");
-    const { nanoid } = await import("nanoid");
-
-    // Ensure premium_users table exists
+    // Ensure premium_users table exists and has the email column
     try {
       await db.execute(sql`
         CREATE TABLE IF NOT EXISTS premium_users (
           id SERIAL PRIMARY KEY,
-          username VARCHAR(64) NOT NULL UNIQUE,
-          password_hash TEXT NOT NULL,
+          email TEXT UNIQUE,
+          username VARCHAR(64),
+          password_hash TEXT,
           role TEXT NOT NULL DEFAULT 'premium',
           status TEXT NOT NULL DEFAULT 'active',
           expires_at TIMESTAMP,
@@ -2574,55 +2592,13 @@ ${urls.map(u => `  <url>
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
+      // Idempotent migration: add email column to pre-existing tables
+      await db.execute(sql`
+        ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE
+      `);
     } catch (e: any) {
       console.error("[premium] Table init error:", e.message);
     }
-
-    function premiumCookieHeader(token: string) {
-      return [
-        `premiumAuth=${encodeURIComponent(token)}`,
-        "HttpOnly",
-        "Path=/",
-        "Max-Age=604800", // 7 days
-        "Secure",
-        "SameSite=None",
-      ].join("; ");
-    }
-
-    function generateRandomUsername() {
-      return "user_" + nanoid(8).toLowerCase();
-    }
-    function generateRandomPassword() {
-      return nanoid(12);
-    }
-
-    // ── PUBLIC: Premium Login ─────────────────────────────────────────────
-    app.post("/api/premium/login", async (req, res) => {
-      const { username, password } = req.body;
-      if (!username || !password) {
-        return res.status(400).json({ message: "Username and password are required" });
-      }
-      try {
-        const [user] = await db.select().from(premiumUsers).where(eq(premiumUsers.username, username.trim()));
-        if (!user) return res.status(401).json({ message: "Invalid credentials" });
-        if (user.status !== "active") return res.status(403).json({ message: "Account is disabled" });
-        if (user.expiresAt && new Date() > user.expiresAt) {
-          return res.status(403).json({ message: "Account has expired" });
-        }
-        const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return res.status(401).json({ message: "Invalid credentials" });
-
-        // Update last login
-        await db.update(premiumUsers).set({ lastLogin: new Date() }).where(eq(premiumUsers.id, user.id));
-
-        const token = signPremiumToken(user.id);
-        res.setHeader("Set-Cookie", premiumCookieHeader(token));
-        res.json({ success: true, user: { id: user.id, username: user.username, role: user.role } });
-      } catch (err: any) {
-        console.error("[premium/login]", err);
-        res.status(500).json({ message: "Login failed" });
-      }
-    });
 
     // ── PUBLIC: Premium Logout ────────────────────────────────────────────
     app.post("/api/premium/logout", (_req, res) => {
@@ -2632,12 +2608,12 @@ ${urls.map(u => `  <url>
 
     // ── PUBLIC: Verify premium session / get current user ────────────────
     app.get("/api/premium/me", async (req, res) => {
+      const { parseCookiesPremium, verifyPremiumToken } = await import("./middleware/premium-auth");
       const cookies = parseCookiesPremium(req);
       const raw = cookies["premiumAuth"] || req.headers["x-premium-token"];
       if (!raw) return res.status(401).json({ message: "Not authenticated" });
 
-      const { verifyPremiumToken: verify } = await import("./middleware/premium-auth");
-      const userId = verify(raw as string);
+      const userId = verifyPremiumToken(raw as string);
       if (!userId) return res.status(401).json({ message: "Invalid session" });
 
       try {
@@ -2645,7 +2621,7 @@ ${urls.map(u => `  <url>
         if (!user) return res.status(401).json({ message: "User not found" });
         if (user.status !== "active") return res.status(403).json({ message: "Account disabled" });
         if (user.expiresAt && new Date() > user.expiresAt) return res.status(403).json({ message: "Account expired" });
-        res.json({ id: user.id, username: user.username, role: user.role, expiresAt: user.expiresAt });
+        res.json({ id: user.id, email: user.email, role: user.role, expiresAt: user.expiresAt });
       } catch (err: any) {
         res.status(500).json({ message: "Verification failed" });
       }
@@ -2656,7 +2632,7 @@ ${urls.map(u => `  <url>
       try {
         const users = await db.select({
           id: premiumUsers.id,
-          username: premiumUsers.username,
+          email: premiumUsers.email,
           role: premiumUsers.role,
           status: premiumUsers.status,
           expiresAt: premiumUsers.expiresAt,
@@ -2670,34 +2646,29 @@ ${urls.map(u => `  <url>
     });
 
     // ── ADMIN: Create premium user ────────────────────────────────────────
+    // Admin enters the Firebase user's email. On that user's next normal login,
+    // /api/auth/user detects the match and auto-issues the premiumAuth cookie.
     app.post("/api/admin/premium-users", requireAdminSession, async (req, res) => {
-      let { username, password, expiresAt, generateRandom } = req.body;
-      if (generateRandom) {
-        username = generateRandomUsername();
-        password = generateRandomPassword();
-      }
-      if (!username?.trim() || !password?.trim()) {
-        return res.status(400).json({ message: "Username and password are required" });
+      const { email, expiresAt } = req.body;
+      if (!email?.trim()) {
+        return res.status(400).json({ message: "Email is required" });
       }
       try {
-        const hash = await bcrypt.hash(password, 12);
         const [user] = await db.insert(premiumUsers).values({
-          username: username.trim(),
-          passwordHash: hash,
+          email: email.trim().toLowerCase(),
           expiresAt: expiresAt ? new Date(expiresAt) : null,
         }).returning({
           id: premiumUsers.id,
-          username: premiumUsers.username,
+          email: premiumUsers.email,
           role: premiumUsers.role,
           status: premiumUsers.status,
           expiresAt: premiumUsers.expiresAt,
           createdAt: premiumUsers.createdAt,
         });
-        // Return plain password only on creation so admin can share it
-        res.json({ ...user, plainPassword: password });
+        res.json(user);
       } catch (err: any) {
         if (err.message?.includes("unique")) {
-          return res.status(409).json({ message: "Username already exists" });
+          return res.status(409).json({ message: "Email already exists" });
         }
         res.status(500).json({ message: err.message });
       }
@@ -2712,20 +2683,6 @@ ${urls.map(u => `  <url>
         const newStatus = current.status === "active" ? "disabled" : "active";
         await db.update(premiumUsers).set({ status: newStatus }).where(eq(premiumUsers.id, id));
         res.json({ success: true, status: newStatus });
-      } catch (err: any) {
-        res.status(500).json({ message: err.message });
-      }
-    });
-
-    // ── ADMIN: Reset password ─────────────────────────────────────────────
-    app.post("/api/admin/premium-users/:id/reset-password", requireAdminSession, async (req, res) => {
-      const id = parseInt(req.params.id);
-      let { newPassword } = req.body;
-      if (!newPassword?.trim()) newPassword = generateRandomPassword();
-      try {
-        const hash = await bcrypt.hash(newPassword, 12);
-        await db.update(premiumUsers).set({ passwordHash: hash }).where(eq(premiumUsers.id, id));
-        res.json({ success: true, plainPassword: newPassword });
       } catch (err: any) {
         res.status(500).json({ message: err.message });
       }

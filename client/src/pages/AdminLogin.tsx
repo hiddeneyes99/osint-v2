@@ -101,15 +101,7 @@ export default function AdminLogin() {
 
   // ── Premium Users state ─────────────────────────────────────────────────
   const [premiumCreateOpen, setPremiumCreateOpen] = useState(false);
-  const [premiumCreateForm, setPremiumCreateForm] = useState({
-    username: "", password: "", expiresAt: "", generateRandom: false,
-  });
-  const [premiumShowPassword, setPremiumShowPassword] = useState(false);
-  const [premiumLastCreated, setPremiumLastCreated] = useState<{ username: string; plainPassword: string } | null>(null);
-  const [premiumResetTarget, setPremiumResetTarget] = useState<{ id: number; username: string } | null>(null);
-  const [premiumResetNewPass, setPremiumResetNewPass] = useState("");
-  const [premiumResetResult, setPremiumResetResult] = useState<string | null>(null);
-  const [premiumCopied, setPremiumCopied] = useState<string | null>(null);
+  const [premiumCreateForm, setPremiumCreateForm] = useState({ email: "", expiresAt: "" });
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -164,7 +156,7 @@ export default function AdminLogin() {
 
   // ── Premium Users query ──────────────────────────────────────────────────
   interface PremiumUserRow {
-    id: number; username: string; role: string; status: string;
+    id: number; email: string | null; role: string; status: string;
     expiresAt: string | null; lastLogin: string | null; createdAt: string;
   }
   const { data: premiumUsersList = [], refetch: refetchPremiumUsers } = useQuery<PremiumUserRow[]>({
@@ -189,12 +181,11 @@ export default function AdminLogin() {
       if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       refetchPremiumUsers();
-      setPremiumLastCreated({ username: data.username, plainPassword: data.plainPassword });
       setPremiumCreateOpen(false);
-      setPremiumCreateForm({ username: "", password: "", expiresAt: "", generateRandom: false });
-      toast({ title: "Premium user created" });
+      setPremiumCreateForm({ email: "", expiresAt: "" });
+      toast({ title: "Premium user added", description: "They'll receive premium access automatically on next login." });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -219,25 +210,6 @@ export default function AdminLogin() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const resetPremiumPasswordMutation = useMutation({
-    mutationFn: async ({ id, newPassword }: { id: number; newPassword: string }) => {
-      const res = await fetch(`/api/admin/premium-users/${id}/reset-password`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newPassword }),
-      });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
-      return res.json();
-    },
-    onSuccess: (data) => { setPremiumResetResult(data.plainPassword); refetchPremiumUsers(); toast({ title: "Password reset" }); },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  function copyToClipboard(text: string, key: string) {
-    navigator.clipboard.writeText(text).then(() => {
-      setPremiumCopied(key);
-      setTimeout(() => setPremiumCopied(null), 1500);
-    });
-  }
 
   const sendBroadcastMutation = useMutation({
     mutationFn: async (data: typeof broadcastInput) => {
@@ -1948,7 +1920,7 @@ export default function AdminLogin() {
                   <h2 className="text-lg font-bold text-white flex items-center gap-2">
                     <Crown className="w-5 h-5 text-violet-400" /> Premium Users
                   </h2>
-                  <p className="text-xs text-white/30 mt-0.5">Manage premium accounts — login at <span className="text-violet-400">/premium-login</span></p>
+                  <p className="text-xs text-white/30 mt-0.5">Premium access is granted automatically when a registered email logs in through the normal login.</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => refetchPremiumUsers()}
@@ -1957,48 +1929,10 @@ export default function AdminLogin() {
                   </button>
                   <button onClick={() => setPremiumCreateOpen(true)}
                     className="btn-primary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs">
-                    <Plus className="w-3.5 h-3.5" /> Create User
+                    <Plus className="w-3.5 h-3.5" /> Add User
                   </button>
                 </div>
               </div>
-
-              {/* Last-created credentials banner */}
-              {premiumLastCreated && (
-                <div className="rounded-xl border border-violet-500/30 p-4 space-y-3" style={{ background: "rgba(139,92,246,0.07)" }}>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold text-violet-300 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> User created — save these credentials now
-                    </p>
-                    <button onClick={() => setPremiumLastCreated(null)} className="text-white/30 hover:text-white/60 transition-colors"><X className="w-4 h-4" /></button>
-                  </div>
-                  {[["Username", premiumLastCreated.username], ["Password", premiumLastCreated.plainPassword]].map(([label, val]) => (
-                    <div key={label} className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 border border-white/[0.08] bg-black/30">
-                      <span className="text-[10px] font-semibold text-white/40 uppercase tracking-widest w-20 shrink-0">{label}</span>
-                      <code className="flex-1 text-xs text-white/80 font-mono truncate">{val}</code>
-                      <button onClick={() => copyToClipboard(val, label)}
-                        className="shrink-0 text-white/30 hover:text-violet-400 transition-colors">
-                        {premiumCopied === label ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Reset password result banner */}
-              {premiumResetResult && (
-                <div className="rounded-xl border border-amber-500/30 p-4 space-y-2" style={{ background: "rgba(245,158,11,0.06)" }}>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold text-amber-300">New password — copy it now</p>
-                    <button onClick={() => { setPremiumResetResult(null); setPremiumResetTarget(null); }} className="text-white/30 hover:text-white/60 transition-colors"><X className="w-4 h-4" /></button>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 border border-white/[0.08] bg-black/30">
-                    <code className="flex-1 text-sm text-white/80 font-mono">{premiumResetResult}</code>
-                    <button onClick={() => copyToClipboard(premiumResetResult, "reset")} className="text-white/30 hover:text-violet-400 transition-colors">
-                      {premiumCopied === "reset" ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* Users table */}
               <div className="rounded-2xl border border-violet-500/20 overflow-hidden" style={{ background: "rgba(9,5,26,0.8)" }}>
@@ -2009,7 +1943,7 @@ export default function AdminLogin() {
                     </div>
                     <p className="text-sm text-white/30">No premium users yet</p>
                     <button onClick={() => setPremiumCreateOpen(true)} className="btn-primary text-xs px-4 py-2 rounded-lg flex items-center gap-1.5">
-                      <Plus className="w-3.5 h-3.5" /> Create first user
+                      <Plus className="w-3.5 h-3.5" /> Add first user
                     </button>
                   </div>
                 ) : (
@@ -2017,7 +1951,7 @@ export default function AdminLogin() {
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-white/[0.06]">
-                          {["Username", "Status", "Expires", "Last Login", "Created", "Actions"].map(h => (
+                          {["Email", "Status", "Expires", "Last Login", "Created", "Actions"].map(h => (
                             <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-white/30 uppercase tracking-widest">{h}</th>
                           ))}
                         </tr>
@@ -2033,7 +1967,7 @@ export default function AdminLogin() {
                                   <div className="w-7 h-7 rounded-lg bg-violet-600/20 border border-violet-500/20 flex items-center justify-center shrink-0">
                                     <Crown className="w-3.5 h-3.5 text-violet-400" />
                                   </div>
-                                  <span className="font-mono text-white/80 font-medium">{u.username}</span>
+                                  <span className="font-mono text-white/80 font-medium">{u.email ?? "—"}</span>
                                 </div>
                               </td>
                               <td className="px-4 py-3">
@@ -2054,7 +1988,7 @@ export default function AdminLogin() {
                               <td className="px-4 py-3 text-white/30">{new Date(u.createdAt).toLocaleDateString()}</td>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
-                                  {/* Toggle */}
+                                  {/* Toggle active/disabled */}
                                   <button
                                     onClick={() => togglePremiumMutation.mutate(u.id)}
                                     title={isActive ? "Disable" : "Enable"}
@@ -2062,18 +1996,10 @@ export default function AdminLogin() {
                                   >
                                     {isActive ? <ToggleRight className="w-3.5 h-3.5 text-emerald-400" /> : <ToggleLeft className="w-3.5 h-3.5 text-white/30" />}
                                   </button>
-                                  {/* Reset password */}
+                                  {/* Remove */}
                                   <button
-                                    onClick={() => { setPremiumResetTarget({ id: u.id, username: u.username }); setPremiumResetNewPass(""); setPremiumResetResult(null); }}
-                                    title="Reset password"
-                                    className="p-1.5 rounded-lg border border-white/[0.08] hover:bg-white/[0.06] transition-all text-white/40 hover:text-amber-400"
-                                  >
-                                    <Key className="w-3.5 h-3.5" />
-                                  </button>
-                                  {/* Delete */}
-                                  <button
-                                    onClick={() => { if (confirm(`Delete premium user "${u.username}"?`)) deletePremiumMutation.mutate(u.id); }}
-                                    title="Delete"
+                                    onClick={() => { if (confirm(`Remove premium access for "${u.email}"?`)) deletePremiumMutation.mutate(u.id); }}
+                                    title="Remove"
                                     className="p-1.5 rounded-lg border border-white/[0.08] hover:bg-red-500/10 transition-all text-white/40 hover:text-red-400"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -2089,44 +2015,26 @@ export default function AdminLogin() {
                 )}
               </div>
 
-              {/* ── Create User Dialog ── */}
+              {/* ── Add Premium User Dialog ── */}
               <Dialog open={premiumCreateOpen} onOpenChange={setPremiumCreateOpen}>
                 <DialogContent className="max-w-sm border border-violet-500/20" style={{ background: "#09051A" }}>
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-white">
-                      <Crown className="w-4 h-4 text-violet-400" /> Create Premium User
+                      <Crown className="w-4 h-4 text-violet-400" /> Add Premium User
                     </DialogTitle>
-                    <DialogDescription className="text-white/40 text-xs">Credentials will be shown once — copy them immediately.</DialogDescription>
+                    <DialogDescription className="text-white/40 text-xs">Enter the user's login email. They'll receive premium access automatically on their next login — no extra steps needed.</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 mt-2">
-                    {/* Generate random toggle */}
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <div
-                        onClick={() => setPremiumCreateForm(f => ({ ...f, generateRandom: !f.generateRandom }))}
-                        className={`w-9 h-5 rounded-full relative transition-colors ${premiumCreateForm.generateRandom ? "bg-violet-600" : "bg-white/10"}`}>
-                        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${premiumCreateForm.generateRandom ? "left-4" : "left-0.5"}`} />
-                      </div>
-                      <span className="text-xs text-white/60">Auto-generate username & password</span>
-                    </label>
-
-                    {!premiumCreateForm.generateRandom && (<>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">Username</label>
-                        <input value={premiumCreateForm.username} onChange={e => setPremiumCreateForm(f => ({ ...f, username: e.target.value }))}
-                          placeholder="custom_username" className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">Password</label>
-                        <div className="relative">
-                          <input type={premiumShowPassword ? "text" : "password"} value={premiumCreateForm.password}
-                            onChange={e => setPremiumCreateForm(f => ({ ...f, password: e.target.value }))}
-                            placeholder="••••••••" className="w-full px-3 py-2 pr-9 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50" />
-                          <button type="button" onClick={() => setPremiumShowPassword(p => !p)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
-                            {premiumShowPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                          </button>
-                        </div>
-                      </div>
-                    </>)}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">Email Address</label>
+                      <input
+                        type="email"
+                        value={premiumCreateForm.email}
+                        onChange={e => setPremiumCreateForm(f => ({ ...f, email: e.target.value }))}
+                        placeholder="user@example.com"
+                        className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50"
+                      />
+                    </div>
 
                     <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide flex items-center gap-1.5"><CalendarClock className="w-3 h-3" /> Expiry Date (optional)</label>
@@ -2137,37 +2045,9 @@ export default function AdminLogin() {
 
                     <button
                       onClick={() => createPremiumMutation.mutate(premiumCreateForm)}
-                      disabled={createPremiumMutation.isPending}
+                      disabled={createPremiumMutation.isPending || !premiumCreateForm.email.trim()}
                       className="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60">
-                      {createPremiumMutation.isPending ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Creating…</> : <><Crown className="w-3.5 h-3.5" /> Create</>}
-                    </button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-
-              {/* ── Reset Password Dialog ── */}
-              <Dialog open={!!premiumResetTarget} onOpenChange={v => { if (!v) { setPremiumResetTarget(null); setPremiumResetNewPass(""); } }}>
-                <DialogContent className="max-w-sm border border-amber-500/20" style={{ background: "#09051A" }}>
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-white">
-                      <Key className="w-4 h-4 text-amber-400" /> Reset Password
-                    </DialogTitle>
-                    <DialogDescription className="text-white/40 text-xs">For <span className="text-white/70 font-mono">{premiumResetTarget?.username}</span>. Leave blank to auto-generate.</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 mt-2">
-                    <div className="relative">
-                      <input type={premiumShowPassword ? "text" : "password"} value={premiumResetNewPass}
-                        onChange={e => setPremiumResetNewPass(e.target.value)}
-                        placeholder="Leave blank to auto-generate" className="w-full px-3 py-2 pr-9 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-amber-500/50" />
-                      <button type="button" onClick={() => setPremiumShowPassword(p => !p)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
-                        {premiumShowPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => premiumResetTarget && resetPremiumPasswordMutation.mutate({ id: premiumResetTarget.id, newPassword: premiumResetNewPass })}
-                      disabled={resetPremiumPasswordMutation.isPending}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 transition-all disabled:opacity-60">
-                      {resetPremiumPasswordMutation.isPending ? <><div className="w-3.5 h-3.5 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" /> Resetting…</> : <><RotateCcw className="w-3.5 h-3.5" /> Reset Password</>}
+                      {createPremiumMutation.isPending ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Adding…</> : <><Crown className="w-3.5 h-3.5" /> Add</>}
                     </button>
                   </div>
                 </DialogContent>
