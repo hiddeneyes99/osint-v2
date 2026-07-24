@@ -168,6 +168,15 @@ export default function Dashboard() {
     refetchInterval: 3000,
   });
   const serviceReasons = (comingSoon._reasons || {}) as Record<string, string>;
+  const adminDisabled = (comingSoon._adminDisabled || {}) as Record<string, boolean>;
+
+  // Premium users bypass admin-disabled services (but not genuinely "coming soon" ones)
+  function isServiceBlocked(svc: string): boolean {
+    const blocked = svc === "email" ? comingSoon.email !== false : !!comingSoon[svc];
+    if (!blocked) return false;
+    if (isPremium && adminDisabled[svc]) return false;
+    return true;
+  }
 
   // Service Mutations
   const mobileMutation = useMobileInfo();
@@ -1029,7 +1038,7 @@ export default function Dashboard() {
                   transition={{ duration: 0.2 }}
                   className="h-full flex flex-col gap-4 md:gap-5"
                 >
-                  {comingSoon.mobile ? (
+                  {isServiceBlocked("mobile") ? (
                     <ServiceComingSoon emoji="📱" tileClass="t-violet" label="Number Search" reason={serviceReasons.mobile} />
                   ) : (
                     <>
@@ -1087,7 +1096,7 @@ export default function Dashboard() {
 
               {activeTab === "aadhar" && (
                 <motion.div key="aadhar" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="h-full flex flex-col gap-4 md:gap-5">
-                  {comingSoon.aadhar ? (
+                  {isServiceBlocked("aadhar") ? (
                     <ServiceComingSoon emoji="🪪" tileClass="t-fuchsia" label="Aadhaar Search" reason={serviceReasons.aadhar} />
                   ) : (
                     <>
@@ -1136,7 +1145,7 @@ export default function Dashboard() {
 
               {activeTab === "vehicle" && (
                 <motion.div key="vehicle" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="h-full flex flex-col gap-4 md:gap-5">
-                  {comingSoon.vehicle ? (
+                  {isServiceBlocked("vehicle") ? (
                     <ServiceComingSoon emoji="🚗" tileClass="t-orange" label="Vehicle Search" reason={serviceReasons.vehicle} />
                   ) : (
                     <>
@@ -1184,7 +1193,7 @@ export default function Dashboard() {
 
               {activeTab === "email" && (
                 <motion.div key="email" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="h-full flex flex-col gap-5">
-                  {comingSoon.email !== false ? (
+                  {isServiceBlocked("email") ? (
                     <ServiceComingSoon emoji="📧" tileClass="t-emerald" label="Email Search" reason={serviceReasons.email} />
                   ) : (
                     <>
@@ -1232,7 +1241,7 @@ export default function Dashboard() {
 
               {activeTab === "ip" && (
                 <motion.div key="ip" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="h-full flex flex-col gap-4 md:gap-5">
-                  {comingSoon.ip ? (
+                  {isServiceBlocked("ip") ? (
                     <ServiceComingSoon emoji="🌐" tileClass="t-blue" label="IP Trace" reason={serviceReasons.ip} />
                   ) : (
                     <>

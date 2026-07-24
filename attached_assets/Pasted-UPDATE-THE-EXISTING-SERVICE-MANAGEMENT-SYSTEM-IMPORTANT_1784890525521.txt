@@ -1,0 +1,67 @@
+UPDATE THE EXISTING SERVICE MANAGEMENT SYSTEM.
+
+IMPORTANT:
+Do NOT redesign, remove, or break any existing functionality.
+
+The website already has an Admin Panel where services can be turned ON or OFF. I want to change only how access is controlled.
+
+Requirements:
+
+1. Keep the existing Service Management system exactly as it is.
+
+2. Do NOT shut down or disable the actual backend service or API when the Admin turns a service OFF.
+
+3. The service must continue running in the background at all times.
+
+4. The ON/OFF toggle should work as an Access Control layer, not as a backend shutdown.
+
+5. Access Logic:
+
+If Service = ON
+- Normal Users → Full Access
+- Premium Users → Full Access
+
+If Service = OFF
+- Normal Users → Block access.
+- Show the existing Disabled / Offline / Maintenance message exactly as before.
+- Premium Users → Ignore the OFF status and continue using the service normally.
+
+6. Premium users must automatically bypass the global OFF status for every service.
+
+7. Before denying access to any service, always check:
+- Is the logged-in user Premium?
+  - YES → Allow access.
+  - NO → Follow the Admin ON/OFF status.
+
+8. Apply this logic on BOTH:
+- Frontend
+- Backend APIs
+
+Never rely only on frontend hiding.
+
+9. Premium users must use the exact same APIs, routes, pages, and services as normal users.
+Do NOT create duplicate services or Premium versions.
+
+10. The UI should behave like this:
+
+Normal User:
+- Service ON → Show as available.
+- Service OFF → Show as disabled/offline.
+
+Premium User:
+- Service ON → Available.
+- Service OFF → Still available and fully functional.
+
+11. If the Admin later turns the service back ON:
+- Normal users should immediately regain access.
+- No code changes.
+- No restart.
+- No redeployment.
+
+12. Existing Admin controls must continue working exactly as before.
+
+13. Do NOT modify existing routes, APIs, database structure, UI, or service implementation except where necessary to add Premium access control.
+
+14. The entire implementation must be fully backward compatible.
+
+The final implementation should treat the Admin ON/OFF switch as a permission system rather than actually stopping the service.

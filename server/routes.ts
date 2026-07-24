@@ -20,7 +20,7 @@ import { z } from "zod";
 import { firebaseAuthMiddleware as requireAuth } from "./middleware/firebase-auth";
 import { sql, eq, desc } from "drizzle-orm";
 import { db } from "./db";
-import { signPremiumToken } from "./middleware/premium-auth";
+import { signPremiumToken, parseCookiesPremium, verifyPremiumToken } from "./middleware/premium-auth";
 import {
   sendTelegramAdmin,
   sendTelegramToUser,
@@ -93,15 +93,23 @@ async function getServiceAvailability(): Promise<Record<string, boolean | Record
   // Merge service_config: disabled services also show as "coming soon" to users
   const cfgRaw = await storage.getPlatformSetting("service_config");
   const cfg: Record<string, boolean> = cfgRaw ? JSON.parse(cfgRaw) : {};
+  const adminDisabled: Record<string, boolean> = {};
   for (const [svc, enabled] of Object.entries(cfg)) {
-    if (enabled === false) data[svc] = true;
+    if (enabled === false) {
+      data[svc] = true;
+      adminDisabled[svc] = true; // track which are OFF via admin toggle (premium bypass)
+    }
   }
 
   // Include reasons so dashboard can show the reason message
   const reasonsRaw = await storage.getPlatformSetting("service_reasons");
   const reasons: Record<string, string> = reasonsRaw ? JSON.parse(reasonsRaw) : {};
 
-  const result: Record<string, boolean | Record<string, string>> = { ...data, _reasons: reasons };
+  const result: Record<string, boolean | Record<string, string> | Record<string, boolean>> = {
+    ...data,
+    _reasons: reasons,
+    _adminDisabled: adminDisabled, // premium users bypass these
+  };
   serviceAvailabilityCache = { data: result, ts: Date.now() };
   return result;
 }
@@ -1193,13 +1201,31 @@ ${urls.map(u => `  <url>
       // Service enabled check
       const svcCfg = await getServiceConfig();
       if (svcCfg[serviceName] === false) {
-        const name = serviceName.charAt(0).toUpperCase() + serviceName.slice(1);
-        const reasons = await getServiceReasons();
-        const customReason = reasons[serviceName];
-        const message = customReason
-          ? customReason
-          : `${name} service is currently disabled. Contact admin for access.`;
-        return res.status(503).json({ message });
+        // Premium users bypass admin OFF status
+        let isPremiumBypass = false;
+        try {
+          const cookies = parseCookiesPremium(req);
+          const raw = cookies["premiumAuth"] || req.headers["x-premium-token"];
+          if (raw) {
+            const premiumId = verifyPremiumToken(raw as string);
+            if (premiumId) {
+              const [pu] = await db.select().from(premiumUsers).where(eq(premiumUsers.id, premiumId));
+              if (pu && pu.status === "active" && (!pu.expiresAt || new Date() <= pu.expiresAt)) {
+                isPremiumBypass = true;
+              }
+            }
+          }
+        } catch { /* non-premium path */ }
+
+        if (!isPremiumBypass) {
+          const name = serviceName.charAt(0).toUpperCase() + serviceName.slice(1);
+          const reasons = await getServiceReasons();
+          const customReason = reasons[serviceName];
+          const message = customReason
+            ? customReason
+            : `${name} service is currently disabled. Contact admin for access.`;
+          return res.status(503).json({ message });
+        }
       }
 
       // Daily rate limit check
