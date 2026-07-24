@@ -50,6 +50,7 @@ import {
   useIpInfo,
 } from "@/hooks/use-services";
 import { useAuth } from "@/hooks/use-auth";
+import { usePremiumAuth } from "@/hooks/use-premium-auth";
 import {
   mobileInfoSchema,
   aadharInfoSchema,
@@ -89,9 +90,13 @@ function ServiceComingSoon({ emoji, tileClass, label, reason }: { emoji: string;
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
+  const { isPremium, premiumUser, login: premiumLogin, isLoggingIn: isPremiumLoggingIn } = usePremiumAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState("mobile");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isPremiumLoginOpen, setIsPremiumLoginOpen] = useState(false);
+  const [premiumLoginForm, setPremiumLoginForm] = useState({ email: "", password: "" });
+  const [premiumLoginError, setPremiumLoginError] = useState("");
   const [showProtectedAlert, setShowProtectedAlert] = useState(false);
   const [protectionReason, setProtectionReason] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -289,7 +294,18 @@ export default function Dashboard() {
     });
   };
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !isPremium) {
+    const handlePremiumLogin = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setPremiumLoginError("");
+      try {
+        await premiumLogin({ email: premiumLoginForm.email, password: premiumLoginForm.password });
+        setIsPremiumLoginOpen(false);
+      } catch (err: any) {
+        setPremiumLoginError(err.message || "Login failed");
+      }
+    };
+
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
@@ -300,9 +316,52 @@ export default function Dashboard() {
             </div>
             <h2 className="text-xl font-bold text-white mb-2">Access Required</h2>
             <p className="text-white/40 text-sm mb-8">Sign in to access the intelligence platform.</p>
-            <CyberButton className="w-full" onClick={() => setIsAuthModalOpen(true)}>
+            <CyberButton className="w-full mb-3" onClick={() => setIsAuthModalOpen(true)}>
               Sign In
             </CyberButton>
+            <button
+              onClick={() => { setIsPremiumLoginOpen(v => !v); setPremiumLoginError(""); }}
+              className="text-violet-400 text-xs hover:text-violet-300 transition-colors underline underline-offset-2"
+            >
+              Have a premium access code? Login here
+            </button>
+
+            {isPremiumLoginOpen && (
+              <form onSubmit={handlePremiumLogin} className="mt-6 text-left space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={premiumLoginForm.email}
+                    onChange={e => setPremiumLoginForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="your@email.com"
+                    className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={premiumLoginForm.password}
+                    onChange={e => setPremiumLoginForm(f => ({ ...f, password: e.target.value }))}
+                    placeholder="••••••••"
+                    className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50"
+                  />
+                </div>
+                {premiumLoginError && (
+                  <p className="text-red-400 text-xs">{premiumLoginError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={isPremiumLoggingIn}
+                  className="w-full py-2.5 rounded-lg text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {isPremiumLoggingIn ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Logging in…</> : "Premium Login"}
+                </button>
+              </form>
+            )}
           </CyberCard>
         </div>
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
