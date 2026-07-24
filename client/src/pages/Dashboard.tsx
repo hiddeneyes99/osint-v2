@@ -1067,9 +1067,9 @@ export default function Dashboard() {
                       </CyberCard>
                     </>
                   )}
-                  {/* Show results even if service blocked state changes — prevents result from disappearing mid-session */}
-                  {(mobileMutation.data?.data || mobileMutation.isPending) && (
-                    <TerminalOutput data={mobileMutation.data?.data} title="Mobile Intelligence Results" isLoading={mobileMutation.isPending} className="flex-1" />
+                  {/* Show results/errors even if service blocked state changes — prevents result from disappearing mid-session */}
+                  {(mobileMutation.data?.data || mobileMutation.isPending || mobileMutation.error) && (
+                    <TerminalOutput data={mobileMutation.data?.data} title="Mobile Intelligence Results" isLoading={mobileMutation.isPending} error={mobileMutation.error as Error | null} className="flex-1" />
                   )}
                 </motion.div>
               )}
@@ -1119,8 +1119,8 @@ export default function Dashboard() {
                       </CyberCard>
                     </>
                   )}
-                  {(aadharMutation.data?.data || aadharMutation.isPending) && (
-                    <TerminalOutput data={aadharMutation.data?.data} title="Aadhar Intelligence Results" isLoading={aadharMutation.isPending} className="flex-1" />
+                  {(aadharMutation.data?.data || aadharMutation.isPending || aadharMutation.error) && (
+                    <TerminalOutput data={aadharMutation.data?.data} title="Aadhar Intelligence Results" isLoading={aadharMutation.isPending} error={aadharMutation.error as Error | null} className="flex-1" />
                   )}
                 </motion.div>
               )}
@@ -1169,8 +1169,8 @@ export default function Dashboard() {
                       </CyberCard>
                     </>
                   )}
-                  {(vehicleMutation.data?.data || vehicleMutation.isPending) && (
-                    <TerminalOutput data={vehicleMutation.data?.data} title="Vehicle Recon Results" isLoading={vehicleMutation.isPending} className="flex-1" />
+                  {(vehicleMutation.data?.data || vehicleMutation.isPending || vehicleMutation.error) && (
+                    <TerminalOutput data={vehicleMutation.data?.data} title="Vehicle Recon Results" isLoading={vehicleMutation.isPending} error={vehicleMutation.error as Error | null} className="flex-1" />
                   )}
                 </motion.div>
               )}
@@ -1219,8 +1219,8 @@ export default function Dashboard() {
                       </CyberCard>
                     </>
                   )}
-                  {(emailMutation.data?.data || emailMutation.isPending) && (
-                    <TerminalOutput data={emailMutation.data?.data} title="Email Intelligence Results" isLoading={emailMutation.isPending} className="flex-1" />
+                  {(emailMutation.data?.data || emailMutation.isPending || emailMutation.error) && (
+                    <TerminalOutput data={emailMutation.data?.data} title="Email Intelligence Results" isLoading={emailMutation.isPending} error={emailMutation.error as Error | null} className="flex-1" />
                   )}
                 </motion.div>
               )}
@@ -1268,8 +1268,8 @@ export default function Dashboard() {
                       </CyberCard>
                     </>
                   )}
-                  {(ipMutation.data?.data || ipMutation.isPending) && (
-                    <TerminalOutput data={ipMutation.data?.data} title="Network Probe Results" isLoading={ipMutation.isPending} className="flex-1" />
+                  {(ipMutation.data?.data || ipMutation.isPending || ipMutation.error) && (
+                    <TerminalOutput data={ipMutation.data?.data} title="Network Probe Results" isLoading={ipMutation.isPending} error={ipMutation.error as Error | null} className="flex-1" />
                   )}
                 </motion.div>
               )}
