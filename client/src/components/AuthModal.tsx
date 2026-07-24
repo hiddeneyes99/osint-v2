@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { usePremiumAuth } from "@/hooks/use-premium-auth";
 import { useLocation, Link } from "wouter";
 import { CyberButton } from "@/components/CyberButton";
 import { Input } from "@/components/ui/input";
@@ -143,6 +144,7 @@ interface AuthModalProps { isOpen: boolean; onClose: () => void; }
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [isLogin, setIsLogin]           = useState(true);
   const { login, register, googleLogin } = useAuth();
+  const { login: premiumLogin } = usePremiumAuth();
   const [, setLocation]                 = useLocation();
   const { toast }                       = useToast();
   const [isLoading, setIsLoading]       = useState(false);
@@ -181,7 +183,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setIsLoading(true);
     try {
       if (isLogin) {
-        await login({ email: data.email, password: data.password });
+        // Try Firebase login first; if it fails, fall back to premium credentials
+        try {
+          await login({ email: data.email, password: data.password });
+        } catch {
+          // Firebase failed — try premium login (email+password set by admin)
+          await premiumLogin({ email: data.email, password: data.password });
+        }
       } else {
         const hdrs = { "x-terms-accepted": String(data.termsAccepted), "x-privacy-accepted": String(data.privacyAccepted) };
         await register({ email: data.email, password: data.password, termsAccepted: data.termsAccepted, privacyAccepted: data.privacyAccepted, headers: hdrs } as any);
@@ -190,7 +198,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       setLocation("/dashboard");
       toast({ title: "Success", description: isLogin ? "Logged in successfully" : "Account created successfully" });
     } catch (error: any) {
-      toast({ title: "Error", description: error.message || "Authentication failed", variant: "destructive" });
+      toast({ title: "Error", description: "Invalid email or password", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }

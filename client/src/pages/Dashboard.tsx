@@ -90,13 +90,10 @@ function ServiceComingSoon({ emoji, tileClass, label, reason }: { emoji: string;
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
-  const { isPremium, premiumUser, login: premiumLogin, isLoggingIn: isPremiumLoggingIn } = usePremiumAuth();
+  const { isPremium, premiumUser } = usePremiumAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState("mobile");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isPremiumLoginOpen, setIsPremiumLoginOpen] = useState(false);
-  const [premiumLoginForm, setPremiumLoginForm] = useState({ email: "", password: "" });
-  const [premiumLoginError, setPremiumLoginError] = useState("");
   const [showProtectedAlert, setShowProtectedAlert] = useState(false);
   const [protectionReason, setProtectionReason] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -295,17 +292,6 @@ export default function Dashboard() {
   };
 
   if (!isAuthenticated && !isPremium) {
-    const handlePremiumLogin = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setPremiumLoginError("");
-      try {
-        await premiumLogin({ email: premiumLoginForm.email, password: premiumLoginForm.password });
-        setIsPremiumLoginOpen(false);
-      } catch (err: any) {
-        setPremiumLoginError(err.message || "Login failed");
-      }
-    };
-
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
@@ -321,15 +307,6 @@ export default function Dashboard() {
                 Sign In
               </CyberButton>
             </CyberCard>
-
-            <div className="mt-4 text-center">
-              <a
-                href="/premium-login"
-                className="text-violet-400 text-xs hover:text-violet-300 transition-colors underline underline-offset-2"
-              >
-                Have premium access? Login here
-              </a>
-            </div>
           </div>
         </div>
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
