@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface PremiumUser {
   id: number;
-  username: string;
+  email: string;
   role: string;
   expiresAt: string | null;
 }

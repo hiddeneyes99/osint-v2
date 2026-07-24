@@ -176,6 +176,7 @@ export default function AdminLogin() {
     mutationFn: async (data: typeof premiumCreateForm) => {
       const res = await fetch("/api/admin/premium-users", {
         method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(data),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
@@ -192,7 +193,7 @@ export default function AdminLogin() {
 
   const togglePremiumMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/admin/premium-users/${id}/toggle`, { method: "PATCH" });
+      const res = await fetch(`/api/admin/premium-users/${id}/toggle`, { method: "PATCH", credentials: "include" });
       if (!res.ok) throw new Error("Failed to toggle");
       return res.json();
     },
@@ -202,7 +203,7 @@ export default function AdminLogin() {
 
   const deletePremiumMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/admin/premium-users/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/premium-users/${id}`, { method: "DELETE", credentials: "include" });
       if (!res.ok) throw new Error("Failed to delete");
       return res.json();
     },
@@ -218,6 +219,7 @@ export default function AdminLogin() {
       const res = await fetch(`/api/admin/premium-users/${id}/password`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ password }),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
@@ -2051,7 +2053,7 @@ export default function AdminLogin() {
                     <DialogTitle className="flex items-center gap-2 text-white">
                       <Crown className="w-4 h-4 text-violet-400" /> Add Premium User
                     </DialogTitle>
-                    <DialogDescription className="text-white/40 text-xs">Enter the user's login email. They'll receive premium access automatically on their next login — no extra steps needed.</DialogDescription>
+                    <DialogDescription className="text-white/40 text-xs">Enter the email and a password. The user logs in at <span className="text-violet-400">/premium-login</span> with these credentials.</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 mt-2">
                     <div className="space-y-1">

@@ -1,4 +1,5 @@
 import { Switch, Route } from "wouter";
+import PremiumLogin from "@/pages/PremiumLogin";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/about" component={AboutUs} />
       <Route path="/contact" component={ContactUs} />
       <Route path="/twh" component={TWHPage} />
+      <Route path="/premium-login" component={PremiumLogin} />
       <Route component={NotFound} />
     </Switch>
   );
