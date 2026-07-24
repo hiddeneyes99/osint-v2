@@ -529,7 +529,7 @@ export default function Dashboard() {
                   <Send className={`w-3.5 h-3.5 relative z-10 ${(user as any)?.telegramChatId ? "text-white" : "text-white/40"}`} />
                 </div>
                 <span className={`text-[11px] font-semibold ${(user as any)?.telegramChatId ? "text-blue-300" : "text-white/40"}`}>
-                  {(user as any)?.telegramChatId ? "Telegram Alerts • Connected" : "Connect Telegram Alerts"}
+                  {(user as any)?.telegramChatId ? "Telegram Bot • Connected" : "Connect Telegram Bot"}
                 </span>
                 {(user as any)?.telegramChatId && (
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse ml-auto mr-1" style={{ boxShadow: "0 0 5px rgba(96,165,250,0.8)" }} />
@@ -586,7 +586,7 @@ export default function Dashboard() {
                   {(user as any)?.telegramChatId && <span className="absolute inset-0 bg-gradient-to-b from-white/[0.18] to-transparent pointer-events-none rounded-xl" />}
                   <Send className={`w-3.5 h-3.5 relative z-10 ${(user as any)?.telegramChatId ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" : "text-white/35"}`} />
                 </div>
-                <span>Telegram</span>
+                <span>{(user as any)?.telegramChatId ? "Telegram Bot • Connected" : "Connect Telegram Bot"}</span>
                 {(user as any)?.telegramChatId && (
                   <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" style={{ boxShadow: "0 0 6px rgba(59,130,246,0.8)" }} />
                 )}
@@ -637,9 +637,9 @@ export default function Dashboard() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-bold tracking-[0.08em] uppercase text-white" style={{ letterSpacing: "0.06em" }}>Telegram Alerts</div>
+                    <div className="text-[13px] font-bold tracking-[0.08em] uppercase text-white" style={{ letterSpacing: "0.06em" }}>Connect Telegram Bot</div>
                     <div className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.38)" }}>
-                      {(user as any)?.telegramChatId ? "@twhosint_bot · Real-time notifications" : "Connect to get instant search alerts"}
+                      {(user as any)?.telegramChatId ? "@twhosint_bot · Real-time notifications" : "Open the bot and send /start"}
                     </div>
                   </div>
 
@@ -890,7 +890,7 @@ export default function Dashboard() {
                             data-testid="link-connect-telegram"
                           >
                             <Send className="w-4 h-4" />
-                            Connect Telegram
+                            Open Telegram Bot & Connect
                           </motion.a>
                         </>
                       ) : (
