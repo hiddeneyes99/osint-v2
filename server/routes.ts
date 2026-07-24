@@ -31,6 +31,8 @@ import {
   getTelegramSettings,
   invalidateSettingsCache,
   setupTelegramWebhook,
+  getConfiguredTelegramWebhookUrl,
+  getTelegramWebhookInfo,
 } from "./telegram";
 import {
   TELEGRAM_BOT_SERVICES,
@@ -2499,6 +2501,29 @@ ${urls.map(u => `  <url>
     res.json({ success: true });
   });
 
+  app.get("/api/admin/telegram/webhook", requireAdminSession, async (_req, res) => {
+    const info = await getTelegramWebhookInfo();
+    res.json({
+      configuredUrl: getConfiguredTelegramWebhookUrl() || null,
+      telegram: info,
+    });
+  });
+
+  app.post("/api/admin/telegram/webhook", requireAdminSession, async (_req, res) => {
+    const webhookUrl = getConfiguredTelegramWebhookUrl();
+    if (!webhookUrl) {
+      return res.status(400).json({
+        message: "Set TELEGRAM_WEBHOOK_URL to your stable production URL first.",
+      });
+    }
+    await setupTelegramWebhook(webhookUrl);
+    const info = await getTelegramWebhookInfo();
+    if (!info.ok) {
+      return res.status(502).json({ message: info.description || "Telegram webhook registration failed" });
+    }
+    res.json({ success: true, configuredUrl: webhookUrl, telegram: info });
+  });
+
   // ── TELEGRAM LINKED USERS ──────────────────────────────────────────────────
   app.get("/api/admin/telegram/users", requireAdminSession, async (_req, res) => {
     try {
@@ -2781,6 +2806,18 @@ ${urls.map(u => `  <url>
       // intentionally ignored without revealing bot configuration.
       const settings = await getTelegramBotSettings();
       if (chatType !== "group" && chatType !== "supergroup") return;
+
+      // Setup helper: revealing the current chat ID does not grant search
+      // access, but removes the need to guess Telegram's -100... group ID
+      // before adding it in the Admin Panel.
+      if (/^\/(?:groupid|id)(?:@[a-z0-9_]+)?$/i.test(text)) {
+        await sendTelegramToUser(
+          chatId,
+          `🆔 <b>This group ID</b>\n<code>${chatId}</code>\n\nAdd this ID under Admin Panel → Telegram Bot → Approved group IDs, then enable the bot.`,
+        );
+        return;
+      }
+
       if (!settings.enabled || !settings.apiKey || !settings.allowedGroupIds.includes(chatId)) return;
 
       const commandMatch = text.match(/^\/([a-z0-9_]+)(?:@[a-z0-9_]+)?(?:\s+(.+))?$/i);
@@ -2870,12 +2907,15 @@ ${urls.map(u => `  <url>
     )
   `).catch((error) => console.error("[telegram bot] table init error:", error.message));
 
-  // Auto-register Telegram webhook on startup
-  const domain = process.env.REPLIT_DEV_DOMAIN || "";
-  if (domain) {
-    setupTelegramWebhook(domain).catch((e) =>
+  // Auto-register only against an explicitly configured stable production URL.
+  // Development preview domains must never overwrite the production webhook.
+  const webhookUrl = getConfiguredTelegramWebhookUrl();
+  if (webhookUrl) {
+    setupTelegramWebhook(webhookUrl).catch((e) =>
       console.error("[Telegram] Webhook auto-setup failed:", e.message),
     );
+  } else {
+    console.log("[Telegram] Stable webhook URL not configured; automatic webhook setup skipped");
   }
 
   // ── PREMIUM ACCESS SYSTEM ─────────────────────────────────────────────────

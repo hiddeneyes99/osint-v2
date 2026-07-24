@@ -11,6 +11,30 @@ This is a full-stack OSINT (Open Source Intelligence) platform with a cyberpunk-
 - The app is served on port `5000`
 - A PostgreSQL connection is used when `SUPABASE_DB_URL` or `DATABASE_URL` is configured
 
+### Telegram group search bot setup
+
+The Telegram search bot uses the existing website service endpoints. It does not
+run searches from a separate database or duplicate the lookup logic.
+
+1. Publish the app at a stable public URL. Telegram cannot reliably call a
+   temporary Replit preview URL.
+2. Set `TELEGRAM_WEBHOOK_URL` in the environment used by the published app to
+   that stable URL, for example `https://your-public-domain.example`.
+   The app automatically uses `/api/telegram/webhook`.
+3. Open Admin Panel → Telegram Bot, generate the dedicated API key, and enable
+   the bot.
+4. Add the bot to the target Telegram group. Send `/groupid` in that group.
+5. Copy the returned numeric ID into Admin Panel → Telegram Bot → Approved group
+   IDs, then save the settings.
+6. In the same Admin Panel section, check the Webhook connection and press
+   Register webhook if Telegram is still pointing at an old URL.
+7. Test with `/help`, then a supported command such as
+   `/mobile 9876543210` or `/ip 8.8.8.8`.
+
+The bot ignores private chats and groups that are not approved. Results are
+masked according to the selected masking level, and searches appear in the
+Telegram Bot search logs.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

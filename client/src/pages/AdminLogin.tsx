@@ -204,6 +204,22 @@ export default function AdminLogin() {
     enabled: isLoggedIn && activeSection === "telegram-bot",
   });
 
+  const { data: telegramWebhookStatus, refetch: refetchTelegramWebhookStatus } = useQuery<{
+    configuredUrl: string | null;
+    telegram: {
+      ok: boolean;
+      description?: string;
+      result?: {
+        url?: string;
+        pending_update_count?: number;
+        last_error_message?: string;
+      };
+    };
+  }>({
+    queryKey: ["/api/admin/telegram/webhook"],
+    enabled: isLoggedIn && activeSection === "telegram-bot",
+  });
+
   // ── Premium Users query ──────────────────────────────────────────────────
   interface PremiumUserRow {
     id: number; email: string | null; role: string; status: string;
@@ -646,6 +662,20 @@ export default function AdminLogin() {
       toast({ title: "New API key generated", description: "The key was copied to your clipboard. Store it securely." });
     },
     onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
+  });
+
+  const registerTelegramWebhookMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/telegram/webhook", { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || "Failed to register webhook");
+      return body;
+    },
+    onSuccess: () => {
+      refetchTelegramWebhookStatus();
+      toast({ title: "Telegram webhook registered", description: "The bot is now pointing at the stable production endpoint." });
+    },
+    onError: (e: any) => toast({ variant: "destructive", title: "Webhook registration failed", description: e.message }),
   });
 
   const testTgMutation = useMutation({
@@ -2125,6 +2155,55 @@ export default function AdminLogin() {
                 }`}>
                   <span className={`w-2 h-2 rounded-full ${telegramBotForm.enabled ? "bg-green-400 animate-pulse" : "bg-white/25"}`} />
                   {telegramBotForm.enabled ? "Bot enabled" : "Bot disabled"}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-cyan-500/20 p-5" style={{ background: "rgba(9,5,26,0.8)" }}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-white">Webhook connection</div>
+                    <div className="text-[10px] text-white/30 mt-1">
+                      Telegram must point to the stable production URL. The Replit preview URL is never used automatically.
+                    </div>
+                    <div className="mt-3 space-y-1 text-[10px] font-mono">
+                      <div className="text-white/45">
+                        Configured: <span className="text-cyan-300/80 break-all">{telegramWebhookStatus?.configuredUrl || "Not configured"}</span>
+                      </div>
+                      <div className="text-white/45">
+                        Telegram: <span className={telegramWebhookStatus?.telegram?.ok ? "text-green-300" : "text-amber-300"}>
+                          {telegramWebhookStatus?.telegram?.ok
+                            ? telegramWebhookStatus.telegram.result?.url || "Connected"
+                            : telegramWebhookStatus?.telegram?.description || "Not checked"}
+                        </span>
+                      </div>
+                      {telegramWebhookStatus?.telegram?.result?.pending_update_count !== undefined && (
+                        <div className="text-white/35">
+                          Pending updates: {telegramWebhookStatus.telegram.result.pending_update_count}
+                        </div>
+                      )}
+                      {telegramWebhookStatus?.telegram?.result?.last_error_message && (
+                        <div className="text-red-300/80 break-all">
+                          Last Telegram error: {telegramWebhookStatus.telegram.result.last_error_message}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => refetchTelegramWebhookStatus()}
+                      className="h-9 px-3 text-[10px] border-white/[0.12] text-white/60 hover:text-white"
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1.5" /> Check
+                    </Button>
+                    <Button
+                      onClick={() => registerTelegramWebhookMutation.mutate()}
+                      disabled={registerTelegramWebhookMutation.isPending}
+                      className="h-9 px-3 text-[10px] bg-cyan-600 hover:bg-cyan-500 text-white"
+                    >
+                      {registerTelegramWebhookMutation.isPending ? "Registering…" : "Register webhook"}
+                    </Button>
+                  </div>
                 </div>
               </div>
 
