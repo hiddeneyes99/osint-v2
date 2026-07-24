@@ -80,6 +80,15 @@ export default function AdminLogin() {
   });
 
   const [isTelegramOpen, setIsTelegramOpen] = useState(false);
+  const [telegramBotForm, setTelegramBotForm] = useState({
+    enabled: false,
+    allowedGroupIds: "",
+    maskingLevel: "medium",
+    groupRateLimit: 10,
+    userRateLimit: 5,
+    dailySearchLimit: 100,
+    allowedServices: ["mobile", "aadhar", "vehicle", "email", "ip"],
+  });
   const [isTgUsersOpen, setIsTgUsersOpen] = useState(false);
   const [tgUserSearch, setTgUserSearch] = useState("");
   const [tgPingPending, setTgPingPending] = useState<string | null>(null);
@@ -166,6 +175,35 @@ export default function AdminLogin() {
     enabled: isLoggedIn,
   });
 
+  const { data: telegramBotSettings, refetch: refetchTelegramBotSettings } = useQuery<{
+    enabled: boolean;
+    allowedGroupIds: string[];
+    apiKeySet: boolean;
+    apiKeyPreview: string | null;
+    maskingLevel: "light" | "medium" | "heavy";
+    groupRateLimit: number;
+    userRateLimit: number;
+    dailySearchLimit: number;
+    allowedServices: string[];
+  }>({
+    queryKey: ["/api/admin/telegram-bot/settings"],
+    enabled: isLoggedIn,
+  });
+
+  const { data: telegramBotLogs = [], refetch: refetchTelegramBotLogs } = useQuery<Array<{
+    id: number;
+    telegramUserId: string;
+    username: string | null;
+    groupId: string;
+    service: string;
+    query: string;
+    status: string;
+    createdAt: string | null;
+  }>>({
+    queryKey: ["/api/admin/telegram-bot/logs"],
+    enabled: isLoggedIn && activeSection === "telegram-bot",
+  });
+
   // ── Premium Users query ──────────────────────────────────────────────────
   interface PremiumUserRow {
     id: number; email: string | null; role: string; status: string;
@@ -185,6 +223,19 @@ export default function AdminLogin() {
       setTgTestChatId(tgSettings.adminChatIds[0]);
     }
   }, [tgSettings?.adminChatIds]);
+
+  useEffect(() => {
+    if (!telegramBotSettings) return;
+    setTelegramBotForm({
+      enabled: telegramBotSettings.enabled,
+      allowedGroupIds: telegramBotSettings.allowedGroupIds.join("\n"),
+      maskingLevel: telegramBotSettings.maskingLevel,
+      groupRateLimit: telegramBotSettings.groupRateLimit,
+      userRateLimit: telegramBotSettings.userRateLimit,
+      dailySearchLimit: telegramBotSettings.dailySearchLimit,
+      allowedServices: telegramBotSettings.allowedServices,
+    });
+  }, [telegramBotSettings]);
 
   // ── Premium Users mutations ─────────────────────────────────────────────
   const createPremiumMutation = useMutation({
@@ -555,6 +606,45 @@ export default function AdminLogin() {
       return res.json();
     },
     onSuccess: () => { refetchTgSettings(); setTgBotToken(""); setTgNewAdminId(""); toast({ title: "✅ Telegram settings saved" }); },
+    onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
+  });
+
+  const saveTelegramBotMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/telegram-bot/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: telegramBotForm.enabled,
+          allowedGroupIds: telegramBotForm.allowedGroupIds.split(/\r?\n|,/).map((id) => id.trim()).filter(Boolean),
+          maskingLevel: telegramBotForm.maskingLevel,
+          groupRateLimit: telegramBotForm.groupRateLimit,
+          userRateLimit: telegramBotForm.userRateLimit,
+          dailySearchLimit: telegramBotForm.dailySearchLimit,
+          allowedServices: telegramBotForm.allowedServices,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || "Failed to save bot settings");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchTelegramBotSettings();
+      toast({ title: "Telegram Bot settings saved" });
+    },
+    onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
+  });
+
+  const generateTelegramBotKeyMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/telegram-bot/key", { method: "POST" });
+      if (!res.ok) throw new Error((await res.json()).message || "Failed to generate key");
+      return res.json() as Promise<{ apiKey: string }>;
+    },
+    onSuccess: (data) => {
+      refetchTelegramBotSettings();
+      navigator.clipboard?.writeText(data.apiKey).catch(() => {});
+      toast({ title: "New API key generated", description: "The key was copied to your clipboard. Store it securely." });
+    },
     onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
   });
 
@@ -997,6 +1087,7 @@ export default function AdminLogin() {
                 { icon: <Terminal className="w-3.5 h-3.5" />, label: "Queries", section: "logs", action: () => { setActiveSection("logs"); setSelectedUserForDetail(null); setMobileSidebarOpen(false); } },
                 { icon: <ShieldAlert className="w-3.5 h-3.5" />, label: "IP Management", section: null, action: () => { setIsIpBlockedOpen(true); setMobileSidebarOpen(false); } },
                 { icon: <Bot className="w-3.5 h-3.5" />, label: "Telegram", section: null, action: () => { setIsTelegramOpen(true); setMobileSidebarOpen(false); } },
+                { icon: <KeyRound className="w-3.5 h-3.5" />, label: "Telegram Bot", section: "telegram-bot", action: () => { setActiveSection("telegram-bot"); setSelectedUserForDetail(null); setMobileSidebarOpen(false); } },
                 { icon: <Megaphone className="w-3.5 h-3.5" />, label: "Broadcasts", section: null, action: () => { setIsBroadcastOpen(true); setMobileSidebarOpen(false); } },
                 { icon: <Bell className="w-3.5 h-3.5" />, label: "Notify All", section: null, action: () => { setIsBroadcastNotifOpen(true); setMobileSidebarOpen(false); } },
                 { icon: <MonitorPlay className="w-3.5 h-3.5" />, label: "Ads Manager", section: "ads", action: () => { setActiveSection("ads"); setSelectedUserForDetail(null); setMobileSidebarOpen(false); } },
@@ -1045,6 +1136,7 @@ export default function AdminLogin() {
             { icon: <Terminal className="w-3.5 h-3.5" />, label: "Queries", section: "logs", action: () => { setActiveSection("logs"); setSelectedUserForDetail(null); } },
             { icon: <ShieldAlert className="w-3.5 h-3.5" />, label: "IP Management", section: null, action: () => setIsIpBlockedOpen(true) },
             { icon: <Bot className="w-3.5 h-3.5" />, label: "Telegram", section: null, action: () => setIsTelegramOpen(true) },
+            { icon: <KeyRound className="w-3.5 h-3.5" />, label: "Telegram Bot", section: "telegram-bot", action: () => { setActiveSection("telegram-bot"); setSelectedUserForDetail(null); } },
             { icon: <Megaphone className="w-3.5 h-3.5" />, label: "Broadcasts", section: null, action: () => setIsBroadcastOpen(true) },
             { icon: <Bell className="w-3.5 h-3.5" />, label: "Notify All", section: null, action: () => setIsBroadcastNotifOpen(true) },
             { icon: <MonitorPlay className="w-3.5 h-3.5" />, label: "Ads Manager", section: "ads", action: () => { setActiveSection("ads"); setSelectedUserForDetail(null); } },
@@ -2012,6 +2104,181 @@ export default function AdminLogin() {
                     );
                   })}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── TELEGRAM SEARCH BOT SECTION ── */}
+          {activeSection === "telegram-bot" && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <KeyRound className="w-5 h-5 text-violet-400" /> Telegram Bot
+                  </h2>
+                  <p className="text-xs text-white/30 mt-1">Private-group search bot controls. The existing Telegram Terminal remains separate.</p>
+                </div>
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
+                  telegramBotForm.enabled
+                    ? "text-green-300 bg-green-500/10 border-green-500/25"
+                    : "text-white/35 bg-white/[0.04] border-white/[0.1]"
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${telegramBotForm.enabled ? "bg-green-400 animate-pulse" : "bg-white/25"}`} />
+                  {telegramBotForm.enabled ? "Bot enabled" : "Bot disabled"}
+                </div>
+              </div>
+
+              <div className="grid lg:grid-cols-2 gap-5">
+                <div className="rounded-2xl border border-violet-500/20 p-5 space-y-5" style={{ background: "rgba(9,5,26,0.8)" }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-white">Access & security</div>
+                      <div className="text-[10px] text-white/30 mt-1">Only approved groups with the dedicated key are accepted.</div>
+                    </div>
+                    <button
+                      onClick={() => setTelegramBotForm((form) => ({ ...form, enabled: !form.enabled }))}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${telegramBotForm.enabled ? "bg-violet-600" : "bg-white/10"}`}
+                      aria-label="Toggle Telegram Bot"
+                    >
+                      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${telegramBotForm.enabled ? "translate-x-6" : "translate-x-1"}`} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-white/40">Approved group IDs</label>
+                    <textarea
+                      value={telegramBotForm.allowedGroupIds}
+                      onChange={(e) => setTelegramBotForm((form) => ({ ...form, allowedGroupIds: e.target.value }))}
+                      placeholder={"-1001234567890\n-1009876543210"}
+                      rows={4}
+                      className="w-full rounded-xl bg-white/[0.04] border border-white/[0.1] text-white text-sm px-3 py-2 outline-none focus:border-violet-500/50 resize-none font-mono"
+                    />
+                    <p className="text-[10px] text-white/25">One group ID per line. Private chats and other groups are ignored.</p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-amber-500/15 bg-amber-500/[0.04]">
+                    <div className="min-w-0">
+                      <div className="text-[10px] uppercase tracking-widest text-amber-300/70">Dedicated API key</div>
+                      <div className="text-xs text-white/45 font-mono mt-1 truncate">
+                        {telegramBotSettings?.apiKeySet ? telegramBotSettings.apiKeyPreview : "Not generated"}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => generateTelegramBotKeyMutation.mutate()}
+                      disabled={generateTelegramBotKeyMutation.isPending}
+                      className="shrink-0 h-8 px-3 text-[10px] bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:bg-amber-500/20"
+                    >
+                      {generateTelegramBotKeyMutation.isPending ? "Generating…" : telegramBotSettings?.apiKeySet ? "Rotate key" : "Generate key"}
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-amber-300/45">Rotating the key invalidates the previous key immediately. The full key is shown once and copied to your clipboard.</p>
+                </div>
+
+                <div className="rounded-2xl border border-violet-500/20 p-5 space-y-5" style={{ background: "rgba(9,5,26,0.8)" }}>
+                  <div>
+                    <div className="text-xs font-bold text-white">Privacy & limits</div>
+                    <div className="text-[10px] text-white/30 mt-1">Sensitive values are masked before Telegram receives a result.</div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <label className="space-y-1">
+                      <span className="text-[10px] uppercase tracking-widest text-white/40">Masking level</span>
+                      <select
+                        value={telegramBotForm.maskingLevel}
+                        onChange={(e) => setTelegramBotForm((form) => ({ ...form, maskingLevel: e.target.value }))}
+                        className="w-full h-9 rounded-lg bg-white/[0.04] border border-white/[0.1] text-white text-xs px-2 outline-none"
+                      >
+                        <option value="light">Light</option>
+                        <option value="medium">Medium</option>
+                        <option value="heavy">Heavy</option>
+                      </select>
+                    </label>
+                    {[
+                      ["Group requests/min", "groupRateLimit"],
+                      ["User requests/min", "userRateLimit"],
+                      ["Daily searches", "dailySearchLimit"],
+                    ].map(([label, key]) => (
+                      <label key={key} className="space-y-1">
+                        <span className="text-[10px] uppercase tracking-widest text-white/40">{label}</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={telegramBotForm[key as keyof typeof telegramBotForm] as number}
+                          onChange={(e) => setTelegramBotForm((form) => ({ ...form, [key]: Number(e.target.value) }))}
+                          className="h-9 bg-white/[0.04] border-white/[0.1] text-white text-xs"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <span className="text-[10px] uppercase tracking-widest text-white/40">Allowed services</span>
+                    <div className="flex flex-wrap gap-2">
+                      {["mobile", "aadhar", "vehicle", "email", "ip"].map((service) => {
+                        const checked = telegramBotForm.allowedServices.includes(service);
+                        return (
+                          <button
+                            key={service}
+                            onClick={() => setTelegramBotForm((form) => ({
+                              ...form,
+                              allowedServices: checked
+                                ? form.allowedServices.filter((item) => item !== service)
+                                : [...form.allowedServices, service],
+                            }))}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest border transition-colors ${
+                              checked ? "text-violet-300 bg-violet-500/15 border-violet-500/35" : "text-white/30 bg-white/[0.03] border-white/[0.1]"
+                            }`}
+                          >
+                            {checked ? "✓ " : ""}{service}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => saveTelegramBotMutation.mutate()}
+                    disabled={saveTelegramBotMutation.isPending}
+                    className="w-full h-10 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold"
+                  >
+                    {saveTelegramBotMutation.isPending ? "Saving…" : "Save Telegram Bot settings"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/[0.08] overflow-hidden" style={{ background: "rgba(9,5,26,0.8)" }}>
+                <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+                  <div>
+                    <div className="text-xs font-bold text-white">Search logs</div>
+                    <div className="text-[10px] text-white/30 mt-1">Telegram user, group, service, query and status</div>
+                  </div>
+                  <button
+                    onClick={() => refetchTelegramBotLogs()}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.1] text-white/45 hover:text-white text-[10px]"
+                  >
+                    <RefreshCw className="w-3 h-3" /> Refresh
+                  </button>
+                </div>
+                {telegramBotLogs.length === 0 ? (
+                  <div className="py-10 text-center text-xs text-white/25">No Telegram bot searches logged yet.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="text-[9px] uppercase tracking-widest text-white/25 border-b border-white/[0.05]">
+                        <tr><th className="px-5 py-3">Time</th><th className="px-3 py-3">User</th><th className="px-3 py-3">Group</th><th className="px-3 py-3">Service</th><th className="px-3 py-3">Query</th><th className="px-3 py-3">Status</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.04]">
+                        {telegramBotLogs.map((log) => (
+                          <tr key={log.id} className="text-xs text-white/45">
+                            <td className="px-5 py-3 whitespace-nowrap">{log.createdAt ? new Date(log.createdAt).toLocaleString() : "—"}</td>
+                            <td className="px-3 py-3">{log.username || log.telegramUserId}</td>
+                            <td className="px-3 py-3 font-mono">{log.groupId}</td>
+                            <td className="px-3 py-3 uppercase text-violet-300/70">{log.service}</td>
+                            <td className="px-3 py-3 font-mono">{log.query}</td>
+                            <td className="px-3 py-3"><span className={log.status === "SUCCESS" ? "text-green-400" : "text-amber-300"}>{log.status}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
