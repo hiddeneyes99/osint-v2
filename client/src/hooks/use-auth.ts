@@ -28,6 +28,10 @@ export function useAuth() {
         (window as any).firebaseToken = idToken;
         setFirebaseUser(user);
         queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        // /api/auth/user auto-sets the premiumAuth cookie for Firebase users who are
+        // also premium. Invalidate /api/premium/me so it re-fetches and picks up
+        // the new cookie — without this, isPremium stays false after Firebase login.
+        queryClient.invalidateQueries({ queryKey: ["/api/premium/me"] });
       } else {
         setToken(null);
         (window as any).firebaseToken = null;

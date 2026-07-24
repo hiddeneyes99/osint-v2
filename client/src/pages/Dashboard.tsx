@@ -1088,8 +1088,11 @@ export default function Dashboard() {
                           </form>
                         </Form>
                       </CyberCard>
-                      <TerminalOutput data={mobileMutation.data?.data} title="Mobile Intelligence Results" isLoading={mobileMutation.isPending} className="flex-1" />
                     </>
+                  )}
+                  {/* Show results even if service blocked state changes — prevents result from disappearing mid-session */}
+                  {(mobileMutation.data?.data || mobileMutation.isPending) && (
+                    <TerminalOutput data={mobileMutation.data?.data} title="Mobile Intelligence Results" isLoading={mobileMutation.isPending} className="flex-1" />
                   )}
                 </motion.div>
               )}
@@ -1137,8 +1140,10 @@ export default function Dashboard() {
                           </form>
                         </Form>
                       </CyberCard>
-                      <TerminalOutput data={aadharMutation.data?.data} title="Aadhar Intelligence Results" isLoading={aadharMutation.isPending} className="flex-1" />
                     </>
+                  )}
+                  {(aadharMutation.data?.data || aadharMutation.isPending) && (
+                    <TerminalOutput data={aadharMutation.data?.data} title="Aadhar Intelligence Results" isLoading={aadharMutation.isPending} className="flex-1" />
                   )}
                 </motion.div>
               )}
@@ -1185,8 +1190,10 @@ export default function Dashboard() {
                           </form>
                         </Form>
                       </CyberCard>
-                      <TerminalOutput data={vehicleMutation.data?.data} title="Vehicle Recon Results" isLoading={vehicleMutation.isPending} className="flex-1" />
                     </>
+                  )}
+                  {(vehicleMutation.data?.data || vehicleMutation.isPending) && (
+                    <TerminalOutput data={vehicleMutation.data?.data} title="Vehicle Recon Results" isLoading={vehicleMutation.isPending} className="flex-1" />
                   )}
                 </motion.div>
               )}
@@ -1233,8 +1240,10 @@ export default function Dashboard() {
                           </form>
                         </Form>
                       </CyberCard>
-                      <TerminalOutput data={emailMutation.data?.data} title="Email Intelligence Results" isLoading={emailMutation.isPending} className="flex-1" />
                     </>
+                  )}
+                  {(emailMutation.data?.data || emailMutation.isPending) && (
+                    <TerminalOutput data={emailMutation.data?.data} title="Email Intelligence Results" isLoading={emailMutation.isPending} className="flex-1" />
                   )}
                 </motion.div>
               )}
@@ -1280,8 +1289,10 @@ export default function Dashboard() {
                           </form>
                         </Form>
                       </CyberCard>
-                      <TerminalOutput data={ipMutation.data?.data} title="Network Probe Results" isLoading={ipMutation.isPending} className="flex-1" />
                     </>
+                  )}
+                  {(ipMutation.data?.data || ipMutation.isPending) && (
+                    <TerminalOutput data={ipMutation.data?.data} title="Network Probe Results" isLoading={ipMutation.isPending} className="flex-1" />
                   )}
                 </motion.div>
               )}
