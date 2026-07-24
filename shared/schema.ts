@@ -155,6 +155,13 @@ export const premiumUsers = pgTable("premium_users", {
   status: text("status").notNull().default("active"), // "active" | "disabled"
   expiresAt: timestamp("expires_at"),
   lastLogin: timestamp("last_login"),
+  showAds: boolean("show_ads").notNull().default(true),
+  searchLimit: integer("search_limit"),
+  searchLimitUnlimited: boolean("search_limit_unlimited").notNull().default(true),
+  rateLimitEnabled: boolean("rate_limit_enabled").notNull().default(false),
+  rateLimitRpm: integer("rate_limit_rpm"),
+  rateLimitHourly: integer("rate_limit_hourly"),
+  rateLimitUnlimited: boolean("rate_limit_unlimited").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

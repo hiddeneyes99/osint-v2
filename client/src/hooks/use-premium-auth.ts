@@ -5,6 +5,13 @@ export interface PremiumUser {
   email: string;
   role: string;
   expiresAt: string | null;
+  showAds: boolean;
+  searchLimit: number | null;
+  searchLimitUnlimited: boolean;
+  rateLimitEnabled: boolean;
+  rateLimitRpm: number | null;
+  rateLimitHourly: number | null;
+  rateLimitUnlimited: boolean;
 }
 
 async function fetchMe(): Promise<PremiumUser> {

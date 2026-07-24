@@ -102,6 +102,16 @@ export default function AdminLogin() {
   // ── Premium Users state ─────────────────────────────────────────────────
   const [premiumCreateOpen, setPremiumCreateOpen] = useState(false);
   const [premiumCreateForm, setPremiumCreateForm] = useState({ email: "", password: "", expiresAt: "" });
+  const [premiumSettingsTarget, setPremiumSettingsTarget] = useState<PremiumUserRow | null>(null);
+  const [premiumSettingsForm, setPremiumSettingsForm] = useState({
+    showAds: true,
+    searchLimit: "",
+    searchLimitUnlimited: true,
+    rateLimitEnabled: false,
+    rateLimitRpm: "",
+    rateLimitHourly: "",
+    rateLimitUnlimited: true,
+  });
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -158,6 +168,9 @@ export default function AdminLogin() {
   interface PremiumUserRow {
     id: number; email: string | null; role: string; status: string;
     expiresAt: string | null; lastLogin: string | null; createdAt: string;
+    showAds: boolean; searchLimit: number | null; searchLimitUnlimited: boolean;
+    rateLimitEnabled: boolean; rateLimitRpm: number | null; rateLimitHourly: number | null;
+    rateLimitUnlimited: boolean;
   }
   const { data: premiumUsersList = [], refetch: refetchPremiumUsers } = useQuery<PremiumUserRow[]>({
     queryKey: ["/api/admin/premium-users"],
@@ -208,6 +221,44 @@ export default function AdminLogin() {
       return res.json();
     },
     onSuccess: () => { refetchPremiumUsers(); toast({ title: "Premium user deleted" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const openPremiumSettings = (user: PremiumUserRow) => {
+    setPremiumSettingsTarget(user);
+    setPremiumSettingsForm({
+      showAds: user.showAds ?? true,
+      searchLimit: user.searchLimit?.toString() ?? "",
+      searchLimitUnlimited: user.searchLimitUnlimited ?? true,
+      rateLimitEnabled: user.rateLimitEnabled ?? false,
+      rateLimitRpm: user.rateLimitRpm?.toString() ?? "",
+      rateLimitHourly: user.rateLimitHourly?.toString() ?? "",
+      rateLimitUnlimited: user.rateLimitUnlimited ?? true,
+    });
+  };
+
+  const updatePremiumSettingsMutation = useMutation({
+    mutationFn: async ({ id, settings }: { id: number; settings: typeof premiumSettingsForm }) => {
+      const res = await fetch(`/api/admin/premium-users/${id}/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          ...settings,
+          searchLimit: settings.searchLimit.trim() || null,
+          rateLimitRpm: settings.rateLimitRpm.trim() || null,
+          rateLimitHourly: settings.rateLimitHourly.trim() || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Failed to update premium settings");
+      return data;
+    },
+    onSuccess: () => {
+      refetchPremiumUsers();
+      setPremiumSettingsTarget(null);
+      toast({ title: "Premium controls updated", description: "Changes apply to the user's next request immediately." });
+    },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -1974,7 +2025,7 @@ export default function AdminLogin() {
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-white/[0.06]">
-                          {["Email", "Status", "Expires", "Last Login", "Created", "Actions"].map(h => (
+                          {["Email", "Status", "Ads", "Search", "Rate", "Expires", "Last Login", "Created", "Actions"].map(h => (
                             <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-white/30 uppercase tracking-widest">{h}</th>
                           ))}
                         </tr>
@@ -2002,6 +2053,17 @@ export default function AdminLogin() {
                                   {isExpired ? <><XCircle className="w-3 h-3" /> Expired</> : isActive ? <><CheckCircle2 className="w-3 h-3" /> Active</> : <><XCircle className="w-3 h-3" /> Disabled</>}
                                 </span>
                               </td>
+                               <td className="px-4 py-3">
+                                 <span className={`text-[10px] font-semibold ${u.showAds ? "text-amber-300" : "text-emerald-300"}`}>
+                                   {u.showAds ? "Shown" : "Hidden"}
+                                 </span>
+                               </td>
+                               <td className="px-4 py-3 text-[10px] text-white/50">
+                                 {u.searchLimitUnlimited ? "Unlimited" : `${u.searchLimit ?? "—"}/day`}
+                               </td>
+                               <td className="px-4 py-3 text-[10px] text-white/50">
+                                 {!u.rateLimitEnabled ? "Disabled" : u.rateLimitUnlimited ? "Unlimited" : `${u.rateLimitRpm ?? "—"}/m · ${u.rateLimitHourly ?? "—"}/h`}
+                               </td>
                               <td className="px-4 py-3 text-white/40">
                                 {u.expiresAt ? <span className={isExpired ? "text-red-400" : "text-amber-400/80"}>{new Date(u.expiresAt).toLocaleDateString()}</span> : <span className="text-white/20">Never</span>}
                               </td>
@@ -2011,6 +2073,14 @@ export default function AdminLogin() {
                               <td className="px-4 py-3 text-white/30">{new Date(u.createdAt).toLocaleDateString()}</td>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
+                                   {/* Per-user premium controls */}
+                                   <button
+                                     onClick={() => openPremiumSettings(u)}
+                                     title="Configure premium controls"
+                                     className="px-2 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 transition-all text-[10px] font-semibold text-violet-300"
+                                   >
+                                     Configure
+                                   </button>
                                   {/* Toggle active/disabled */}
                                   <button
                                     onClick={() => togglePremiumMutation.mutate(u.id)}
@@ -2045,6 +2115,129 @@ export default function AdminLogin() {
                   </div>
                 )}
               </div>
+
+              {/* ── Per-user Premium Controls Dialog ── */}
+              <Dialog open={!!premiumSettingsTarget} onOpenChange={(open) => !open && setPremiumSettingsTarget(null)}>
+                <DialogContent className="max-w-lg border border-violet-500/20" style={{ background: "#09051A" }}>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-white">
+                      <Gauge className="w-4 h-4 text-violet-400" /> Premium User Controls
+                    </DialogTitle>
+                    <DialogDescription className="text-white/40 text-xs">
+                      Configure only <span className="text-violet-300 font-mono">{premiumSettingsTarget?.email}</span>. Changes apply immediately.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-5 mt-2">
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4 space-y-3">
+                      <div>
+                        <p className="text-xs font-semibold text-white">Ad Visibility</p>
+                        <p className="text-[10px] text-white/30 mt-0.5">Controls the advertisement overlay for this premium user only.</p>
+                      </div>
+                      <div className="flex gap-2">
+                        {[
+                          { value: true, label: "Show Ads" },
+                          { value: false, label: "Hide Ads" },
+                        ].map(option => (
+                          <button
+                            key={option.label}
+                            type="button"
+                            onClick={() => setPremiumSettingsForm(f => ({ ...f, showAds: option.value }))}
+                            className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
+                              premiumSettingsForm.showAds === option.value
+                                ? "border-violet-400/50 bg-violet-500/15 text-violet-200"
+                                : "border-white/[0.08] text-white/40 hover:text-white/70"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4 space-y-3">
+                      <div>
+                        <p className="text-xs font-semibold text-white">Daily Search Limit</p>
+                        <p className="text-[10px] text-white/30 mt-0.5">Limits successful searches in a rolling calendar day.</p>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={premiumSettingsForm.searchLimitUnlimited}
+                          onChange={e => setPremiumSettingsForm(f => ({ ...f, searchLimitUnlimited: e.target.checked }))}
+                          className="accent-violet-500"
+                        />
+                        Unlimited
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 50, 100, 500, 1000"
+                        value={premiumSettingsForm.searchLimit}
+                        disabled={premiumSettingsForm.searchLimitUnlimited}
+                        onChange={e => setPremiumSettingsForm(f => ({ ...f, searchLimit: e.target.value }))}
+                        className="bg-black/50 border-white/[0.1] text-white disabled:opacity-40"
+                      />
+                    </div>
+
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4 space-y-3">
+                      <div>
+                        <p className="text-xs font-semibold text-white">Request Rate Limit</p>
+                        <p className="text-[10px] text-white/30 mt-0.5">Limits this user's backend requests independently of other users.</p>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={premiumSettingsForm.rateLimitEnabled}
+                          onChange={e => setPremiumSettingsForm(f => ({ ...f, rateLimitEnabled: e.target.checked }))}
+                          className="accent-violet-500"
+                        />
+                        Enable rate limit
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={premiumSettingsForm.rateLimitUnlimited}
+                          onChange={e => setPremiumSettingsForm(f => ({ ...f, rateLimitUnlimited: e.target.checked }))}
+                          className="accent-violet-500"
+                        />
+                        Unlimited
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="Requests / minute"
+                          value={premiumSettingsForm.rateLimitRpm}
+                          disabled={!premiumSettingsForm.rateLimitEnabled || premiumSettingsForm.rateLimitUnlimited}
+                          onChange={e => setPremiumSettingsForm(f => ({ ...f, rateLimitRpm: e.target.value }))}
+                          className="bg-black/50 border-white/[0.1] text-white disabled:opacity-40"
+                        />
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="Requests / hour"
+                          value={premiumSettingsForm.rateLimitHourly}
+                          disabled={!premiumSettingsForm.rateLimitEnabled || premiumSettingsForm.rateLimitUnlimited}
+                          onChange={e => setPremiumSettingsForm(f => ({ ...f, rateLimitHourly: e.target.value }))}
+                          className="bg-black/50 border-white/[0.1] text-white disabled:opacity-40"
+                        />
+                      </div>
+                    </div>
+
+                    <Button
+                      className="w-full bg-violet-600 hover:bg-violet-500 text-white"
+                      disabled={updatePremiumSettingsMutation.isPending}
+                      onClick={() => premiumSettingsTarget && updatePremiumSettingsMutation.mutate({
+                        id: premiumSettingsTarget.id,
+                        settings: premiumSettingsForm,
+                      })}
+                    >
+                      {updatePremiumSettingsMutation.isPending ? "Saving…" : "Save Premium Controls"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               {/* ── Add Premium User Dialog ── */}
               <Dialog open={premiumCreateOpen} onOpenChange={setPremiumCreateOpen}>

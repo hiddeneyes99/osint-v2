@@ -55,6 +55,37 @@ async function checkApiStatus(url: string, timeoutMs = 4000, method: "HEAD" | "G
 let serviceConfigCache: { data: Record<string, boolean>; ts: number } | null = null;
 const SERVICE_CONFIG_TTL = 15_000; // 15 s — bust immediately on admin change
 
+async function getActivePremiumForRequest(req: any) {
+  try {
+    if (req.premiumUser?.status === "active" &&
+        (!req.premiumUser.expiresAt || new Date() <= req.premiumUser.expiresAt)) {
+      return req.premiumUser;
+    }
+
+    const cookies = parseCookiesPremium(req);
+    const raw = cookies["premiumAuth"] || req.headers["x-premium-token"];
+    let premiumId: number | null = raw ? verifyPremiumToken(raw as string) : null;
+    let query = db.select().from(premiumUsers);
+    let rows;
+
+    if (premiumId) {
+      rows = await query.where(eq(premiumUsers.id, premiumId));
+    } else if (req.user?.email) {
+      rows = await query.where(eq(premiumUsers.email, String(req.user.email).toLowerCase().trim()));
+    } else {
+      return null;
+    }
+
+    const user = rows[0];
+    if (!user || user.status !== "active" || (user.expiresAt && new Date() > user.expiresAt)) {
+      return null;
+    }
+    return user;
+  } catch {
+    return null;
+  }
+}
+
 async function getServiceConfig(): Promise<Record<string, boolean>> {
   if (serviceConfigCache && Date.now() - serviceConfigCache.ts < SERVICE_CONFIG_TTL) {
     return serviceConfigCache.data;
@@ -1198,26 +1229,13 @@ ${urls.map(u => `  <url>
       if (user.isBlocked) return res.status(403).json({ message: "Your account is restricted. Contact admin to resolve: https://t.me/Twhosint" });
       if (user.isIpBlocked) return res.status(403).json({ message: "Your IP is restricted. Contact admin to resolve: https://t.me/Twhosint" });
 
+      const premiumUser = await getActivePremiumForRequest(req);
+
       // Service enabled check
       const svcCfg = await getServiceConfig();
       if (svcCfg[serviceName] === false) {
         // Premium users bypass admin OFF status
-        let isPremiumBypass = false;
-        try {
-          const cookies = parseCookiesPremium(req);
-          const raw = cookies["premiumAuth"] || req.headers["x-premium-token"];
-          if (raw) {
-            const premiumId = verifyPremiumToken(raw as string);
-            if (premiumId) {
-              const [pu] = await db.select().from(premiumUsers).where(eq(premiumUsers.id, premiumId));
-              if (pu && pu.status === "active" && (!pu.expiresAt || new Date() <= pu.expiresAt)) {
-                isPremiumBypass = true;
-              }
-            }
-          }
-        } catch { /* non-premium path */ }
-
-        if (!isPremiumBypass) {
+        if (!premiumUser) {
           const name = serviceName.charAt(0).toUpperCase() + serviceName.slice(1);
           const reasons = await getServiceReasons();
           const customReason = reasons[serviceName];
@@ -1228,8 +1246,42 @@ ${urls.map(u => `  <url>
         }
       }
 
-      // Daily rate limit check
-      if (user.dailyQueryLimit !== null && user.dailyQueryLimit !== undefined) {
+      // Premium limits are evaluated from the database on every request so
+      // admin changes apply immediately without requiring a new login.
+      if (premiumUser) {
+        if (!premiumUser.searchLimitUnlimited && premiumUser.searchLimit !== null) {
+          const todayCount = await storage.getUserDailyQueryCount(user.id);
+          if (todayCount >= premiumUser.searchLimit) {
+            return res.status(429).json({
+              message: `Daily search limit reached (${premiumUser.searchLimit}/day). Try again tomorrow.`,
+              code: "PREMIUM_SEARCH_LIMIT_REACHED",
+            });
+          }
+        }
+
+        if (premiumUser.rateLimitEnabled && !premiumUser.rateLimitUnlimited) {
+          const now = Date.now();
+          if (premiumUser.rateLimitRpm !== null) {
+            const minuteCount = await storage.getUserQueryCountSince(user.id, new Date(now - 60_000));
+            if (minuteCount >= premiumUser.rateLimitRpm) {
+              return res.status(429).json({
+                message: `Rate limit reached (${premiumUser.rateLimitRpm} requests per minute). Please wait and try again.`,
+                code: "PREMIUM_RATE_LIMIT_RPM_REACHED",
+              });
+            }
+          }
+          if (premiumUser.rateLimitHourly !== null) {
+            const hourCount = await storage.getUserQueryCountSince(user.id, new Date(now - 3_600_000));
+            if (hourCount >= premiumUser.rateLimitHourly) {
+              return res.status(429).json({
+                message: `Rate limit reached (${premiumUser.rateLimitHourly} requests per hour). Please try again later.`,
+                code: "PREMIUM_RATE_LIMIT_HOURLY_REACHED",
+              });
+            }
+          }
+        }
+      } else if (user.dailyQueryLimit !== null && user.dailyQueryLimit !== undefined) {
+        // Preserve the existing normal-user limit behavior exactly.
         const todayCount = await storage.getUserDailyQueryCount(user.id);
         if (todayCount >= user.dailyQueryLimit) {
           return res.status(429).json({ message: `Daily query limit reached (${user.dailyQueryLimit}/day). Try again tomorrow.` });
@@ -2338,7 +2390,9 @@ ${urls.map(u => `  <url>
   });
 
   // Public — returns a random active ad for the overlay
-  app.get("/api/ads/random", async (_req, res) => {
+  app.get("/api/ads/random", async (req, res) => {
+    const premiumUser = await getActivePremiumForRequest(req);
+    if (premiumUser && !premiumUser.showAds) return res.json(null);
     const activeAds = await storage.getActiveAds();
     if (!activeAds.length) return res.json(null);
     const random = activeAds[Math.floor(Math.random() * activeAds.length)];
@@ -2615,6 +2669,13 @@ ${urls.map(u => `  <url>
           status TEXT NOT NULL DEFAULT 'active',
           expires_at TIMESTAMP,
           last_login TIMESTAMP,
+          show_ads BOOLEAN NOT NULL DEFAULT TRUE,
+          search_limit INTEGER,
+          search_limit_unlimited BOOLEAN NOT NULL DEFAULT TRUE,
+          rate_limit_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+          rate_limit_rpm INTEGER,
+          rate_limit_hourly INTEGER,
+          rate_limit_unlimited BOOLEAN NOT NULL DEFAULT TRUE,
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
@@ -2622,6 +2683,13 @@ ${urls.map(u => `  <url>
       await db.execute(sql`
         ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE
       `);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS show_ads BOOLEAN NOT NULL DEFAULT TRUE`);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS search_limit INTEGER`);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS search_limit_unlimited BOOLEAN NOT NULL DEFAULT TRUE`);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_enabled BOOLEAN NOT NULL DEFAULT FALSE`);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_rpm INTEGER`);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_hourly INTEGER`);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_unlimited BOOLEAN NOT NULL DEFAULT TRUE`);
     } catch (e: any) {
       console.error("[premium] Table init error:", e.message);
     }
@@ -2641,7 +2709,16 @@ ${urls.map(u => `  <url>
         const token = signPremiumToken(user.id);
         res.setHeader("Set-Cookie", `premiumAuth=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=604800; Secure; SameSite=None`);
         db.update(premiumUsers).set({ lastLogin: new Date() }).where(eq(premiumUsers.id, user.id)).catch(() => {});
-        res.json({ id: user.id, email: user.email, role: user.role, expiresAt: user.expiresAt });
+         res.json({
+           id: user.id, email: user.email, role: user.role, expiresAt: user.expiresAt,
+           showAds: user.showAds,
+           searchLimit: user.searchLimit,
+           searchLimitUnlimited: user.searchLimitUnlimited,
+           rateLimitEnabled: user.rateLimitEnabled,
+           rateLimitRpm: user.rateLimitRpm,
+           rateLimitHourly: user.rateLimitHourly,
+           rateLimitUnlimited: user.rateLimitUnlimited,
+         });
       } catch (err: any) {
         res.status(500).json({ message: "Login failed" });
       }
@@ -2668,7 +2745,19 @@ ${urls.map(u => `  <url>
         if (!user) return res.status(401).json({ message: "User not found" });
         if (user.status !== "active") return res.status(403).json({ message: "Account disabled" });
         if (user.expiresAt && new Date() > user.expiresAt) return res.status(403).json({ message: "Account expired" });
-        res.json({ id: user.id, email: user.email, role: user.role, expiresAt: user.expiresAt });
+        res.json({
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          expiresAt: user.expiresAt,
+          showAds: user.showAds,
+          searchLimit: user.searchLimit,
+          searchLimitUnlimited: user.searchLimitUnlimited,
+          rateLimitEnabled: user.rateLimitEnabled,
+          rateLimitRpm: user.rateLimitRpm,
+          rateLimitHourly: user.rateLimitHourly,
+          rateLimitUnlimited: user.rateLimitUnlimited,
+        });
       } catch (err: any) {
         res.status(500).json({ message: "Verification failed" });
       }
@@ -2684,6 +2773,13 @@ ${urls.map(u => `  <url>
           status: premiumUsers.status,
           expiresAt: premiumUsers.expiresAt,
           lastLogin: premiumUsers.lastLogin,
+          showAds: premiumUsers.showAds,
+          searchLimit: premiumUsers.searchLimit,
+          searchLimitUnlimited: premiumUsers.searchLimitUnlimited,
+          rateLimitEnabled: premiumUsers.rateLimitEnabled,
+          rateLimitRpm: premiumUsers.rateLimitRpm,
+          rateLimitHourly: premiumUsers.rateLimitHourly,
+          rateLimitUnlimited: premiumUsers.rateLimitUnlimited,
           createdAt: premiumUsers.createdAt,
         }).from(premiumUsers).orderBy(desc(premiumUsers.createdAt));
         res.json(users);
@@ -2767,6 +2863,64 @@ ${urls.map(u => `  <url>
         res.json({ success: true });
       } catch (err: any) {
         res.status(500).json({ message: err.message });
+      }
+    });
+
+    // ── ADMIN: Update per-user premium controls ─────────────────────────────
+    app.patch("/api/admin/premium-users/:id/settings", requireAdminSession, async (req, res) => {
+      const id = parseInt(req.params.id);
+      const {
+        showAds,
+        searchLimit,
+        searchLimitUnlimited,
+        rateLimitEnabled,
+        rateLimitRpm,
+        rateLimitHourly,
+        rateLimitUnlimited,
+      } = req.body;
+
+      if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid user ID" });
+      if (typeof showAds !== "boolean" ||
+          typeof searchLimitUnlimited !== "boolean" ||
+          typeof rateLimitEnabled !== "boolean" ||
+          typeof rateLimitUnlimited !== "boolean") {
+        return res.status(400).json({ message: "Invalid premium settings" });
+      }
+
+      const parseLimit = (value: unknown, label: string) => {
+        if (value === null || value === "" || value === undefined) return null;
+        const parsed = Number(value);
+        if (!Number.isInteger(parsed) || parsed < 1 || parsed > 1_000_000) {
+          throw new Error(`${label} must be a positive whole number`);
+        }
+        return parsed;
+      };
+
+      try {
+        const updatedValues = {
+          showAds,
+          searchLimit: parseLimit(searchLimit, "Daily search limit"),
+          searchLimitUnlimited,
+          rateLimitEnabled,
+          rateLimitRpm: parseLimit(rateLimitRpm, "Requests per minute"),
+          rateLimitHourly: parseLimit(rateLimitHourly, "Requests per hour"),
+          rateLimitUnlimited,
+        };
+        if (!searchLimitUnlimited && updatedValues.searchLimit === null) {
+          throw new Error("Enter a daily search limit or select Unlimited");
+        }
+        if (rateLimitEnabled && !rateLimitUnlimited &&
+            updatedValues.rateLimitRpm === null && updatedValues.rateLimitHourly === null) {
+          throw new Error("Enter requests per minute or hour, or select Unlimited");
+        }
+        const [updated] = await db.update(premiumUsers)
+          .set(updatedValues)
+          .where(eq(premiumUsers.id, id))
+          .returning();
+        if (!updated) return res.status(404).json({ message: "Premium user not found" });
+        res.json(updatedValues);
+      } catch (err: any) {
+        res.status(400).json({ message: err.message || "Invalid premium settings" });
       }
     });
 
