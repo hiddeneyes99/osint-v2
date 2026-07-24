@@ -1,0 +1,133 @@
+Create a private Telegram Group Bot that integrates with my existing website.
+
+IMPORTANT:
+- Do NOT create a separate database.
+- Do NOT duplicate any search logic.
+- The bot must use the existing backend APIs and authentication system.
+- Keep the implementation modular and fully backward compatible.
+
+Requirements:
+
+1. The bot should ONLY work inside approved Telegram groups.
+- Ignore private chats.
+- Ignore unauthorized groups.
+- Admin can manage allowed group IDs from the Admin Panel.
+
+2. The bot must support commands that match my website services.
+
+Examples:
+/num 9876543210
+/mobile 9876543210
+/email example@gmail.com
+/vehicle DL01AB1234
+...and every other service already available on my website.
+
+3. The bot should send the search request to the existing backend API instead of implementing its own search logic.
+
+4. Create a dedicated Bot API key/system so only my Telegram bot can access these endpoints.
+
+5. Partial Data Masking
+
+The bot must NEVER return full results.
+
+Every response should automatically mask sensitive information.
+
+Examples:
+
+Name:
+Karan Sharma
+→ K***n S****a
+
+Father Name:
+Rajesh Kumar
+→ R****h K****r
+
+Mobile:
+9876543210
+→ 987****210
+
+Email:
+karan@gmail.com
+→ k****n@g****.com
+
+Address:
+House 45, Sector 21, Faridabad
+→ H**** **, S***** **, F********d
+
+DOB:
+12-03-2004
+→ 12-**-2004
+
+Aadhaar:
+123456789012
+→ 1234****9012
+
+PAN:
+ABCDE1234F
+→ ABC****34F
+
+Vehicle Number:
+DL01AB1234
+→ DL01****34
+
+Any other sensitive field should also be automatically masked.
+
+6. The amount of masking should be configurable.
+
+Admin Panel:
+Bot Settings
+
+Masking Level:
+- Light
+- Medium
+- Heavy
+
+7. The bot should use the same permissions as my website.
+
+If a service is disabled for normal users:
+- The bot must also deny access unless explicitly allowed.
+
+8. Add Bot Settings in the Admin Panel.
+
+Include:
+- Enable/Disable Bot
+- Allowed Group IDs
+- Bot API Key
+- Masking Level
+- Bot Rate Limit
+- Daily Search Limit
+- Allowed Services
+- Search Logs
+
+9. Rate limiting
+
+Support:
+- Per group rate limit
+- Per Telegram user rate limit
+- Daily usage limit
+
+10. Logging
+
+Store:
+- Telegram User ID
+- Username
+- Group ID
+- Service Used
+- Search Query
+- Time
+- Status
+
+11. Security
+
+- Never expose internal APIs.
+- Validate every request.
+- Reject unauthorized requests.
+- Reject requests from unknown groups.
+
+12. UI
+
+Do not modify the existing website UI.
+
+Only add a new "Telegram Bot" section in the Admin Panel.
+
+The implementation must remain fully backward compatible.
