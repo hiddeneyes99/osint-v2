@@ -1888,8 +1888,17 @@ ${urls.map(u => `  <url>
         if (e.name === "AbortError") throw new Error("Vehicle API timed out. Try again.");
         throw new Error("Vehicle API unreachable. Try again later.");
       }
-      if (!response.ok) throw new Error(`Vehicle API failed: ${response.status} ${response.statusText}`);
+      if (!response.ok) {
+        // New API returns HTTP 500 with JSON when vehicle data is unavailable
+        let errMsg = `Vehicle API failed: ${response.status} ${response.statusText}`;
+        try {
+          const errBody = await response.json();
+          if (errBody?.message) errMsg = errBody.message;
+        } catch (_) {}
+        throw new Error(errMsg);
+      }
       const raw = await response.json();
+      if (raw?.status === false && raw?.message) throw new Error(raw.message);
       return normalizeVehicleResponse(raw);
     });
   });
