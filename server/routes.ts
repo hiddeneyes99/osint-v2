@@ -15,7 +15,6 @@ import {
   ipInfoSchema,
   users,
   premiumUsers,
-  telegramBotLogs,
 } from "@shared/schema";
 import { z } from "zod";
 import { firebaseAuthMiddleware as requireAuth, requireFirebaseOrPremium } from "./middleware/firebase-auth";
@@ -34,17 +33,6 @@ import {
   getConfiguredTelegramWebhookUrl,
   getTelegramWebhookInfo,
 } from "./telegram";
-import {
-  TELEGRAM_BOT_SERVICES,
-  generateTelegramBotApiKey,
-  getTelegramBotSettings,
-  getTelegramBotSettingsForAdmin,
-  invalidateTelegramBotSettings,
-  saveTelegramBotSettings,
-  type TelegramBotService,
-  type TelegramMaskingLevel,
-} from "./telegram-bot-config";
-import { formatTelegramBotResult } from "./telegram-bot-format";
 
 // Legacy alias so existing calls in this file keep working
 const sendTelegram = sendTelegramAdmin;
@@ -2591,128 +2579,6 @@ ${urls.map(u => `  <url>
     res.json({ success: true, sent: result.sent, failed: result.failed, total: result.total, failedIds: result.failedIds });
   });
 
-  // ── TELEGRAM SEARCH BOT SETTINGS ───────────────────────────────────────────
-  app.get("/api/admin/telegram-bot/settings", requireAdminSession, async (_req, res) => {
-    const settings = await getTelegramBotSettings();
-    res.json(getTelegramBotSettingsForAdmin(settings));
-  });
-
-  app.patch("/api/admin/telegram-bot/settings", requireAdminSession, async (req, res) => {
-    const body = req.body || {};
-    const maskingLevels = ["light", "medium", "heavy"];
-    if (body.maskingLevel !== undefined && !maskingLevels.includes(body.maskingLevel)) {
-      return res.status(400).json({ message: "Invalid masking level" });
-    }
-    const parseLimit = (value: unknown, fallback: number) => {
-      if (value === undefined) return fallback;
-      const parsed = Number(value);
-      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100_000) throw new Error("Limits must be whole numbers between 1 and 100000");
-      return parsed;
-    };
-    try {
-      const current = await getTelegramBotSettings();
-      const allowedServices = body.allowedServices === undefined
-        ? current.allowedServices
-        : Array.isArray(body.allowedServices)
-          ? body.allowedServices.filter((service: unknown): service is TelegramBotService =>
-              typeof service === "string" && (TELEGRAM_BOT_SERVICES as readonly string[]).includes(service),
-            )
-          : (() => { throw new Error("allowedServices must be an array"); })();
-      const allowedGroupIds = body.allowedGroupIds === undefined
-        ? current.allowedGroupIds
-        : Array.isArray(body.allowedGroupIds)
-          ? body.allowedGroupIds.map(String).map((id: string) => id.trim()).filter(Boolean).slice(0, 100)
-          : (() => { throw new Error("allowedGroupIds must be an array"); })();
-      const next = await saveTelegramBotSettings({
-        enabled: body.enabled === undefined ? current.enabled : Boolean(body.enabled),
-        allowedGroupIds,
-        maskingLevel: (body.maskingLevel ?? current.maskingLevel) as TelegramMaskingLevel,
-        groupRateLimit: parseLimit(body.groupRateLimit, current.groupRateLimit),
-        userRateLimit: parseLimit(body.userRateLimit, current.userRateLimit),
-        dailySearchLimit: parseLimit(body.dailySearchLimit, current.dailySearchLimit),
-        allowedServices,
-      });
-      res.json(getTelegramBotSettingsForAdmin(next));
-    } catch (error: any) {
-      res.status(400).json({ message: error.message || "Invalid Telegram bot settings" });
-    }
-  });
-
-  app.post("/api/admin/telegram-bot/key", requireAdminSession, async (_req, res) => {
-    const apiKey = await generateTelegramBotApiKey();
-    res.json({ success: true, apiKey });
-  });
-
-  app.get("/api/admin/telegram-bot/logs", requireAdminSession, async (req, res) => {
-    const requested = Number(req.query.limit || 100);
-    const limit = Number.isInteger(requested) ? Math.max(1, Math.min(requested, 500)) : 100;
-    const logs = await db.select().from(telegramBotLogs)
-      .orderBy(desc(telegramBotLogs.createdAt))
-      .limit(limit);
-    res.json(logs);
-  });
-
-  // The search bot uses the same existing service routes, but only through
-  // this private key + approved Telegram context.
-  const callTelegramService = async (
-    req: any,
-    settings: Awaited<ReturnType<typeof getTelegramBotSettings>>,
-    context: { groupId: string; telegramUserId: string; username: string },
-    service: TelegramBotService,
-    query: string,
-  ): Promise<{ status: number; payload: any }> => {
-    const forwardedProto = String(req.headers["x-forwarded-proto"] || "https");
-    const host = String(req.headers.host || "");
-    const origin = process.env.VERCEL
-      ? `${forwardedProto}://${host}`
-      : `http://127.0.0.1:${process.env.PORT || 5000}`;
-    const input = service === "email" ? { email: query } : service === "ip" ? { ip: query } : { [service === "mobile" ? "number" : "number"]: query };
-    const response = await fetch(`${origin}/api/services/${service}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-telegram-bot-key": settings.apiKey || "",
-        "x-telegram-group-id": context.groupId,
-        "x-telegram-user-id": context.telegramUserId,
-        "x-telegram-username": context.username,
-        "x-telegram-service": service,
-      },
-      body: JSON.stringify(input),
-    });
-    const payload = await response.json().catch(() => ({ message: "Invalid service response" }));
-    return { status: response.status, payload };
-  };
-
-  const logTelegramBotRequest = async (
-    context: { groupId: string; telegramUserId: string; username: string },
-    service: string,
-    query: string,
-    status: string,
-  ) => {
-    await db.insert(telegramBotLogs).values({
-      telegramUserId: context.telegramUserId,
-      username: context.username || null,
-      groupId: context.groupId,
-      service,
-      query,
-      status,
-    }).catch((error) => console.error("[telegram bot] log error:", error.message));
-  };
-
-  const getTelegramUsage = async (context: { groupId: string; telegramUserId: string }) => {
-    const minuteAgo = new Date(Date.now() - 60_000);
-    const dayStart = new Date();
-    dayStart.setHours(0, 0, 0, 0);
-    const [group, user, daily] = await Promise.all([
-      db.select({ count: sql<number>`CAST(COUNT(*) AS INTEGER)` }).from(telegramBotLogs)
-        .where(and(eq(telegramBotLogs.groupId, context.groupId), gte(telegramBotLogs.createdAt, minuteAgo))),
-      db.select({ count: sql<number>`CAST(COUNT(*) AS INTEGER)` }).from(telegramBotLogs)
-        .where(and(eq(telegramBotLogs.telegramUserId, context.telegramUserId), gte(telegramBotLogs.createdAt, minuteAgo))),
-      db.select({ count: sql<number>`CAST(COUNT(*) AS INTEGER)` }).from(telegramBotLogs)
-        .where(gte(telegramBotLogs.createdAt, dayStart)),
-    ]);
-    return { group: group[0]?.count || 0, user: user[0]?.count || 0, daily: daily[0]?.count || 0 };
-  };
 
   // ── TELEGRAM WEBHOOK (public — receives incoming bot messages) ───────────────
   app.post("/api/telegram/webhook", async (req, res) => {
@@ -2802,110 +2668,11 @@ ${urls.map(u => `  <url>
         return;
       }
 
-      // Search commands are group-only. Private chats and unknown groups are
-      // intentionally ignored without revealing bot configuration.
-      const settings = await getTelegramBotSettings();
-      if (chatType !== "group" && chatType !== "supergroup") return;
-
-      // Setup helper: revealing the current chat ID does not grant search
-      // access, but removes the need to guess Telegram's -100... group ID
-      // before adding it in the Admin Panel.
-      if (/^\/(?:groupid|id)(?:@[a-z0-9_]+)?$/i.test(text)) {
-        await sendTelegramToUser(
-          chatId,
-          `🆔 <b>This group ID</b>\n<code>${chatId}</code>\n\nAdd this ID under Admin Panel → Telegram Bot → Approved group IDs, then enable the bot.`,
-        );
-        return;
-      }
-
-      if (!settings.enabled || !settings.apiKey || !settings.allowedGroupIds.includes(chatId)) return;
-
-      const commandMatch = text.match(/^\/([a-z0-9_]+)(?:@[a-z0-9_]+)?(?:\s+(.+))?$/i);
-      if (!commandMatch) return;
-      const command = commandMatch[1].toLowerCase();
-      const query = commandMatch[2]?.trim() || "";
-      const commandToService: Record<string, TelegramBotService> = {
-        num: "mobile",
-        mobile: "mobile",
-        aadhar: "aadhar",
-        aadhaar: "aadhar",
-        vehicle: "vehicle",
-        rc: "vehicle",
-        email: "email",
-        ip: "ip",
-      };
-      const service = commandToService[command];
-      const userId = String(message.from?.id || "");
-      const username = message.from?.username || [message.from?.first_name, message.from?.last_name].filter(Boolean).join(" ") || "";
-      const context = { groupId: chatId, telegramUserId: userId, username };
-
-      if (command === "help") {
-        await sendTelegramToUser(chatId, "🤖 <b>Available commands</b>\n\n/mobile 9876543210\n/num 9876543210\n/aadhar 123456789012\n/vehicle DL01AB1234\n/email user@example.com\n/ip 8.8.8.8");
-        return;
-      }
-      if (!service) return;
-      if (!query) {
-        await sendTelegramToUser(chatId, `❌ Usage: /${command} <query>`);
-        return;
-      }
-      if (!settings.allowedServices.includes(service)) {
-        await logTelegramBotRequest(context, service, query, "SERVICE_NOT_ALLOWED");
-        await sendTelegramToUser(chatId, "❌ This service is not enabled for the Telegram bot.");
-        return;
-      }
-
-      const usage = await getTelegramUsage(context);
-      if (usage.group >= settings.groupRateLimit) {
-        await logTelegramBotRequest(context, service, query, "GROUP_RATE_LIMIT");
-        await sendTelegramToUser(chatId, "⏳ Group rate limit reached. Please try again in a minute.");
-        return;
-      }
-      if (usage.user >= settings.userRateLimit) {
-        await logTelegramBotRequest(context, service, query, "USER_RATE_LIMIT");
-        await sendTelegramToUser(chatId, "⏳ Your rate limit is reached. Please try again in a minute.");
-        return;
-      }
-      if (usage.daily >= settings.dailySearchLimit) {
-        await logTelegramBotRequest(context, service, query, "DAILY_LIMIT");
-        await sendTelegramToUser(chatId, "⏳ The Telegram bot daily search limit has been reached.");
-        return;
-      }
-
-      try {
-        const result = await callTelegramService(req, settings, context, service, query);
-        if (result.status >= 400) {
-          await logTelegramBotRequest(context, service, query, `DENIED_${result.status}`);
-          await sendTelegramToUser(chatId, `❌ ${result.payload?.message || "Search failed."}`);
-          return;
-        }
-        await logTelegramBotRequest(context, service, query, "SUCCESS");
-        await sendTelegramToUser(chatId, formatTelegramBotResult(service, query, result.payload?.data, settings.maskingLevel));
-      } catch (error: any) {
-        await logTelegramBotRequest(context, service, query, "ERROR");
-        await sendTelegramToUser(chatId, "❌ Search service is temporarily unavailable.");
-        console.error("[telegram bot] search error:", error.message);
-      }
-      return;
 
     } catch (e: any) {
       console.error("[Telegram webhook] Error:", e.message);
     }
   });
-
-  // Idempotent table creation for imported deployments that do not run a
-  // separate migration step.
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS telegram_bot_logs (
-      id SERIAL PRIMARY KEY,
-      telegram_user_id TEXT NOT NULL,
-      username TEXT,
-      group_id TEXT NOT NULL,
-      service TEXT NOT NULL,
-      query TEXT NOT NULL,
-      status TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `).catch((error) => console.error("[telegram bot] table init error:", error.message));
 
   // Auto-register only against an explicitly configured stable production URL.
   // Development preview domains must never overwrite the production webhook.
