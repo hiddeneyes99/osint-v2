@@ -19,7 +19,7 @@ PORT = "5000"
 [deployment]
 deploymentTarget = "autoscale"
 run = ["node", "./dist/index.cjs"]
-build = ["npm", "run", "build"]
+build = ["bash", "-c", "node -e \"const fs=require('fs');const p='node_modules/@rollup/rollup-linux-x64-gnu/rollup.linux-x64-gnu.node';if(!fs.existsSync(p)){const http=require('http'),{execSync}=require('child_process'),t='/tmp/rl.tgz',w=require('fs').createWriteStream(t);http.get('http://package-firewall.replit.local/npm/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.62.2.tgz',(r)=>{r.pipe(w);w.on('finish',()=>{execSync('mkdir -p node_modules/@rollup/rollup-linux-x64-gnu && cd node_modules/@rollup/rollup-linux-x64-gnu && tar -xzf /tmp/rl.tgz --strip-components=1');console.log('[prebuild] rollup native installed');});}).on('error',e=>console.warn('[prebuild] warn:',e.message));}else{console.log('[prebuild] rollup native ok');}\" 2>/dev/null; sleep 2 && npm run build"]
 
 [workflows]
 runButton = "Project"
