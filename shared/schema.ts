@@ -45,18 +45,6 @@ export const platformSettings = pgTable("platform_settings", {
 
 export type PlatformSetting = typeof platformSettings.$inferSelect;
 
-export const telegramBotLogs = pgTable("telegram_bot_logs", {
-  id: serial("id").primaryKey(),
-  telegramUserId: text("telegram_user_id").notNull(),
-  username: text("username"),
-  groupId: text("group_id").notNull(),
-  service: text("service").notNull(),
-  query: text("query").notNull(),
-  status: text("status").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export type TelegramBotLog = typeof telegramBotLogs.$inferSelect;
 
 export const userNotes = pgTable("user_notes", {
   id: serial("id").primaryKey(),

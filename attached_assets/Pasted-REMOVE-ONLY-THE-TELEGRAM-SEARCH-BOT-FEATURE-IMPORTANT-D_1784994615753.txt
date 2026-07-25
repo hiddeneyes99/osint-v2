@@ -1,0 +1,67 @@
+REMOVE ONLY THE TELEGRAM SEARCH BOT FEATURE.
+
+IMPORTANT:
+
+Do NOT remove the existing Telegram integration from the project.
+
+I only want to remove the Telegram Bot Search system that was previously added.
+
+Keep the following existing Telegram features fully functional:
+
+- User Telegram account linking.
+- User Telegram notifications.
+- Search alerts sent to the user's linked Telegram.
+- Admin Telegram notifications.
+- Admin login alerts.
+- Admin search alerts.
+- Any existing Telegram notification system.
+
+DO NOT modify or remove any of the above.
+
+Only remove the Telegram Bot Search implementation that allows users to search data directly through Telegram.
+
+Remove EVERYTHING related to:
+
+- Telegram search commands
+- /num
+- /mobile
+- /email
+- /vehicle
+- /search
+- Any other Telegram search commands
+
+Remove:
+
+- Bot search handlers
+- Bot search routes
+- Bot API endpoints created only for Telegram searches
+- Website-to-Bot search integration
+- Data masking system
+- Partial response logic
+- Telegram search middleware
+- Telegram search permissions
+- Telegram group search functionality
+- Allowed group search logic
+- Telegram search rate limiting
+- Telegram search logging
+- Telegram search settings in the Admin Panel
+- Telegram Bot Search configuration
+- Any files created only for the search bot
+
+Do NOT remove:
+
+✅ Telegram account linking
+✅ Telegram notifications
+✅ Admin Telegram alerts
+✅ User Telegram alerts
+✅ Existing Telegram notification APIs
+✅ Existing Telegram settings used for notifications
+
+After completion:
+
+- Users must NO LONGER be able to perform searches through Telegram.
+- The Telegram Bot should no longer respond to search commands.
+- The website should continue sending Telegram notifications exactly as before.
+- Remove all unused code, imports, files, routes, and dependencies related ONLY to the Telegram Search Bot.
+
+The project must remain fully backward compatible, and all notification features must continue working normally.
