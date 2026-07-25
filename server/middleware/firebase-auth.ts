@@ -1,6 +1,8 @@
 import admin from "firebase-admin";
 import { Response, NextFunction } from "express";
 import { storage } from "../storage";
+import crypto from "crypto";
+import { getTelegramBotSettings, TELEGRAM_BOT_SERVICES } from "../telegram-bot-config";
 
 if (!admin.apps.length) {
   const projectId = process.env.FIREBASE_PROJECT_ID || "osint-platform-d6b9b";
@@ -47,6 +49,113 @@ if (!admin.apps.length) {
     admin.initializeApp({ projectId });
   }
 }
+
+/**
+ * Combined middleware: accepts Firebase Bearer token OR a valid premiumAuth cookie.
+ * Premium-only users (logged in via /api/premium/login, no Firebase session) are
+ * auto-provisioned in the users table so handleServiceRequest can find them.
+ */
+export const requireFirebaseOrPremium = async (req: any, res: Response, next: NextFunction) => {
+  // ── 0. Dedicated Telegram bot access ─────────────────────────────────────
+  // The bot calls the same service endpoints as the website, but must present
+  // its own API key and an approved group/user context.
+  const botKey = req.headers["x-telegram-bot-key"];
+  if (botKey) {
+    const settings = await getTelegramBotSettings();
+    const supplied = String(botKey);
+    const expected = settings.apiKey || "";
+    const suppliedBytes = Buffer.from(supplied);
+    const expectedBytes = Buffer.from(expected);
+    const validKey = Boolean(expected) &&
+      suppliedBytes.length === expectedBytes.length &&
+      crypto.timingSafeEqual(suppliedBytes, expectedBytes);
+    const groupId = String(req.headers["x-telegram-group-id"] || "");
+    const telegramUserId = String(req.headers["x-telegram-user-id"] || "");
+    const service = String(req.headers["x-telegram-service"] || "");
+
+    if (!validKey || !settings.enabled) return res.status(401).json({ message: "Telegram bot access denied" });
+    if (!groupId || !settings.allowedGroupIds.includes(groupId)) {
+      return res.status(403).json({ message: "Telegram group is not approved" });
+    }
+    if (!(TELEGRAM_BOT_SERVICES as readonly string[]).includes(service) ||
+        !settings.allowedServices.includes(service as any)) {
+      return res.status(403).json({ message: "Telegram service is not allowed" });
+    }
+    if (!telegramUserId) return res.status(400).json({ message: "Telegram user is required" });
+
+    const syntheticId = `telegram_${telegramUserId.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+    try {
+      let user = await storage.getUser(syntheticId);
+      if (!user) {
+        try {
+          user = await storage.createUser({
+            id: syntheticId,
+            email: `${syntheticId}@telegram.local`,
+            username: `tg_${telegramUserId}`,
+          });
+        } catch {
+          user = await storage.getUser(syntheticId);
+        }
+      }
+      if (!user) return res.status(500).json({ message: "Telegram user could not be provisioned" });
+      req.user = { id: user.id, email: user.email, claims: { sub: user.id } };
+      req.telegramBot = true;
+      req.telegramBotContext = { groupId, telegramUserId, username: String(req.headers["x-telegram-username"] || "") };
+      return next();
+    } catch (err) {
+      console.error("[telegram bot auth] error:", err);
+      return res.status(500).json({ message: "Telegram authentication error" });
+    }
+  }
+
+  // ── 1. Try Firebase Bearer token first ───────────────────────────────────
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return firebaseAuthMiddleware(req, res, next);
+  }
+
+  // ── 2. Fall back to premiumAuth cookie ───────────────────────────────────
+  const { parseCookiesPremium, verifyPremiumToken } = await import("./premium-auth");
+  const { db } = await import("../db");
+  const { premiumUsers } = await import("@shared/schema");
+  const premiumStorage = (await import("../storage")).storage;
+  const { eq } = await import("drizzle-orm");
+
+  const cookies = parseCookiesPremium(req);
+  const raw = cookies["premiumAuth"] || req.headers["x-premium-token"];
+  if (!raw) return res.status(401).json({ message: "Unauthorized" });
+
+  const premiumId = verifyPremiumToken(raw as string);
+  if (!premiumId) return res.status(401).json({ message: "Unauthorized" });
+
+  try {
+    const [pu] = await db.select().from(premiumUsers).where(eq(premiumUsers.id, premiumId));
+    if (!pu) return res.status(401).json({ message: "Unauthorized" });
+    if (pu.status !== "active") return res.status(403).json({ message: "Premium account disabled" });
+    if (pu.expiresAt && new Date() > pu.expiresAt) return res.status(403).json({ message: "Premium account expired" });
+
+    // Find or create the user record in the main users table
+    const email = (pu.email || "").toLowerCase().trim();
+    let user = await premiumStorage.getUserByEmail(email);
+    if (!user) {
+      // Auto-provision a users-table record for premium-only users
+      const syntheticId = `premium_${pu.id}`;
+      user = await premiumStorage.createUser({
+        id: syntheticId,
+        email,
+        username: email.split("@")[0] + "_premium",
+        role: "user",
+      });
+    }
+
+    req.user = { id: user.id, email: user.email, claims: { sub: user.id } };
+    req.premiumUser = pu;
+    next();
+  } catch (err) {
+    console.error("[requireFirebaseOrPremium] error:", err);
+    return res.status(500).json({ message: "Authentication error" });
+  }
+};
 
 export const firebaseAuthMiddleware = async (req: any, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;

@@ -2,9 +2,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface PremiumUser {
   id: number;
-  username: string;
+  email: string;
   role: string;
   expiresAt: string | null;
+  showAds: boolean;
+  searchLimit: number | null;
+  searchLimitUnlimited: boolean;
+  rateLimitEnabled: boolean;
+  rateLimitRpm: number | null;
+  rateLimitHourly: number | null;
+  rateLimitUnlimited: boolean;
 }
 
 async function fetchMe(): Promise<PremiumUser> {
@@ -24,12 +31,12 @@ export function usePremiumAuth() {
   });
 
   const loginMutation = useMutation({
-    mutationFn: async ({ username, password }: { username: string; password: string }) => {
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
       const res = await fetch("/api/premium/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: "Login failed" }));
@@ -60,5 +67,6 @@ export function usePremiumAuth() {
     logout: logoutMutation.mutate,
     isLoggingIn: loginMutation.isPending,
     isLoggingOut: logoutMutation.isPending,
+    loginError: loginMutation.error,
   };
 }

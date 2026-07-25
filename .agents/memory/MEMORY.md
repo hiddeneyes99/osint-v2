@@ -4,3 +4,5 @@
 - [Purple SaaS Theme](purple-theme.md) — full redesign from green cyberpunk to premium purple AI SaaS; CSS vars, all components, all pages updated; bg #050314, primary #8B5CF6; font Inter/Plus Jakarta Sans
 - [Admin Session Cookie Fix](admin-session-cookie.md) — adminAuth cookie must be SameSite=None; Secure in ALL envs; Replit canvas is an iframe, SameSite=Lax blocks cookie; isLoggedIn must start false + server-verify on mount
 - [Premium Access System](premium-system.md) — additive premium auth layer; HMAC cookie, bcryptjs, CREATE TABLE IF NOT EXISTS on startup
+- [Imported Build Recovery](build-dependency-recovery.md) — direct production builds may need the existing native optional-package recovery hook after dependency installs
+- [Telegram Bot Boundary](telegram-bot-boundary.md) — private-group search bot settings/auth stay separate from the existing Telegram linking, alerts, and broadcast terminal

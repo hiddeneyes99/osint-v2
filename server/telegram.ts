@@ -456,13 +456,35 @@ export async function sendFormattedAlert(
 }
 
 // ── WEBHOOK SETUP ─────────────────────────────────────────────────────────────
-export async function setupTelegramWebhook(domain: string): Promise<void> {
+function normalizeWebhookUrl(value: string): string {
+  const trimmed = value.trim().replace(/\/+$/, "");
+  if (!trimmed) return "";
+  if (/\/api\/telegram\/webhook$/i.test(trimmed)) return trimmed;
+  return `${trimmed}/api/telegram/webhook`;
+}
+
+export function getConfiguredTelegramWebhookUrl(): string {
+  // TELEGRAM_WEBHOOK_URL should point at the stable production origin (or the
+  // complete webhook URL). Never use REPLIT_DEV_DOMAIN automatically: it can
+  // change between workspaces and would overwrite a production webhook.
+  return normalizeWebhookUrl(
+    process.env.TELEGRAM_WEBHOOK_URL ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+    "",
+  );
+}
+
+export async function setupTelegramWebhook(domainOrUrl: string): Promise<void> {
   const { token } = await getTelegramSettings();
   if (!token) {
     console.log("[Telegram] No bot token set, skipping webhook setup");
     return;
   }
-  const webhookUrl = `https://${domain}/api/telegram/webhook`;
+  const webhookUrl = normalizeWebhookUrl(domainOrUrl);
+  if (!webhookUrl) {
+    console.log("[Telegram] No stable webhook URL configured, skipping webhook setup");
+    return;
+  }
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
       method: "POST",
@@ -477,6 +499,37 @@ export async function setupTelegramWebhook(domain: string): Promise<void> {
     }
   } catch (e: any) {
     console.error("[Telegram] Webhook setup exception:", e.message);
+  }
+}
+
+export async function getTelegramWebhookInfo(): Promise<{
+  ok: boolean;
+  description?: string;
+  result?: {
+    url?: string;
+    has_custom_certificate?: boolean;
+    pending_update_count?: number;
+    last_error_date?: number;
+    last_error_message?: string;
+  };
+}> {
+  const { token } = await getTelegramSettings();
+  if (!token) return { ok: false, description: "Bot token not configured" };
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`);
+    return await response.json() as {
+      ok: boolean;
+      description?: string;
+      result?: {
+        url?: string;
+        has_custom_certificate?: boolean;
+        pending_update_count?: number;
+        last_error_date?: number;
+        last_error_message?: string;
+      };
+    };
+  } catch (error: any) {
+    return { ok: false, description: error.message || "Telegram API unavailable" };
   }
 }
 

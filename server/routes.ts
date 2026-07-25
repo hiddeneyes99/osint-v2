@@ -15,12 +15,13 @@ import {
   ipInfoSchema,
   users,
   premiumUsers,
+  telegramBotLogs,
 } from "@shared/schema";
 import { z } from "zod";
-import { firebaseAuthMiddleware as requireAuth } from "./middleware/firebase-auth";
-import { sql, eq, desc } from "drizzle-orm";
+import { firebaseAuthMiddleware as requireAuth, requireFirebaseOrPremium } from "./middleware/firebase-auth";
+import { sql, eq, desc, and, gte } from "drizzle-orm";
 import { db } from "./db";
-import { signPremiumToken } from "./middleware/premium-auth";
+import { signPremiumToken, parseCookiesPremium, verifyPremiumToken } from "./middleware/premium-auth";
 import {
   sendTelegramAdmin,
   sendTelegramToUser,
@@ -30,7 +31,20 @@ import {
   getTelegramSettings,
   invalidateSettingsCache,
   setupTelegramWebhook,
+  getConfiguredTelegramWebhookUrl,
+  getTelegramWebhookInfo,
 } from "./telegram";
+import {
+  TELEGRAM_BOT_SERVICES,
+  generateTelegramBotApiKey,
+  getTelegramBotSettings,
+  getTelegramBotSettingsForAdmin,
+  invalidateTelegramBotSettings,
+  saveTelegramBotSettings,
+  type TelegramBotService,
+  type TelegramMaskingLevel,
+} from "./telegram-bot-config";
+import { formatTelegramBotResult } from "./telegram-bot-format";
 
 // Legacy alias so existing calls in this file keep working
 const sendTelegram = sendTelegramAdmin;
@@ -54,6 +68,37 @@ async function checkApiStatus(url: string, timeoutMs = 4000, method: "HEAD" | "G
 // ── SERVICE CONFIG CACHE ─────────────────────────────────────────────────────
 let serviceConfigCache: { data: Record<string, boolean>; ts: number } | null = null;
 const SERVICE_CONFIG_TTL = 15_000; // 15 s — bust immediately on admin change
+
+async function getActivePremiumForRequest(req: any) {
+  try {
+    if (req.premiumUser?.status === "active" &&
+        (!req.premiumUser.expiresAt || new Date() <= req.premiumUser.expiresAt)) {
+      return req.premiumUser;
+    }
+
+    const cookies = parseCookiesPremium(req);
+    const raw = cookies["premiumAuth"] || req.headers["x-premium-token"];
+    let premiumId: number | null = raw ? verifyPremiumToken(raw as string) : null;
+    let query = db.select().from(premiumUsers);
+    let rows;
+
+    if (premiumId) {
+      rows = await query.where(eq(premiumUsers.id, premiumId));
+    } else if (req.user?.email) {
+      rows = await query.where(eq(premiumUsers.email, String(req.user.email).toLowerCase().trim()));
+    } else {
+      return null;
+    }
+
+    const user = rows[0];
+    if (!user || user.status !== "active" || (user.expiresAt && new Date() > user.expiresAt)) {
+      return null;
+    }
+    return user;
+  } catch {
+    return null;
+  }
+}
 
 async function getServiceConfig(): Promise<Record<string, boolean>> {
   if (serviceConfigCache && Date.now() - serviceConfigCache.ts < SERVICE_CONFIG_TTL) {
@@ -93,15 +138,23 @@ async function getServiceAvailability(): Promise<Record<string, boolean | Record
   // Merge service_config: disabled services also show as "coming soon" to users
   const cfgRaw = await storage.getPlatformSetting("service_config");
   const cfg: Record<string, boolean> = cfgRaw ? JSON.parse(cfgRaw) : {};
+  const adminDisabled: Record<string, boolean> = {};
   for (const [svc, enabled] of Object.entries(cfg)) {
-    if (enabled === false) data[svc] = true;
+    if (enabled === false) {
+      data[svc] = true;
+      adminDisabled[svc] = true; // track which are OFF via admin toggle (premium bypass)
+    }
   }
 
   // Include reasons so dashboard can show the reason message
   const reasonsRaw = await storage.getPlatformSetting("service_reasons");
   const reasons: Record<string, string> = reasonsRaw ? JSON.parse(reasonsRaw) : {};
 
-  const result: Record<string, boolean | Record<string, string>> = { ...data, _reasons: reasons };
+  const result: Record<string, boolean | Record<string, string> | Record<string, boolean>> = {
+    ...data,
+    _reasons: reasons,
+    _adminDisabled: adminDisabled, // premium users bypass these
+  };
   serviceAvailabilityCache = { data: result, ts: Date.now() };
   return result;
 }
@@ -1190,20 +1243,59 @@ ${urls.map(u => `  <url>
       if (user.isBlocked) return res.status(403).json({ message: "Your account is restricted. Contact admin to resolve: https://t.me/Twhosint" });
       if (user.isIpBlocked) return res.status(403).json({ message: "Your IP is restricted. Contact admin to resolve: https://t.me/Twhosint" });
 
+      const premiumUser = await getActivePremiumForRequest(req);
+
       // Service enabled check
       const svcCfg = await getServiceConfig();
       if (svcCfg[serviceName] === false) {
-        const name = serviceName.charAt(0).toUpperCase() + serviceName.slice(1);
-        const reasons = await getServiceReasons();
-        const customReason = reasons[serviceName];
-        const message = customReason
-          ? customReason
-          : `${name} service is currently disabled. Contact admin for access.`;
-        return res.status(503).json({ message });
+        // Premium users bypass admin OFF status
+        if (!premiumUser) {
+          const name = serviceName.charAt(0).toUpperCase() + serviceName.slice(1);
+          const reasons = await getServiceReasons();
+          const customReason = reasons[serviceName];
+          const message = customReason
+            ? customReason
+            : `${name} service is currently disabled. Contact admin for access.`;
+          return res.status(503).json({ message });
+        }
       }
 
-      // Daily rate limit check
-      if (user.dailyQueryLimit !== null && user.dailyQueryLimit !== undefined) {
+      // Premium limits are evaluated from the database on every request so
+      // admin changes apply immediately without requiring a new login.
+      if (premiumUser) {
+        if (!premiumUser.searchLimitUnlimited && premiumUser.searchLimit !== null) {
+          const todayCount = await storage.getUserDailyQueryCount(user.id);
+          if (todayCount >= premiumUser.searchLimit) {
+            return res.status(429).json({
+              message: `Daily search limit reached (${premiumUser.searchLimit}/day). Try again tomorrow.`,
+              code: "PREMIUM_SEARCH_LIMIT_REACHED",
+            });
+          }
+        }
+
+        if (premiumUser.rateLimitEnabled && !premiumUser.rateLimitUnlimited) {
+          const now = Date.now();
+          if (premiumUser.rateLimitRpm !== null) {
+            const minuteCount = await storage.getUserQueryCountSince(user.id, new Date(now - 60_000));
+            if (minuteCount >= premiumUser.rateLimitRpm) {
+              return res.status(429).json({
+                message: `Rate limit reached (${premiumUser.rateLimitRpm} requests per minute). Please wait and try again.`,
+                code: "PREMIUM_RATE_LIMIT_RPM_REACHED",
+              });
+            }
+          }
+          if (premiumUser.rateLimitHourly !== null) {
+            const hourCount = await storage.getUserQueryCountSince(user.id, new Date(now - 3_600_000));
+            if (hourCount >= premiumUser.rateLimitHourly) {
+              return res.status(429).json({
+                message: `Rate limit reached (${premiumUser.rateLimitHourly} requests per hour). Please try again later.`,
+                code: "PREMIUM_RATE_LIMIT_HOURLY_REACHED",
+              });
+            }
+          }
+        }
+      } else if (user.dailyQueryLimit !== null && user.dailyQueryLimit !== undefined) {
+        // Preserve the existing normal-user limit behavior exactly.
         const todayCount = await storage.getUserDailyQueryCount(user.id);
         if (todayCount >= user.dailyQueryLimit) {
           return res.status(429).json({ message: `Daily query limit reached (${user.dailyQueryLimit}/day). Try again tomorrow.` });
@@ -1664,7 +1756,7 @@ ${urls.map(u => `  <url>
   };
 
   // 1. Mobile Info
-  app.post(api.services.mobile.path, requireAuth, async (req, res) => {
+  app.post(api.services.mobile.path, requireFirebaseOrPremium, async (req, res) => {
     const result = mobileInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid mobile number" });
     await handleServiceRequest(req, res, "mobile", result.data.number, async () => {
@@ -1732,7 +1824,7 @@ ${urls.map(u => `  <url>
   });
 
   // 2. Aadhar Info
-  app.post(api.services.aadhar.path, requireAuth, async (req, res) => {
+  app.post(api.services.aadhar.path, requireFirebaseOrPremium, async (req, res) => {
     const result = aadharInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid Aadhar number" });
     await handleServiceRequest(req, res, "aadhar", result.data.number, async () => {
@@ -1782,7 +1874,7 @@ ${urls.map(u => `  <url>
   });
 
   // 3. Vehicle Info
-  app.post(api.services.vehicle.path, requireAuth, async (req, res) => {
+  app.post(api.services.vehicle.path, requireFirebaseOrPremium, async (req, res) => {
     const result = vehicleInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid vehicle registration number" });
     const vehicleApiUrl = process.env.VEHICLE_API_URL;
@@ -1815,7 +1907,7 @@ ${urls.map(u => `  <url>
   });
 
   // 4. Email / Gmail Info
-  app.post(api.services.email.path, requireAuth, async (req, res) => {
+  app.post(api.services.email.path, requireFirebaseOrPremium, async (req, res) => {
     const result = emailInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid email address" });
     await handleServiceRequest(req, res, "email", result.data.email, async () => {
@@ -1846,7 +1938,7 @@ ${urls.map(u => `  <url>
   });
 
   // 5. IP Info
-  app.post(api.services.ip.path, requireAuth, async (req, res) => {
+  app.post(api.services.ip.path, requireFirebaseOrPremium, async (req, res) => {
     const result = ipInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid IP address" });
     await handleServiceRequest(req, res, "ip", result.data.ip, async () => {
@@ -2312,7 +2404,9 @@ ${urls.map(u => `  <url>
   });
 
   // Public — returns a random active ad for the overlay
-  app.get("/api/ads/random", async (_req, res) => {
+  app.get("/api/ads/random", async (req, res) => {
+    const premiumUser = await getActivePremiumForRequest(req);
+    if (premiumUser && !premiumUser.showAds) return res.json(null);
     const activeAds = await storage.getActiveAds();
     if (!activeAds.length) return res.json(null);
     const random = activeAds[Math.floor(Math.random() * activeAds.length)];
@@ -2407,6 +2501,29 @@ ${urls.map(u => `  <url>
     res.json({ success: true });
   });
 
+  app.get("/api/admin/telegram/webhook", requireAdminSession, async (_req, res) => {
+    const info = await getTelegramWebhookInfo();
+    res.json({
+      configuredUrl: getConfiguredTelegramWebhookUrl() || null,
+      telegram: info,
+    });
+  });
+
+  app.post("/api/admin/telegram/webhook", requireAdminSession, async (_req, res) => {
+    const webhookUrl = getConfiguredTelegramWebhookUrl();
+    if (!webhookUrl) {
+      return res.status(400).json({
+        message: "Set TELEGRAM_WEBHOOK_URL to your stable production URL first.",
+      });
+    }
+    await setupTelegramWebhook(webhookUrl);
+    const info = await getTelegramWebhookInfo();
+    if (!info.ok) {
+      return res.status(502).json({ message: info.description || "Telegram webhook registration failed" });
+    }
+    res.json({ success: true, configuredUrl: webhookUrl, telegram: info });
+  });
+
   // ── TELEGRAM LINKED USERS ──────────────────────────────────────────────────
   app.get("/api/admin/telegram/users", requireAdminSession, async (_req, res) => {
     try {
@@ -2474,6 +2591,129 @@ ${urls.map(u => `  <url>
     res.json({ success: true, sent: result.sent, failed: result.failed, total: result.total, failedIds: result.failedIds });
   });
 
+  // ── TELEGRAM SEARCH BOT SETTINGS ───────────────────────────────────────────
+  app.get("/api/admin/telegram-bot/settings", requireAdminSession, async (_req, res) => {
+    const settings = await getTelegramBotSettings();
+    res.json(getTelegramBotSettingsForAdmin(settings));
+  });
+
+  app.patch("/api/admin/telegram-bot/settings", requireAdminSession, async (req, res) => {
+    const body = req.body || {};
+    const maskingLevels = ["light", "medium", "heavy"];
+    if (body.maskingLevel !== undefined && !maskingLevels.includes(body.maskingLevel)) {
+      return res.status(400).json({ message: "Invalid masking level" });
+    }
+    const parseLimit = (value: unknown, fallback: number) => {
+      if (value === undefined) return fallback;
+      const parsed = Number(value);
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100_000) throw new Error("Limits must be whole numbers between 1 and 100000");
+      return parsed;
+    };
+    try {
+      const current = await getTelegramBotSettings();
+      const allowedServices = body.allowedServices === undefined
+        ? current.allowedServices
+        : Array.isArray(body.allowedServices)
+          ? body.allowedServices.filter((service: unknown): service is TelegramBotService =>
+              typeof service === "string" && (TELEGRAM_BOT_SERVICES as readonly string[]).includes(service),
+            )
+          : (() => { throw new Error("allowedServices must be an array"); })();
+      const allowedGroupIds = body.allowedGroupIds === undefined
+        ? current.allowedGroupIds
+        : Array.isArray(body.allowedGroupIds)
+          ? body.allowedGroupIds.map(String).map((id: string) => id.trim()).filter(Boolean).slice(0, 100)
+          : (() => { throw new Error("allowedGroupIds must be an array"); })();
+      const next = await saveTelegramBotSettings({
+        enabled: body.enabled === undefined ? current.enabled : Boolean(body.enabled),
+        allowedGroupIds,
+        maskingLevel: (body.maskingLevel ?? current.maskingLevel) as TelegramMaskingLevel,
+        groupRateLimit: parseLimit(body.groupRateLimit, current.groupRateLimit),
+        userRateLimit: parseLimit(body.userRateLimit, current.userRateLimit),
+        dailySearchLimit: parseLimit(body.dailySearchLimit, current.dailySearchLimit),
+        allowedServices,
+      });
+      res.json(getTelegramBotSettingsForAdmin(next));
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Invalid Telegram bot settings" });
+    }
+  });
+
+  app.post("/api/admin/telegram-bot/key", requireAdminSession, async (_req, res) => {
+    const apiKey = await generateTelegramBotApiKey();
+    res.json({ success: true, apiKey });
+  });
+
+  app.get("/api/admin/telegram-bot/logs", requireAdminSession, async (req, res) => {
+    const requested = Number(req.query.limit || 100);
+    const limit = Number.isInteger(requested) ? Math.max(1, Math.min(requested, 500)) : 100;
+    const logs = await db.select().from(telegramBotLogs)
+      .orderBy(desc(telegramBotLogs.createdAt))
+      .limit(limit);
+    res.json(logs);
+  });
+
+  // The search bot uses the same existing service routes, but only through
+  // this private key + approved Telegram context.
+  const callTelegramService = async (
+    req: any,
+    settings: Awaited<ReturnType<typeof getTelegramBotSettings>>,
+    context: { groupId: string; telegramUserId: string; username: string },
+    service: TelegramBotService,
+    query: string,
+  ): Promise<{ status: number; payload: any }> => {
+    const forwardedProto = String(req.headers["x-forwarded-proto"] || "https");
+    const host = String(req.headers.host || "");
+    const origin = process.env.VERCEL
+      ? `${forwardedProto}://${host}`
+      : `http://127.0.0.1:${process.env.PORT || 5000}`;
+    const input = service === "email" ? { email: query } : service === "ip" ? { ip: query } : { [service === "mobile" ? "number" : "number"]: query };
+    const response = await fetch(`${origin}/api/services/${service}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-telegram-bot-key": settings.apiKey || "",
+        "x-telegram-group-id": context.groupId,
+        "x-telegram-user-id": context.telegramUserId,
+        "x-telegram-username": context.username,
+        "x-telegram-service": service,
+      },
+      body: JSON.stringify(input),
+    });
+    const payload = await response.json().catch(() => ({ message: "Invalid service response" }));
+    return { status: response.status, payload };
+  };
+
+  const logTelegramBotRequest = async (
+    context: { groupId: string; telegramUserId: string; username: string },
+    service: string,
+    query: string,
+    status: string,
+  ) => {
+    await db.insert(telegramBotLogs).values({
+      telegramUserId: context.telegramUserId,
+      username: context.username || null,
+      groupId: context.groupId,
+      service,
+      query,
+      status,
+    }).catch((error) => console.error("[telegram bot] log error:", error.message));
+  };
+
+  const getTelegramUsage = async (context: { groupId: string; telegramUserId: string }) => {
+    const minuteAgo = new Date(Date.now() - 60_000);
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const [group, user, daily] = await Promise.all([
+      db.select({ count: sql<number>`CAST(COUNT(*) AS INTEGER)` }).from(telegramBotLogs)
+        .where(and(eq(telegramBotLogs.groupId, context.groupId), gte(telegramBotLogs.createdAt, minuteAgo))),
+      db.select({ count: sql<number>`CAST(COUNT(*) AS INTEGER)` }).from(telegramBotLogs)
+        .where(and(eq(telegramBotLogs.telegramUserId, context.telegramUserId), gte(telegramBotLogs.createdAt, minuteAgo))),
+      db.select({ count: sql<number>`CAST(COUNT(*) AS INTEGER)` }).from(telegramBotLogs)
+        .where(gte(telegramBotLogs.createdAt, dayStart)),
+    ]);
+    return { group: group[0]?.count || 0, user: user[0]?.count || 0, daily: daily[0]?.count || 0 };
+  };
+
   // ── TELEGRAM WEBHOOK (public — receives incoming bot messages) ───────────────
   app.post("/api/telegram/webhook", async (req, res) => {
     res.sendStatus(200); // respond immediately — Telegram requires fast response
@@ -2485,6 +2725,7 @@ ${urls.map(u => `  <url>
 
       const chatId = String(message.chat.id);
       const text = (message.text as string).trim();
+      const chatType = String(message.chat.type || "");
 
       const { adminChatIds } = await getTelegramSettings();
       const isAdmin = adminChatIds.includes(chatId);
@@ -2532,13 +2773,13 @@ ${urls.map(u => `  <url>
         return;
       }
 
-      // ── USER COMMAND: /start ───────────────────────────────────────
+      // Keep the existing account-linking flow available in private chats
+      // and groups before applying the search-bot group gate.
       if (text.startsWith("/start")) {
         const parts = text.split(" ");
         const uid = parts[1]?.trim();
 
         if (uid) {
-          // Link the Firebase UID to this Telegram chat
           const existingUser = await storage.getUser(uid);
           if (existingUser) {
             await storage.updateUser(uid, { telegramChatId: chatId });
@@ -2558,18 +2799,123 @@ ${urls.map(u => `  <url>
             `👋 <b>Welcome to TWH_OSINT Bot!</b>\n\nTo link your account:\n1. Go to your Dashboard\n2. Click the <b>CONNECT TELEGRAM</b> button\n3. You'll be linked automatically!\n\n🤖 <a href="https://twh-osint.vercel.app/">TWH_OSINT Platform</a>\n👨‍💻 @technicalwhitehat`,
           );
         }
+        return;
       }
+
+      // Search commands are group-only. Private chats and unknown groups are
+      // intentionally ignored without revealing bot configuration.
+      const settings = await getTelegramBotSettings();
+      if (chatType !== "group" && chatType !== "supergroup") return;
+
+      // Setup helper: revealing the current chat ID does not grant search
+      // access, but removes the need to guess Telegram's -100... group ID
+      // before adding it in the Admin Panel.
+      if (/^\/(?:groupid|id)(?:@[a-z0-9_]+)?$/i.test(text)) {
+        await sendTelegramToUser(
+          chatId,
+          `🆔 <b>This group ID</b>\n<code>${chatId}</code>\n\nAdd this ID under Admin Panel → Telegram Bot → Approved group IDs, then enable the bot.`,
+        );
+        return;
+      }
+
+      if (!settings.enabled || !settings.apiKey || !settings.allowedGroupIds.includes(chatId)) return;
+
+      const commandMatch = text.match(/^\/([a-z0-9_]+)(?:@[a-z0-9_]+)?(?:\s+(.+))?$/i);
+      if (!commandMatch) return;
+      const command = commandMatch[1].toLowerCase();
+      const query = commandMatch[2]?.trim() || "";
+      const commandToService: Record<string, TelegramBotService> = {
+        num: "mobile",
+        mobile: "mobile",
+        aadhar: "aadhar",
+        aadhaar: "aadhar",
+        vehicle: "vehicle",
+        rc: "vehicle",
+        email: "email",
+        ip: "ip",
+      };
+      const service = commandToService[command];
+      const userId = String(message.from?.id || "");
+      const username = message.from?.username || [message.from?.first_name, message.from?.last_name].filter(Boolean).join(" ") || "";
+      const context = { groupId: chatId, telegramUserId: userId, username };
+
+      if (command === "help") {
+        await sendTelegramToUser(chatId, "🤖 <b>Available commands</b>\n\n/mobile 9876543210\n/num 9876543210\n/aadhar 123456789012\n/vehicle DL01AB1234\n/email user@example.com\n/ip 8.8.8.8");
+        return;
+      }
+      if (!service) return;
+      if (!query) {
+        await sendTelegramToUser(chatId, `❌ Usage: /${command} <query>`);
+        return;
+      }
+      if (!settings.allowedServices.includes(service)) {
+        await logTelegramBotRequest(context, service, query, "SERVICE_NOT_ALLOWED");
+        await sendTelegramToUser(chatId, "❌ This service is not enabled for the Telegram bot.");
+        return;
+      }
+
+      const usage = await getTelegramUsage(context);
+      if (usage.group >= settings.groupRateLimit) {
+        await logTelegramBotRequest(context, service, query, "GROUP_RATE_LIMIT");
+        await sendTelegramToUser(chatId, "⏳ Group rate limit reached. Please try again in a minute.");
+        return;
+      }
+      if (usage.user >= settings.userRateLimit) {
+        await logTelegramBotRequest(context, service, query, "USER_RATE_LIMIT");
+        await sendTelegramToUser(chatId, "⏳ Your rate limit is reached. Please try again in a minute.");
+        return;
+      }
+      if (usage.daily >= settings.dailySearchLimit) {
+        await logTelegramBotRequest(context, service, query, "DAILY_LIMIT");
+        await sendTelegramToUser(chatId, "⏳ The Telegram bot daily search limit has been reached.");
+        return;
+      }
+
+      try {
+        const result = await callTelegramService(req, settings, context, service, query);
+        if (result.status >= 400) {
+          await logTelegramBotRequest(context, service, query, `DENIED_${result.status}`);
+          await sendTelegramToUser(chatId, `❌ ${result.payload?.message || "Search failed."}`);
+          return;
+        }
+        await logTelegramBotRequest(context, service, query, "SUCCESS");
+        await sendTelegramToUser(chatId, formatTelegramBotResult(service, query, result.payload?.data, settings.maskingLevel));
+      } catch (error: any) {
+        await logTelegramBotRequest(context, service, query, "ERROR");
+        await sendTelegramToUser(chatId, "❌ Search service is temporarily unavailable.");
+        console.error("[telegram bot] search error:", error.message);
+      }
+      return;
+
     } catch (e: any) {
       console.error("[Telegram webhook] Error:", e.message);
     }
   });
 
-  // Auto-register Telegram webhook on startup
-  const domain = process.env.REPLIT_DEV_DOMAIN || "";
-  if (domain) {
-    setupTelegramWebhook(domain).catch((e) =>
+  // Idempotent table creation for imported deployments that do not run a
+  // separate migration step.
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS telegram_bot_logs (
+      id SERIAL PRIMARY KEY,
+      telegram_user_id TEXT NOT NULL,
+      username TEXT,
+      group_id TEXT NOT NULL,
+      service TEXT NOT NULL,
+      query TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `).catch((error) => console.error("[telegram bot] table init error:", error.message));
+
+  // Auto-register only against an explicitly configured stable production URL.
+  // Development preview domains must never overwrite the production webhook.
+  const webhookUrl = getConfiguredTelegramWebhookUrl();
+  if (webhookUrl) {
+    setupTelegramWebhook(webhookUrl).catch((e) =>
       console.error("[Telegram] Webhook auto-setup failed:", e.message),
     );
+  } else {
+    console.log("[Telegram] Stable webhook URL not configured; automatic webhook setup skipped");
   }
 
   // ── PREMIUM ACCESS SYSTEM ─────────────────────────────────────────────────
@@ -2589,6 +2935,13 @@ ${urls.map(u => `  <url>
           status TEXT NOT NULL DEFAULT 'active',
           expires_at TIMESTAMP,
           last_login TIMESTAMP,
+          show_ads BOOLEAN NOT NULL DEFAULT TRUE,
+          search_limit INTEGER,
+          search_limit_unlimited BOOLEAN NOT NULL DEFAULT TRUE,
+          rate_limit_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+          rate_limit_rpm INTEGER,
+          rate_limit_hourly INTEGER,
+          rate_limit_unlimited BOOLEAN NOT NULL DEFAULT TRUE,
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
@@ -2596,9 +2949,46 @@ ${urls.map(u => `  <url>
       await db.execute(sql`
         ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE
       `);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS show_ads BOOLEAN NOT NULL DEFAULT TRUE`);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS search_limit INTEGER`);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS search_limit_unlimited BOOLEAN NOT NULL DEFAULT TRUE`);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_enabled BOOLEAN NOT NULL DEFAULT FALSE`);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_rpm INTEGER`);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_hourly INTEGER`);
+      await db.execute(sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_unlimited BOOLEAN NOT NULL DEFAULT TRUE`);
     } catch (e: any) {
       console.error("[premium] Table init error:", e.message);
     }
+
+    // ── PUBLIC: Premium Login (email + password) ─────────────────────────
+    app.post("/api/premium/login", async (req, res) => {
+      const { email, password } = req.body;
+      if (!email || !password) return res.status(400).json({ message: "Email and password required" });
+      try {
+        const bcrypt = await import("bcryptjs");
+        const [user] = await db.select().from(premiumUsers).where(eq(premiumUsers.email, email.trim().toLowerCase()));
+        if (!user || !user.passwordHash) return res.status(401).json({ message: "Invalid email or password" });
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        if (!valid) return res.status(401).json({ message: "Invalid email or password" });
+        if (user.status !== "active") return res.status(403).json({ message: "Account is disabled" });
+        if (user.expiresAt && new Date() > user.expiresAt) return res.status(403).json({ message: "Account has expired" });
+        const token = signPremiumToken(user.id);
+        res.setHeader("Set-Cookie", `premiumAuth=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=604800; Secure; SameSite=None`);
+        db.update(premiumUsers).set({ lastLogin: new Date() }).where(eq(premiumUsers.id, user.id)).catch(() => {});
+         res.json({
+           id: user.id, email: user.email, role: user.role, expiresAt: user.expiresAt,
+           showAds: user.showAds,
+           searchLimit: user.searchLimit,
+           searchLimitUnlimited: user.searchLimitUnlimited,
+           rateLimitEnabled: user.rateLimitEnabled,
+           rateLimitRpm: user.rateLimitRpm,
+           rateLimitHourly: user.rateLimitHourly,
+           rateLimitUnlimited: user.rateLimitUnlimited,
+         });
+      } catch (err: any) {
+        res.status(500).json({ message: "Login failed" });
+      }
+    });
 
     // ── PUBLIC: Premium Logout ────────────────────────────────────────────
     app.post("/api/premium/logout", (_req, res) => {
@@ -2621,7 +3011,19 @@ ${urls.map(u => `  <url>
         if (!user) return res.status(401).json({ message: "User not found" });
         if (user.status !== "active") return res.status(403).json({ message: "Account disabled" });
         if (user.expiresAt && new Date() > user.expiresAt) return res.status(403).json({ message: "Account expired" });
-        res.json({ id: user.id, email: user.email, role: user.role, expiresAt: user.expiresAt });
+        res.json({
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          expiresAt: user.expiresAt,
+          showAds: user.showAds,
+          searchLimit: user.searchLimit,
+          searchLimitUnlimited: user.searchLimitUnlimited,
+          rateLimitEnabled: user.rateLimitEnabled,
+          rateLimitRpm: user.rateLimitRpm,
+          rateLimitHourly: user.rateLimitHourly,
+          rateLimitUnlimited: user.rateLimitUnlimited,
+        });
       } catch (err: any) {
         res.status(500).json({ message: "Verification failed" });
       }
@@ -2637,6 +3039,13 @@ ${urls.map(u => `  <url>
           status: premiumUsers.status,
           expiresAt: premiumUsers.expiresAt,
           lastLogin: premiumUsers.lastLogin,
+          showAds: premiumUsers.showAds,
+          searchLimit: premiumUsers.searchLimit,
+          searchLimitUnlimited: premiumUsers.searchLimitUnlimited,
+          rateLimitEnabled: premiumUsers.rateLimitEnabled,
+          rateLimitRpm: premiumUsers.rateLimitRpm,
+          rateLimitHourly: premiumUsers.rateLimitHourly,
+          rateLimitUnlimited: premiumUsers.rateLimitUnlimited,
           createdAt: premiumUsers.createdAt,
         }).from(premiumUsers).orderBy(desc(premiumUsers.createdAt));
         res.json(users);
@@ -2654,8 +3063,15 @@ ${urls.map(u => `  <url>
         return res.status(400).json({ message: "Email is required" });
       }
       try {
+        const { password } = req.body;
+        let passwordHash: string | null = null;
+        if (password?.trim()) {
+          const bcrypt = await import("bcryptjs");
+          passwordHash = await bcrypt.hash(password.trim(), 10);
+        }
         const [user] = await db.insert(premiumUsers).values({
           email: email.trim().toLowerCase(),
+          passwordHash,
           expiresAt: expiresAt ? new Date(expiresAt) : null,
         }).returning({
           id: premiumUsers.id,
@@ -2670,6 +3086,22 @@ ${urls.map(u => `  <url>
         if (err.message?.includes("unique")) {
           return res.status(409).json({ message: "Email already exists" });
         }
+        res.status(500).json({ message: err.message });
+      }
+    });
+
+    // ── ADMIN: Set/update password ────────────────────────────────────────
+    app.patch("/api/admin/premium-users/:id/password", requireAdminSession, async (req, res) => {
+      const id = parseInt(req.params.id);
+      const { password } = req.body;
+      if (!password?.trim()) return res.status(400).json({ message: "Password is required" });
+      try {
+        const bcrypt = await import("bcryptjs");
+        const passwordHash = await bcrypt.hash(password.trim(), 10);
+        const [updated] = await db.update(premiumUsers).set({ passwordHash }).where(eq(premiumUsers.id, id)).returning({ id: premiumUsers.id });
+        if (!updated) return res.status(404).json({ message: "User not found" });
+        res.json({ success: true });
+      } catch (err: any) {
         res.status(500).json({ message: err.message });
       }
     });
@@ -2692,11 +3124,80 @@ ${urls.map(u => `  <url>
     app.patch("/api/admin/premium-users/:id/expiry", requireAdminSession, async (req, res) => {
       const id = parseInt(req.params.id);
       const { expiresAt } = req.body;
+      if (!Number.isInteger(id)) {
+        return res.status(400).json({ message: "Invalid user id" });
+      }
       try {
-        await db.update(premiumUsers).set({ expiresAt: expiresAt ? new Date(expiresAt) : null }).where(eq(premiumUsers.id, id));
-        res.json({ success: true });
+        const parsedExpiry = expiresAt ? new Date(expiresAt) : null;
+        if (parsedExpiry && Number.isNaN(parsedExpiry.getTime())) {
+          return res.status(400).json({ message: "Invalid expiry date" });
+        }
+        const [updated] = await db.update(premiumUsers)
+          .set({ expiresAt: parsedExpiry })
+          .where(eq(premiumUsers.id, id))
+          .returning({ id: premiumUsers.id, expiresAt: premiumUsers.expiresAt });
+        if (!updated) return res.status(404).json({ message: "User not found" });
+        res.json({ success: true, ...updated });
       } catch (err: any) {
         res.status(500).json({ message: err.message });
+      }
+    });
+
+    // ── ADMIN: Update per-user premium controls ─────────────────────────────
+    app.patch("/api/admin/premium-users/:id/settings", requireAdminSession, async (req, res) => {
+      const id = parseInt(req.params.id);
+      const {
+        showAds,
+        searchLimit,
+        searchLimitUnlimited,
+        rateLimitEnabled,
+        rateLimitRpm,
+        rateLimitHourly,
+        rateLimitUnlimited,
+      } = req.body;
+
+      if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid user ID" });
+      if (typeof showAds !== "boolean" ||
+          typeof searchLimitUnlimited !== "boolean" ||
+          typeof rateLimitEnabled !== "boolean" ||
+          typeof rateLimitUnlimited !== "boolean") {
+        return res.status(400).json({ message: "Invalid premium settings" });
+      }
+
+      const parseLimit = (value: unknown, label: string) => {
+        if (value === null || value === "" || value === undefined) return null;
+        const parsed = Number(value);
+        if (!Number.isInteger(parsed) || parsed < 1 || parsed > 1_000_000) {
+          throw new Error(`${label} must be a positive whole number`);
+        }
+        return parsed;
+      };
+
+      try {
+        const updatedValues = {
+          showAds,
+          searchLimit: parseLimit(searchLimit, "Daily search limit"),
+          searchLimitUnlimited,
+          rateLimitEnabled,
+          rateLimitRpm: parseLimit(rateLimitRpm, "Requests per minute"),
+          rateLimitHourly: parseLimit(rateLimitHourly, "Requests per hour"),
+          rateLimitUnlimited,
+        };
+        if (!searchLimitUnlimited && updatedValues.searchLimit === null) {
+          throw new Error("Enter a daily search limit or select Unlimited");
+        }
+        if (rateLimitEnabled && !rateLimitUnlimited &&
+            updatedValues.rateLimitRpm === null && updatedValues.rateLimitHourly === null) {
+          throw new Error("Enter requests per minute or hour, or select Unlimited");
+        }
+        const [updated] = await db.update(premiumUsers)
+          .set(updatedValues)
+          .where(eq(premiumUsers.id, id))
+          .returning();
+        if (!updated) return res.status(404).json({ message: "Premium user not found" });
+        res.json(updatedValues);
+      } catch (err: any) {
+        res.status(400).json({ message: err.message || "Invalid premium settings" });
       }
     });
 

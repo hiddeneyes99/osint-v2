@@ -101,12 +101,18 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.60.5
         version: 5.101.0(react@18.3.1)
+      '@types/bcryptjs':
+        specifier: ^2.4.6
+        version: 2.4.6
       '@types/memoizee':
         specifier: ^0.4.12
         version: 0.4.12
       '@types/multer':
         specifier: ^2.1.0
         version: 2.1.0
+      bcryptjs:
+        specifier: ^3.0.3
+        version: 3.0.3
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -179,6 +185,9 @@ importers:
       pg:
         specifier: ^8.16.3
         version: 8.21.0
+      pg-cloudflare:
+        specifier: ^1.4.0
+        version: 1.4.0
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -296,8 +305,8 @@ importers:
         version: 7.3.5(@types/node@20.19.27)(jiti@1.21.7)(lightningcss@1.32.0)(tsx@4.22.4)
     optionalDependencies:
       '@rollup/rollup-linux-x64-gnu':
-        specifier: ^4.62.0
-        version: 4.62.0
+        specifier: ^4.62.2
+        version: 4.62.2
       bufferutil:
         specifier: ^4.0.8
         version: 4.1.0
@@ -2084,6 +2093,12 @@ packages:
     os: [linux]
     libc: [glibc]
 
+  '@rollup/rollup-linux-x64-gnu@4.62.2':
+    resolution: {integrity: sha512-5BqxR/pshjey51iliyzTD5Xi3EN0aLmQ2lZ3lvefVV9c82BvrLo2/6OT55iifpWBufs6kdwWbuOKS841DrmK9A==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
   '@rollup/rollup-linux-x64-musl@4.62.0':
     resolution: {integrity: sha512-eRZevouTH2i1HeAVLqJuLnt256krQkGY0TN6WsTmsIhuzbh457HuWDMakKwmi0Cjadux983CoSr8Lim2QhUIFw==}
     cpu: [x64]
@@ -2242,6 +2257,9 @@ packages:
 
   '@types/babel__traverse@7.28.0':
     resolution: {integrity: sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q==}
+
+  '@types/bcryptjs@2.4.6':
+    resolution: {integrity: sha512-9xlo6R2qDs5uixm0bcIqCeMCE6HiQsIyel9KQySStiyqNl2tnj2mP3DX1Nf56MD6KMenNNlBBsy3LJ7gUEQPXQ==}
 
   '@types/body-parser@1.19.6':
     resolution: {integrity: sha512-HLFeCYgz89uk22N5Qg3dvGvsv46B8GLvKKo1zKG4NybA8U2DiEO3w9lqGg29t/tfLRJpJ6iQxnVw4OnB7MoM9g==}
@@ -2435,6 +2453,10 @@ packages:
   baseline-browser-mapping@2.10.38:
     resolution: {integrity: sha512-31/02mVB4yuQU6adKk5SlY6m+mxDwUq5KZkyYgnLrrKl7TEm1+3PyDtDBz2kOv/wxZz41GHsvV1A/u6RmiyBvw==}
     engines: {node: '>=6.0.0'}
+    hasBin: true
+
+  bcryptjs@3.0.3:
+    resolution: {integrity: sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==}
     hasBin: true
 
   bignumber.js@9.3.1:
@@ -5867,6 +5889,9 @@ snapshots:
   '@rollup/rollup-linux-x64-gnu@4.62.0':
     optional: true
 
+  '@rollup/rollup-linux-x64-gnu@4.62.2':
+    optional: true
+
   '@rollup/rollup-linux-x64-musl@4.62.0':
     optional: true
 
@@ -5991,6 +6016,8 @@ snapshots:
   '@types/babel__traverse@7.28.0':
     dependencies:
       '@babel/types': 7.29.7
+
+  '@types/bcryptjs@2.4.6': {}
 
   '@types/body-parser@1.19.6':
     dependencies:
@@ -6216,6 +6243,8 @@ snapshots:
   base64-js@1.5.1: {}
 
   baseline-browser-mapping@2.10.38: {}
+
+  bcryptjs@3.0.3: {}
 
   bignumber.js@9.3.1: {}
 
@@ -7426,8 +7455,7 @@ snapshots:
 
   pause@0.0.1: {}
 
-  pg-cloudflare@1.4.0:
-    optional: true
+  pg-cloudflare@1.4.0: {}
 
   pg-connection-string@2.13.0: {}
 

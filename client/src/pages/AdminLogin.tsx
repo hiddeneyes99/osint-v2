@@ -9,7 +9,7 @@ import {
   Activity, FileText, Gauge, MessageSquare, LogIn, TrendingUp, Zap,
   Send, StickyNote, Clock, Bot, Plus, X, ChevronDown,
   Power, Smartphone, Car, Globe, Mail, ToggleLeft, ToggleRight,
-  Bell, MonitorPlay, Menu, Crown, Key, Eye, EyeOff, Copy, CheckCircle2, XCircle, RotateCcw, CalendarClock
+  Bell, MonitorPlay, Menu, Crown, Key, Eye, EyeOff, Copy, CheckCircle2, XCircle, RotateCcw, CalendarClock, KeyRound
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect, useRef } from "react";
@@ -80,6 +80,15 @@ export default function AdminLogin() {
   });
 
   const [isTelegramOpen, setIsTelegramOpen] = useState(false);
+  const [telegramBotForm, setTelegramBotForm] = useState({
+    enabled: false,
+    allowedGroupIds: "",
+    maskingLevel: "medium",
+    groupRateLimit: 10,
+    userRateLimit: 5,
+    dailySearchLimit: 100,
+    allowedServices: ["mobile", "aadhar", "vehicle", "email", "ip"],
+  });
   const [isTgUsersOpen, setIsTgUsersOpen] = useState(false);
   const [tgUserSearch, setTgUserSearch] = useState("");
   const [tgPingPending, setTgPingPending] = useState<string | null>(null);
@@ -101,7 +110,19 @@ export default function AdminLogin() {
 
   // ── Premium Users state ─────────────────────────────────────────────────
   const [premiumCreateOpen, setPremiumCreateOpen] = useState(false);
-  const [premiumCreateForm, setPremiumCreateForm] = useState({ email: "", expiresAt: "" });
+  const [premiumCreateForm, setPremiumCreateForm] = useState({ email: "", password: "", expiresAt: "" });
+  const [premiumExpiryTarget, setPremiumExpiryTarget] = useState<PremiumUserRow | null>(null);
+  const [premiumExpiryValue, setPremiumExpiryValue] = useState("");
+  const [premiumSettingsTarget, setPremiumSettingsTarget] = useState<PremiumUserRow | null>(null);
+  const [premiumSettingsForm, setPremiumSettingsForm] = useState({
+    showAds: true,
+    searchLimit: "",
+    searchLimitUnlimited: true,
+    rateLimitEnabled: false,
+    rateLimitRpm: "",
+    rateLimitHourly: "",
+    rateLimitUnlimited: true,
+  });
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -154,10 +175,58 @@ export default function AdminLogin() {
     enabled: isLoggedIn,
   });
 
+  const { data: telegramBotSettings, refetch: refetchTelegramBotSettings } = useQuery<{
+    enabled: boolean;
+    allowedGroupIds: string[];
+    apiKeySet: boolean;
+    apiKeyPreview: string | null;
+    maskingLevel: "light" | "medium" | "heavy";
+    groupRateLimit: number;
+    userRateLimit: number;
+    dailySearchLimit: number;
+    allowedServices: string[];
+  }>({
+    queryKey: ["/api/admin/telegram-bot/settings"],
+    enabled: isLoggedIn,
+  });
+
+  const { data: telegramBotLogs = [], refetch: refetchTelegramBotLogs } = useQuery<Array<{
+    id: number;
+    telegramUserId: string;
+    username: string | null;
+    groupId: string;
+    service: string;
+    query: string;
+    status: string;
+    createdAt: string | null;
+  }>>({
+    queryKey: ["/api/admin/telegram-bot/logs"],
+    enabled: isLoggedIn && activeSection === "telegram-bot",
+  });
+
+  const { data: telegramWebhookStatus, refetch: refetchTelegramWebhookStatus } = useQuery<{
+    configuredUrl: string | null;
+    telegram: {
+      ok: boolean;
+      description?: string;
+      result?: {
+        url?: string;
+        pending_update_count?: number;
+        last_error_message?: string;
+      };
+    };
+  }>({
+    queryKey: ["/api/admin/telegram/webhook"],
+    enabled: isLoggedIn && activeSection === "telegram-bot",
+  });
+
   // ── Premium Users query ──────────────────────────────────────────────────
   interface PremiumUserRow {
     id: number; email: string | null; role: string; status: string;
     expiresAt: string | null; lastLogin: string | null; createdAt: string;
+    showAds: boolean; searchLimit: number | null; searchLimitUnlimited: boolean;
+    rateLimitEnabled: boolean; rateLimitRpm: number | null; rateLimitHourly: number | null;
+    rateLimitUnlimited: boolean;
   }
   const { data: premiumUsersList = [], refetch: refetchPremiumUsers } = useQuery<PremiumUserRow[]>({
     queryKey: ["/api/admin/premium-users"],
@@ -171,11 +240,25 @@ export default function AdminLogin() {
     }
   }, [tgSettings?.adminChatIds]);
 
+  useEffect(() => {
+    if (!telegramBotSettings) return;
+    setTelegramBotForm({
+      enabled: telegramBotSettings.enabled,
+      allowedGroupIds: telegramBotSettings.allowedGroupIds.join("\n"),
+      maskingLevel: telegramBotSettings.maskingLevel,
+      groupRateLimit: telegramBotSettings.groupRateLimit,
+      userRateLimit: telegramBotSettings.userRateLimit,
+      dailySearchLimit: telegramBotSettings.dailySearchLimit,
+      allowedServices: telegramBotSettings.allowedServices,
+    });
+  }, [telegramBotSettings]);
+
   // ── Premium Users mutations ─────────────────────────────────────────────
   const createPremiumMutation = useMutation({
     mutationFn: async (data: typeof premiumCreateForm) => {
       const res = await fetch("/api/admin/premium-users", {
         method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(data),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
@@ -184,7 +267,7 @@ export default function AdminLogin() {
     onSuccess: () => {
       refetchPremiumUsers();
       setPremiumCreateOpen(false);
-      setPremiumCreateForm({ email: "", expiresAt: "" });
+      setPremiumCreateForm({ email: "", password: "", expiresAt: "" });
       toast({ title: "Premium user added", description: "They'll receive premium access automatically on next login." });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -192,7 +275,7 @@ export default function AdminLogin() {
 
   const togglePremiumMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/admin/premium-users/${id}/toggle`, { method: "PATCH" });
+      const res = await fetch(`/api/admin/premium-users/${id}/toggle`, { method: "PATCH", credentials: "include" });
       if (!res.ok) throw new Error("Failed to toggle");
       return res.json();
     },
@@ -200,13 +283,107 @@ export default function AdminLogin() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const openPremiumExpiry = (user: PremiumUserRow) => {
+    setPremiumExpiryTarget(user);
+    if (!user.expiresAt) {
+      setPremiumExpiryValue("");
+      return;
+    }
+    const date = new Date(user.expiresAt);
+    const pad = (value: number) => String(value).padStart(2, "0");
+    setPremiumExpiryValue(
+      `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`,
+    );
+  };
+
+  const updatePremiumExpiryMutation = useMutation({
+    mutationFn: async ({ id, expiresAt }: { id: number; expiresAt: string }) => {
+      const res = await fetch(`/api/admin/premium-users/${id}/expiry`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Failed to update expiry");
+      return data;
+    },
+    onSuccess: () => {
+      refetchPremiumUsers();
+      setPremiumExpiryTarget(null);
+      setPremiumExpiryValue("");
+      toast({ title: "Expiry updated", description: "Premium access expiry has been updated." });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const deletePremiumMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/admin/premium-users/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/premium-users/${id}`, { method: "DELETE", credentials: "include" });
       if (!res.ok) throw new Error("Failed to delete");
       return res.json();
     },
     onSuccess: () => { refetchPremiumUsers(); toast({ title: "Premium user deleted" }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const openPremiumSettings = (user: PremiumUserRow) => {
+    setPremiumSettingsTarget(user);
+    setPremiumSettingsForm({
+      showAds: user.showAds ?? true,
+      searchLimit: user.searchLimit?.toString() ?? "",
+      searchLimitUnlimited: user.searchLimitUnlimited ?? true,
+      rateLimitEnabled: user.rateLimitEnabled ?? false,
+      rateLimitRpm: user.rateLimitRpm?.toString() ?? "",
+      rateLimitHourly: user.rateLimitHourly?.toString() ?? "",
+      rateLimitUnlimited: user.rateLimitUnlimited ?? true,
+    });
+  };
+
+  const updatePremiumSettingsMutation = useMutation({
+    mutationFn: async ({ id, settings }: { id: number; settings: typeof premiumSettingsForm }) => {
+      const res = await fetch(`/api/admin/premium-users/${id}/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          ...settings,
+          searchLimit: settings.searchLimit.trim() || null,
+          rateLimitRpm: settings.rateLimitRpm.trim() || null,
+          rateLimitHourly: settings.rateLimitHourly.trim() || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Failed to update premium settings");
+      return data;
+    },
+    onSuccess: () => {
+      refetchPremiumUsers();
+      setPremiumSettingsTarget(null);
+      toast({ title: "Premium controls updated", description: "Changes apply to the user's next request immediately." });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const [setPasswordDialog, setSetPasswordDialog] = useState<{ id: number; email: string } | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+
+  const setPasswordMutation = useMutation({
+    mutationFn: async ({ id, password }: { id: number; password: string }) => {
+      const res = await fetch(`/api/admin/premium-users/${id}/password`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ password }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+      return res.json();
+    },
+    onSuccess: () => {
+      setSetPasswordDialog(null);
+      setNewPassword("");
+      toast({ title: "Password updated", description: "User can now login with the new password." });
+    },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -446,6 +623,59 @@ export default function AdminLogin() {
     },
     onSuccess: () => { refetchTgSettings(); setTgBotToken(""); setTgNewAdminId(""); toast({ title: "✅ Telegram settings saved" }); },
     onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
+  });
+
+  const saveTelegramBotMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/telegram-bot/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: telegramBotForm.enabled,
+          allowedGroupIds: telegramBotForm.allowedGroupIds.split(/\r?\n|,/).map((id) => id.trim()).filter(Boolean),
+          maskingLevel: telegramBotForm.maskingLevel,
+          groupRateLimit: telegramBotForm.groupRateLimit,
+          userRateLimit: telegramBotForm.userRateLimit,
+          dailySearchLimit: telegramBotForm.dailySearchLimit,
+          allowedServices: telegramBotForm.allowedServices,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || "Failed to save bot settings");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchTelegramBotSettings();
+      toast({ title: "Telegram Bot settings saved" });
+    },
+    onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
+  });
+
+  const generateTelegramBotKeyMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/telegram-bot/key", { method: "POST" });
+      if (!res.ok) throw new Error((await res.json()).message || "Failed to generate key");
+      return res.json() as Promise<{ apiKey: string }>;
+    },
+    onSuccess: (data) => {
+      refetchTelegramBotSettings();
+      navigator.clipboard?.writeText(data.apiKey).catch(() => {});
+      toast({ title: "New API key generated", description: "The key was copied to your clipboard. Store it securely." });
+    },
+    onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
+  });
+
+  const registerTelegramWebhookMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/telegram/webhook", { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || "Failed to register webhook");
+      return body;
+    },
+    onSuccess: () => {
+      refetchTelegramWebhookStatus();
+      toast({ title: "Telegram webhook registered", description: "The bot is now pointing at the stable production endpoint." });
+    },
+    onError: (e: any) => toast({ variant: "destructive", title: "Webhook registration failed", description: e.message }),
   });
 
   const testTgMutation = useMutation({
@@ -887,6 +1117,7 @@ export default function AdminLogin() {
                 { icon: <Terminal className="w-3.5 h-3.5" />, label: "Queries", section: "logs", action: () => { setActiveSection("logs"); setSelectedUserForDetail(null); setMobileSidebarOpen(false); } },
                 { icon: <ShieldAlert className="w-3.5 h-3.5" />, label: "IP Management", section: null, action: () => { setIsIpBlockedOpen(true); setMobileSidebarOpen(false); } },
                 { icon: <Bot className="w-3.5 h-3.5" />, label: "Telegram", section: null, action: () => { setIsTelegramOpen(true); setMobileSidebarOpen(false); } },
+                { icon: <KeyRound className="w-3.5 h-3.5" />, label: "Telegram Bot", section: "telegram-bot", action: () => { setActiveSection("telegram-bot"); setSelectedUserForDetail(null); setMobileSidebarOpen(false); } },
                 { icon: <Megaphone className="w-3.5 h-3.5" />, label: "Broadcasts", section: null, action: () => { setIsBroadcastOpen(true); setMobileSidebarOpen(false); } },
                 { icon: <Bell className="w-3.5 h-3.5" />, label: "Notify All", section: null, action: () => { setIsBroadcastNotifOpen(true); setMobileSidebarOpen(false); } },
                 { icon: <MonitorPlay className="w-3.5 h-3.5" />, label: "Ads Manager", section: "ads", action: () => { setActiveSection("ads"); setSelectedUserForDetail(null); setMobileSidebarOpen(false); } },
@@ -935,6 +1166,7 @@ export default function AdminLogin() {
             { icon: <Terminal className="w-3.5 h-3.5" />, label: "Queries", section: "logs", action: () => { setActiveSection("logs"); setSelectedUserForDetail(null); } },
             { icon: <ShieldAlert className="w-3.5 h-3.5" />, label: "IP Management", section: null, action: () => setIsIpBlockedOpen(true) },
             { icon: <Bot className="w-3.5 h-3.5" />, label: "Telegram", section: null, action: () => setIsTelegramOpen(true) },
+            { icon: <KeyRound className="w-3.5 h-3.5" />, label: "Telegram Bot", section: "telegram-bot", action: () => { setActiveSection("telegram-bot"); setSelectedUserForDetail(null); } },
             { icon: <Megaphone className="w-3.5 h-3.5" />, label: "Broadcasts", section: null, action: () => setIsBroadcastOpen(true) },
             { icon: <Bell className="w-3.5 h-3.5" />, label: "Notify All", section: null, action: () => setIsBroadcastNotifOpen(true) },
             { icon: <MonitorPlay className="w-3.5 h-3.5" />, label: "Ads Manager", section: "ads", action: () => { setActiveSection("ads"); setSelectedUserForDetail(null); } },
@@ -1906,6 +2138,230 @@ export default function AdminLogin() {
             </div>
           )}
 
+          {/* ── TELEGRAM SEARCH BOT SECTION ── */}
+          {activeSection === "telegram-bot" && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <KeyRound className="w-5 h-5 text-violet-400" /> Telegram Bot
+                  </h2>
+                  <p className="text-xs text-white/30 mt-1">Private-group search bot controls. The existing Telegram Terminal remains separate.</p>
+                </div>
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
+                  telegramBotForm.enabled
+                    ? "text-green-300 bg-green-500/10 border-green-500/25"
+                    : "text-white/35 bg-white/[0.04] border-white/[0.1]"
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${telegramBotForm.enabled ? "bg-green-400 animate-pulse" : "bg-white/25"}`} />
+                  {telegramBotForm.enabled ? "Bot enabled" : "Bot disabled"}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-cyan-500/20 p-5" style={{ background: "rgba(9,5,26,0.8)" }}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-white">Webhook connection</div>
+                    <div className="text-[10px] text-white/30 mt-1">
+                      Telegram must point to the stable production URL. The Replit preview URL is never used automatically.
+                    </div>
+                    <div className="mt-3 space-y-1 text-[10px] font-mono">
+                      <div className="text-white/45">
+                        Configured: <span className="text-cyan-300/80 break-all">{telegramWebhookStatus?.configuredUrl || "Not configured"}</span>
+                      </div>
+                      <div className="text-white/45">
+                        Telegram: <span className={telegramWebhookStatus?.telegram?.ok ? "text-green-300" : "text-amber-300"}>
+                          {telegramWebhookStatus?.telegram?.ok
+                            ? telegramWebhookStatus.telegram.result?.url || "Connected"
+                            : telegramWebhookStatus?.telegram?.description || "Not checked"}
+                        </span>
+                      </div>
+                      {telegramWebhookStatus?.telegram?.result?.pending_update_count !== undefined && (
+                        <div className="text-white/35">
+                          Pending updates: {telegramWebhookStatus.telegram.result.pending_update_count}
+                        </div>
+                      )}
+                      {telegramWebhookStatus?.telegram?.result?.last_error_message && (
+                        <div className="text-red-300/80 break-all">
+                          Last Telegram error: {telegramWebhookStatus.telegram.result.last_error_message}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => refetchTelegramWebhookStatus()}
+                      className="h-9 px-3 text-[10px] border-white/[0.12] text-white/60 hover:text-white"
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1.5" /> Check
+                    </Button>
+                    <Button
+                      onClick={() => registerTelegramWebhookMutation.mutate()}
+                      disabled={registerTelegramWebhookMutation.isPending}
+                      className="h-9 px-3 text-[10px] bg-cyan-600 hover:bg-cyan-500 text-white"
+                    >
+                      {registerTelegramWebhookMutation.isPending ? "Registering…" : "Register webhook"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid lg:grid-cols-2 gap-5">
+                <div className="rounded-2xl border border-violet-500/20 p-5 space-y-5" style={{ background: "rgba(9,5,26,0.8)" }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-white">Access & security</div>
+                      <div className="text-[10px] text-white/30 mt-1">Only approved groups with the dedicated key are accepted.</div>
+                    </div>
+                    <button
+                      onClick={() => setTelegramBotForm((form) => ({ ...form, enabled: !form.enabled }))}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${telegramBotForm.enabled ? "bg-violet-600" : "bg-white/10"}`}
+                      aria-label="Toggle Telegram Bot"
+                    >
+                      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${telegramBotForm.enabled ? "translate-x-6" : "translate-x-1"}`} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-white/40">Approved group IDs</label>
+                    <textarea
+                      value={telegramBotForm.allowedGroupIds}
+                      onChange={(e) => setTelegramBotForm((form) => ({ ...form, allowedGroupIds: e.target.value }))}
+                      placeholder={"-1001234567890\n-1009876543210"}
+                      rows={4}
+                      className="w-full rounded-xl bg-white/[0.04] border border-white/[0.1] text-white text-sm px-3 py-2 outline-none focus:border-violet-500/50 resize-none font-mono"
+                    />
+                    <p className="text-[10px] text-white/25">One group ID per line. Private chats and other groups are ignored.</p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-amber-500/15 bg-amber-500/[0.04]">
+                    <div className="min-w-0">
+                      <div className="text-[10px] uppercase tracking-widest text-amber-300/70">Dedicated API key</div>
+                      <div className="text-xs text-white/45 font-mono mt-1 truncate">
+                        {telegramBotSettings?.apiKeySet ? telegramBotSettings.apiKeyPreview : "Not generated"}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => generateTelegramBotKeyMutation.mutate()}
+                      disabled={generateTelegramBotKeyMutation.isPending}
+                      className="shrink-0 h-8 px-3 text-[10px] bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:bg-amber-500/20"
+                    >
+                      {generateTelegramBotKeyMutation.isPending ? "Generating…" : telegramBotSettings?.apiKeySet ? "Rotate key" : "Generate key"}
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-amber-300/45">Rotating the key invalidates the previous key immediately. The full key is shown once and copied to your clipboard.</p>
+                </div>
+
+                <div className="rounded-2xl border border-violet-500/20 p-5 space-y-5" style={{ background: "rgba(9,5,26,0.8)" }}>
+                  <div>
+                    <div className="text-xs font-bold text-white">Privacy & limits</div>
+                    <div className="text-[10px] text-white/30 mt-1">Sensitive values are masked before Telegram receives a result.</div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <label className="space-y-1">
+                      <span className="text-[10px] uppercase tracking-widest text-white/40">Masking level</span>
+                      <select
+                        value={telegramBotForm.maskingLevel}
+                        onChange={(e) => setTelegramBotForm((form) => ({ ...form, maskingLevel: e.target.value }))}
+                        className="w-full h-9 rounded-lg bg-white/[0.04] border border-white/[0.1] text-white text-xs px-2 outline-none"
+                      >
+                        <option value="light">Light</option>
+                        <option value="medium">Medium</option>
+                        <option value="heavy">Heavy</option>
+                      </select>
+                    </label>
+                    {[
+                      ["Group requests/min", "groupRateLimit"],
+                      ["User requests/min", "userRateLimit"],
+                      ["Daily searches", "dailySearchLimit"],
+                    ].map(([label, key]) => (
+                      <label key={key} className="space-y-1">
+                        <span className="text-[10px] uppercase tracking-widest text-white/40">{label}</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={telegramBotForm[key as keyof typeof telegramBotForm] as number}
+                          onChange={(e) => setTelegramBotForm((form) => ({ ...form, [key]: Number(e.target.value) }))}
+                          className="h-9 bg-white/[0.04] border-white/[0.1] text-white text-xs"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <span className="text-[10px] uppercase tracking-widest text-white/40">Allowed services</span>
+                    <div className="flex flex-wrap gap-2">
+                      {["mobile", "aadhar", "vehicle", "email", "ip"].map((service) => {
+                        const checked = telegramBotForm.allowedServices.includes(service);
+                        return (
+                          <button
+                            key={service}
+                            onClick={() => setTelegramBotForm((form) => ({
+                              ...form,
+                              allowedServices: checked
+                                ? form.allowedServices.filter((item) => item !== service)
+                                : [...form.allowedServices, service],
+                            }))}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest border transition-colors ${
+                              checked ? "text-violet-300 bg-violet-500/15 border-violet-500/35" : "text-white/30 bg-white/[0.03] border-white/[0.1]"
+                            }`}
+                          >
+                            {checked ? "✓ " : ""}{service}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => saveTelegramBotMutation.mutate()}
+                    disabled={saveTelegramBotMutation.isPending}
+                    className="w-full h-10 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold"
+                  >
+                    {saveTelegramBotMutation.isPending ? "Saving…" : "Save Telegram Bot settings"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/[0.08] overflow-hidden" style={{ background: "rgba(9,5,26,0.8)" }}>
+                <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+                  <div>
+                    <div className="text-xs font-bold text-white">Search logs</div>
+                    <div className="text-[10px] text-white/30 mt-1">Telegram user, group, service, query and status</div>
+                  </div>
+                  <button
+                    onClick={() => refetchTelegramBotLogs()}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.1] text-white/45 hover:text-white text-[10px]"
+                  >
+                    <RefreshCw className="w-3 h-3" /> Refresh
+                  </button>
+                </div>
+                {telegramBotLogs.length === 0 ? (
+                  <div className="py-10 text-center text-xs text-white/25">No Telegram bot searches logged yet.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="text-[9px] uppercase tracking-widest text-white/25 border-b border-white/[0.05]">
+                        <tr><th className="px-5 py-3">Time</th><th className="px-3 py-3">User</th><th className="px-3 py-3">Group</th><th className="px-3 py-3">Service</th><th className="px-3 py-3">Query</th><th className="px-3 py-3">Status</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.04]">
+                        {telegramBotLogs.map((log) => (
+                          <tr key={log.id} className="text-xs text-white/45">
+                            <td className="px-5 py-3 whitespace-nowrap">{log.createdAt ? new Date(log.createdAt).toLocaleString() : "—"}</td>
+                            <td className="px-3 py-3">{log.username || log.telegramUserId}</td>
+                            <td className="px-3 py-3 font-mono">{log.groupId}</td>
+                            <td className="px-3 py-3 uppercase text-violet-300/70">{log.service}</td>
+                            <td className="px-3 py-3 font-mono">{log.query}</td>
+                            <td className="px-3 py-3"><span className={log.status === "SUCCESS" ? "text-green-400" : "text-amber-300"}>{log.status}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* ── ADS MANAGER SECTION ── */}
           {activeSection === "ads" && (
             <AdsManagerSection />
@@ -1920,7 +2376,7 @@ export default function AdminLogin() {
                   <h2 className="text-lg font-bold text-white flex items-center gap-2">
                     <Crown className="w-5 h-5 text-violet-400" /> Premium Users
                   </h2>
-                  <p className="text-xs text-white/30 mt-0.5">Premium access is granted automatically when a registered email logs in through the normal login.</p>
+                  <p className="text-xs text-white/30 mt-0.5">Manage premium access and individual limits. Changes apply immediately.</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => refetchPremiumUsers()}
@@ -1931,6 +2387,36 @@ export default function AdminLogin() {
                     className="btn-primary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs">
                     <Plus className="w-3.5 h-3.5" /> Add User
                   </button>
+                </div>
+              </div>
+
+              {/* Clearly visible explanation of where the requested controls live */}
+              <div className="rounded-2xl border border-violet-500/25 bg-violet-500/[0.07] p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-400/25 flex items-center justify-center shrink-0">
+                    <Gauge className="w-4 h-4 text-violet-300" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-violet-100">Premium Controls</p>
+                    <p className="text-xs text-white/50 mt-1">
+                      Har user ke liye ads, daily search limit, aur minute/hour request limits yahin se set karein.
+                      Neeche user ki row mein <span className="font-semibold text-violet-200">Configure Controls</span> dabayein.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                      <div className="rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2">
+                        <p className="text-[10px] text-amber-300 font-semibold uppercase tracking-wider">Ads</p>
+                        <p className="text-[10px] text-white/35 mt-0.5">Show or hide ads</p>
+                      </div>
+                      <div className="rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2">
+                        <p className="text-[10px] text-blue-300 font-semibold uppercase tracking-wider">Daily Searches</p>
+                        <p className="text-[10px] text-white/35 mt-0.5">Custom number or unlimited</p>
+                      </div>
+                      <div className="rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2">
+                        <p className="text-[10px] text-emerald-300 font-semibold uppercase tracking-wider">Rate Limits</p>
+                        <p className="text-[10px] text-white/35 mt-0.5">Requests per minute/hour</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1951,7 +2437,7 @@ export default function AdminLogin() {
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-white/[0.06]">
-                          {["Email", "Status", "Expires", "Last Login", "Created", "Actions"].map(h => (
+                          {["Email", "Status", "Ads", "Search", "Rate", "Expires", "Last Login", "Created", "Actions"].map(h => (
                             <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-white/30 uppercase tracking-widest">{h}</th>
                           ))}
                         </tr>
@@ -1979,6 +2465,17 @@ export default function AdminLogin() {
                                   {isExpired ? <><XCircle className="w-3 h-3" /> Expired</> : isActive ? <><CheckCircle2 className="w-3 h-3" /> Active</> : <><XCircle className="w-3 h-3" /> Disabled</>}
                                 </span>
                               </td>
+                               <td className="px-4 py-3">
+                                 <span className={`text-[10px] font-semibold ${u.showAds ? "text-amber-300" : "text-emerald-300"}`}>
+                                   {u.showAds ? "Shown" : "Hidden"}
+                                 </span>
+                               </td>
+                               <td className="px-4 py-3 text-[10px] text-white/50">
+                                 {u.searchLimitUnlimited ? "Unlimited" : `${u.searchLimit ?? "—"}/day`}
+                               </td>
+                               <td className="px-4 py-3 text-[10px] text-white/50">
+                                 {!u.rateLimitEnabled ? "Disabled" : u.rateLimitUnlimited ? "Unlimited" : `${u.rateLimitRpm ?? "—"}/m · ${u.rateLimitHourly ?? "—"}/h`}
+                               </td>
                               <td className="px-4 py-3 text-white/40">
                                 {u.expiresAt ? <span className={isExpired ? "text-red-400" : "text-amber-400/80"}>{new Date(u.expiresAt).toLocaleDateString()}</span> : <span className="text-white/20">Never</span>}
                               </td>
@@ -1988,6 +2485,22 @@ export default function AdminLogin() {
                               <td className="px-4 py-3 text-white/30">{new Date(u.createdAt).toLocaleDateString()}</td>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
+                                   {/* Per-user premium controls */}
+                                   <button
+                                     onClick={() => openPremiumSettings(u)}
+                                     title="Configure ads, search limits, and rate limits"
+                                     className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-violet-400/40 bg-violet-500/15 hover:bg-violet-500/25 transition-all text-[10px] font-bold text-violet-200 whitespace-nowrap"
+                                   >
+                                     <Gauge className="w-3 h-3" /> Configure Controls
+                                   </button>
+                                   {/* Set or remove expiry */}
+                                   <button
+                                     onClick={() => openPremiumExpiry(u)}
+                                     title="Set expiry date"
+                                     className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-400/30 bg-amber-500/10 hover:bg-amber-500/20 transition-all text-[10px] font-bold text-amber-200 whitespace-nowrap"
+                                   >
+                                     <CalendarClock className="w-3 h-3" /> Expiry
+                                   </button>
                                   {/* Toggle active/disabled */}
                                   <button
                                     onClick={() => togglePremiumMutation.mutate(u.id)}
@@ -1995,6 +2508,14 @@ export default function AdminLogin() {
                                     className="p-1.5 rounded-lg border border-white/[0.08] hover:bg-white/[0.06] transition-all text-white/40 hover:text-white/80"
                                   >
                                     {isActive ? <ToggleRight className="w-3.5 h-3.5 text-emerald-400" /> : <ToggleLeft className="w-3.5 h-3.5 text-white/30" />}
+                                  </button>
+                                  {/* Set Password */}
+                                  <button
+                                    onClick={() => { setSetPasswordDialog({ id: u.id, email: u.email ?? "" }); setNewPassword(""); }}
+                                    title="Set Password"
+                                    className="p-1.5 rounded-lg border border-white/[0.08] hover:bg-violet-500/10 transition-all text-white/40 hover:text-violet-400"
+                                  >
+                                    <KeyRound className="w-3.5 h-3.5" />
                                   </button>
                                   {/* Remove */}
                                   <button
@@ -2015,6 +2536,178 @@ export default function AdminLogin() {
                 )}
               </div>
 
+               {/* ── Premium Expiry Dialog ── */}
+               <Dialog open={!!premiumExpiryTarget} onOpenChange={(open) => !open && setPremiumExpiryTarget(null)}>
+                 <DialogContent className="max-w-sm border border-amber-500/20" style={{ background: "#09051A" }}>
+                   <DialogHeader>
+                     <DialogTitle className="flex items-center gap-2 text-white">
+                       <CalendarClock className="w-4 h-4 text-amber-400" /> Premium Expiry
+                     </DialogTitle>
+                     <DialogDescription className="text-white/40 text-xs">
+                       Choose when premium access ends for <span className="text-amber-300 font-mono">{premiumExpiryTarget?.email}</span>.
+                     </DialogDescription>
+                   </DialogHeader>
+                   <div className="space-y-4 mt-2">
+                     <div className="space-y-1.5">
+                       <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">
+                         Expiry date and time
+                       </label>
+                       <input
+                         type="datetime-local"
+                         value={premiumExpiryValue}
+                         onChange={e => setPremiumExpiryValue(e.target.value)}
+                         style={{ colorScheme: "dark" }}
+                         className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-amber-500/50"
+                       />
+                       <p className="text-[10px] text-white/25">Leave empty to keep this premium user active without an expiry.</p>
+                     </div>
+                     <div className="flex gap-2">
+                       <Button
+                         variant="outline"
+                         className="flex-1 border-white/[0.1] bg-white/[0.03] text-white/70 hover:bg-white/[0.08] hover:text-white"
+                         disabled={updatePremiumExpiryMutation.isPending || !premiumExpiryValue}
+                         onClick={() => setPremiumExpiryValue("")}
+                       >
+                         Never expire
+                       </Button>
+                       <Button
+                         className="flex-1 bg-amber-600 hover:bg-amber-500 text-white"
+                         disabled={updatePremiumExpiryMutation.isPending}
+                         onClick={() => premiumExpiryTarget && updatePremiumExpiryMutation.mutate({
+                           id: premiumExpiryTarget.id,
+                           expiresAt: premiumExpiryValue,
+                         })}
+                       >
+                         {updatePremiumExpiryMutation.isPending ? "Saving…" : "Save Expiry"}
+                       </Button>
+                     </div>
+                   </div>
+                 </DialogContent>
+               </Dialog>
+
+              {/* ── Per-user Premium Controls Dialog ── */}
+              <Dialog open={!!premiumSettingsTarget} onOpenChange={(open) => !open && setPremiumSettingsTarget(null)}>
+                <DialogContent className="max-w-lg border border-violet-500/20" style={{ background: "#09051A" }}>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-white">
+                      <Gauge className="w-4 h-4 text-violet-400" /> Premium User Controls
+                    </DialogTitle>
+                    <DialogDescription className="text-white/40 text-xs">
+                      Configure only <span className="text-violet-300 font-mono">{premiumSettingsTarget?.email}</span>. Changes apply immediately.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-5 mt-2">
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4 space-y-3">
+                      <div>
+                        <p className="text-xs font-semibold text-white">Ad Visibility</p>
+                        <p className="text-[10px] text-white/30 mt-0.5">Controls the advertisement overlay for this premium user only.</p>
+                      </div>
+                      <div className="flex gap-2">
+                        {[
+                          { value: true, label: "Show Ads" },
+                          { value: false, label: "Hide Ads" },
+                        ].map(option => (
+                          <button
+                            key={option.label}
+                            type="button"
+                            onClick={() => setPremiumSettingsForm(f => ({ ...f, showAds: option.value }))}
+                            className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
+                              premiumSettingsForm.showAds === option.value
+                                ? "border-violet-400/50 bg-violet-500/15 text-violet-200"
+                                : "border-white/[0.08] text-white/40 hover:text-white/70"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4 space-y-3">
+                      <div>
+                        <p className="text-xs font-semibold text-white">Daily Search Limit</p>
+                        <p className="text-[10px] text-white/30 mt-0.5">Limits successful searches in a rolling calendar day.</p>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={premiumSettingsForm.searchLimitUnlimited}
+                          onChange={e => setPremiumSettingsForm(f => ({ ...f, searchLimitUnlimited: e.target.checked }))}
+                          className="accent-violet-500"
+                        />
+                        Unlimited
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 50, 100, 500, 1000"
+                        value={premiumSettingsForm.searchLimit}
+                        disabled={premiumSettingsForm.searchLimitUnlimited}
+                        onChange={e => setPremiumSettingsForm(f => ({ ...f, searchLimit: e.target.value }))}
+                        className="bg-black/50 border-white/[0.1] text-white disabled:opacity-40"
+                      />
+                    </div>
+
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.025] p-4 space-y-3">
+                      <div>
+                        <p className="text-xs font-semibold text-white">Request Rate Limit</p>
+                        <p className="text-[10px] text-white/30 mt-0.5">Limits this user's backend requests independently of other users.</p>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={premiumSettingsForm.rateLimitEnabled}
+                          onChange={e => setPremiumSettingsForm(f => ({ ...f, rateLimitEnabled: e.target.checked }))}
+                          className="accent-violet-500"
+                        />
+                        Enable rate limit
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={premiumSettingsForm.rateLimitUnlimited}
+                          onChange={e => setPremiumSettingsForm(f => ({ ...f, rateLimitUnlimited: e.target.checked }))}
+                          className="accent-violet-500"
+                        />
+                        Unlimited
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="Requests / minute"
+                          value={premiumSettingsForm.rateLimitRpm}
+                          disabled={!premiumSettingsForm.rateLimitEnabled || premiumSettingsForm.rateLimitUnlimited}
+                          onChange={e => setPremiumSettingsForm(f => ({ ...f, rateLimitRpm: e.target.value }))}
+                          className="bg-black/50 border-white/[0.1] text-white disabled:opacity-40"
+                        />
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="Requests / hour"
+                          value={premiumSettingsForm.rateLimitHourly}
+                          disabled={!premiumSettingsForm.rateLimitEnabled || premiumSettingsForm.rateLimitUnlimited}
+                          onChange={e => setPremiumSettingsForm(f => ({ ...f, rateLimitHourly: e.target.value }))}
+                          className="bg-black/50 border-white/[0.1] text-white disabled:opacity-40"
+                        />
+                      </div>
+                    </div>
+
+                    <Button
+                      className="w-full bg-violet-600 hover:bg-violet-500 text-white"
+                      disabled={updatePremiumSettingsMutation.isPending}
+                      onClick={() => premiumSettingsTarget && updatePremiumSettingsMutation.mutate({
+                        id: premiumSettingsTarget.id,
+                        settings: premiumSettingsForm,
+                      })}
+                    >
+                      {updatePremiumSettingsMutation.isPending ? "Saving…" : "Save Premium Controls"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               {/* ── Add Premium User Dialog ── */}
               <Dialog open={premiumCreateOpen} onOpenChange={setPremiumCreateOpen}>
                 <DialogContent className="max-w-sm border border-violet-500/20" style={{ background: "#09051A" }}>
@@ -2022,7 +2715,7 @@ export default function AdminLogin() {
                     <DialogTitle className="flex items-center gap-2 text-white">
                       <Crown className="w-4 h-4 text-violet-400" /> Add Premium User
                     </DialogTitle>
-                    <DialogDescription className="text-white/40 text-xs">Enter the user's login email. They'll receive premium access automatically on their next login — no extra steps needed.</DialogDescription>
+                    <DialogDescription className="text-white/40 text-xs">Enter the email used by the user’s normal Firebase login. Premium access is applied automatically when that email signs in.</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 mt-2">
                     <div className="space-y-1">
@@ -2037,9 +2730,22 @@ export default function AdminLogin() {
                     </div>
 
                     <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">Password</label>
+                      <input
+                        type="password"
+                        value={premiumCreateForm.password}
+                        onChange={e => setPremiumCreateForm(f => ({ ...f, password: e.target.value }))}
+                        placeholder="Set a login password"
+                        className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50"
+                      />
+                      <p className="text-[10px] text-white/25">User can login at /dashboard with this password</p>
+                    </div>
+
+                    <div className="space-y-1">
                       <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide flex items-center gap-1.5"><CalendarClock className="w-3 h-3" /> Expiry Date (optional)</label>
                       <input type="datetime-local" value={premiumCreateForm.expiresAt}
                         onChange={e => setPremiumCreateForm(f => ({ ...f, expiresAt: e.target.value }))}
+                        style={{ colorScheme: "dark" }}
                         className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50" />
                     </div>
 
@@ -3879,6 +4585,39 @@ export default function AdminLogin() {
               </div>
             </div>
           </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Set Password Dialog ── */}
+      <Dialog open={!!setPasswordDialog} onOpenChange={v => { if (!v) { setSetPasswordDialog(null); setNewPassword(""); } }}>
+        <DialogContent className="max-w-sm border border-violet-500/20" style={{ background: "#09051A" }}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <KeyRound className="w-4 h-4 text-violet-400" /> Set Password
+            </DialogTitle>
+            <DialogDescription className="text-white/40 text-xs">
+              Setting password for <span className="text-violet-300 font-mono">{setPasswordDialog?.email}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-white/40 uppercase tracking-wide">New Password</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                className="w-full px-3 py-2 rounded-lg text-sm text-white bg-white/[0.04] border border-white/[0.1] outline-none focus:border-violet-500/50"
+              />
+            </div>
+            <button
+              onClick={() => setPasswordDialog && newPassword.trim() && setPasswordMutation.mutate({ id: setPasswordDialog.id, password: newPassword.trim() })}
+              disabled={setPasswordMutation.isPending || !newPassword.trim()}
+              className="w-full py-2.5 rounded-lg text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {setPasswordMutation.isPending ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving…</> : <><KeyRound className="w-3.5 h-3.5" /> Save Password</>}
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
       </div>

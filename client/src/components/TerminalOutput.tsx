@@ -15,6 +15,7 @@ interface TerminalOutputProps {
   title?: string;
   className?: string;
   isLoading?: boolean;
+  error?: Error | null;
 }
 
 const SCAN_LINES = [
@@ -347,7 +348,7 @@ function normalizeData(raw: any): any {
   return raw;
 }
 
-export function TerminalOutput({ data, title = "Results", className, isLoading }: TerminalOutputProps) {
+export function TerminalOutput({ data, title = "Results", className, isLoading, error }: TerminalOutputProps) {
   const [copied, setCopied] = React.useState(false);
   const [copiedAll, setCopiedAll] = React.useState(false);
   data = normalizeData(data);
@@ -474,6 +475,29 @@ export function TerminalOutput({ data, title = "Results", className, isLoading }
           {isLoading ? (
             <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <ScanningAnimation />
+            </motion.div>
+          ) : error ? (
+            <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div
+                className="flex items-start gap-3 px-4 py-4 rounded-xl"
+                style={{
+                  background: "linear-gradient(135deg, rgba(239,68,68,0.08), rgba(220,38,38,0.04))",
+                  border: "1px solid rgba(239,68,68,0.25)",
+                }}
+              >
+                <div
+                  className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                  style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)" }}
+                >
+                  <XCircle className="w-4 h-4 text-red-400" style={{ width: "16px", height: "16px" }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-semibold text-red-300 mb-1">Request Failed</div>
+                  <div className="text-[12px] leading-relaxed" style={{ color: "rgba(252,165,165,0.75)" }}>
+                    {error.message || "An unknown error occurred"}
+                  </div>
+                </div>
+              </div>
             </motion.div>
           ) : data ? (
             <motion.div key="data" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">

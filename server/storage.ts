@@ -29,12 +29,14 @@ export interface ChartDataPoint {
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User>;
   logRequest(userId: string, service: string, query: string, status: string, result?: any): Promise<void>;
   getRequestHistory(userId: string): Promise<RequestLog[]>;
   getUserDailyQueryCount(userId: string): Promise<number>;
+  getUserQueryCountSince(userId: string, since: Date): Promise<number>;
   isIpBlocked(ip: string): Promise<boolean>;
   blockIp(ip: string, blocked: boolean): Promise<void>;
 
@@ -113,6 +115,11 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
     return user;
@@ -162,6 +169,14 @@ export class DatabaseStorage implements IStorage {
       .select({ count: sql<number>`CAST(COUNT(*) AS INTEGER)` })
       .from(requestLogs)
       .where(and(eq(requestLogs.userId, userId), gte(requestLogs.createdAt, startOfDay)));
+    return count || 0;
+  }
+
+  async getUserQueryCountSince(userId: string, since: Date): Promise<number> {
+    const [{ count }] = await db
+      .select({ count: sql<number>`CAST(COUNT(*) AS INTEGER)` })
+      .from(requestLogs)
+      .where(and(eq(requestLogs.userId, userId), gte(requestLogs.createdAt, since)));
     return count || 0;
   }
 

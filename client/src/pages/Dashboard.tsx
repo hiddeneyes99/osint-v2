@@ -50,6 +50,7 @@ import {
   useIpInfo,
 } from "@/hooks/use-services";
 import { useAuth } from "@/hooks/use-auth";
+import { usePremiumAuth } from "@/hooks/use-premium-auth";
 import {
   mobileInfoSchema,
   aadharInfoSchema,
@@ -89,6 +90,7 @@ function ServiceComingSoon({ emoji, tileClass, label, reason }: { emoji: string;
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
+  const { isPremium, premiumUser } = usePremiumAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState("mobile");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -166,6 +168,15 @@ export default function Dashboard() {
     refetchInterval: 3000,
   });
   const serviceReasons = (comingSoon._reasons || {}) as Record<string, string>;
+  const adminDisabled = (comingSoon._adminDisabled || {}) as Record<string, boolean>;
+
+  // Premium users bypass admin-disabled services (but not genuinely "coming soon" ones)
+  function isServiceBlocked(svc: string): boolean {
+    const blocked = svc === "email" ? comingSoon.email !== false : !!comingSoon[svc];
+    if (!blocked) return false;
+    if (isPremium && adminDisabled[svc]) return false;
+    return true;
+  }
 
   // Service Mutations
   const mobileMutation = useMobileInfo();
@@ -288,27 +299,6 @@ export default function Dashboard() {
       ipMutation.mutate(data);
     });
   };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <div className="flex-1 flex items-center justify-center p-4">
-          <CyberCard className="max-w-md w-full text-center py-12">
-            <div className="icon3d t-orange w-16 h-16 rounded-2xl mx-auto mb-5">
-              <span className="e text-3xl select-none">⚠️</span>
-            </div>
-            <h2 className="text-xl font-bold text-white mb-2">Access Required</h2>
-            <p className="text-white/40 text-sm mb-8">Sign in to access the intelligence platform.</p>
-            <CyberButton className="w-full" onClick={() => setIsAuthModalOpen(true)}>
-              Sign In
-            </CyberButton>
-          </CyberCard>
-        </div>
-        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden">
@@ -462,6 +452,51 @@ export default function Dashboard() {
 
       <main className="flex-1 container px-4 py-4 md:py-8 pb-24 lg:pb-8">
         <ServiceStatusBar />
+        <div
+          className="mb-4 flex flex-col gap-3 rounded-2xl border border-sky-400/25 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+          style={{
+            background: "linear-gradient(135deg, rgba(14,165,233,0.12), rgba(139,92,246,0.08))",
+            boxShadow: "0 0 28px -12px rgba(14,165,233,0.55)",
+          }}
+          data-testid="telegram-connect-card"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-400/15 text-sky-300 ring-1 ring-sky-300/25">
+              <Send className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white">
+                {(user as any)?.telegramChatId ? "Telegram Bot Connected" : "Connect Your Telegram Bot"}
+              </div>
+              <div className="mt-0.5 text-[11px] text-white/45">
+                {(user as any)?.telegramChatId
+                  ? "You are receiving alerts for your searches."
+                  : "Open the bot, send /start, and link your account automatically."}
+              </div>
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={() => setIsTgModalOpen(true)}
+              className="rounded-xl border border-white/15 bg-white/[0.06] px-3.5 py-2 text-[11px] font-semibold text-white/70 transition hover:bg-white/[0.1] hover:text-white"
+              data-testid="button-telegram-instructions"
+            >
+              Instructions
+            </button>
+            <a
+              href={`https://t.me/twhosint_bot${user?.id ? `?start=${user.id}` : ""}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => { setTgLinkClicked(true); startTgPolling(); }}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 px-3.5 py-2 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400"
+              data-testid="button-open-telegram-bot"
+            >
+              <Send className="h-3.5 w-3.5" />
+              {((user as any)?.telegramChatId) ? "Open Telegram" : "Open Telegram Bot"}
+            </a>
+          </div>
+        </div>
         <div className="flex flex-col lg:flex-row gap-5 h-full">
           {/* Sidebar / Tools Selector */}
           <div className="w-full lg:w-64 flex-shrink-0">
@@ -539,7 +574,7 @@ export default function Dashboard() {
                   <Send className={`w-3.5 h-3.5 relative z-10 ${(user as any)?.telegramChatId ? "text-white" : "text-white/40"}`} />
                 </div>
                 <span className={`text-[11px] font-semibold ${(user as any)?.telegramChatId ? "text-blue-300" : "text-white/40"}`}>
-                  {(user as any)?.telegramChatId ? "Telegram Alerts • Connected" : "Connect Telegram Alerts"}
+                  {(user as any)?.telegramChatId ? "Telegram Bot • Connected" : "Connect Telegram Bot"}
                 </span>
                 {(user as any)?.telegramChatId && (
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse ml-auto mr-1" style={{ boxShadow: "0 0 5px rgba(96,165,250,0.8)" }} />
@@ -596,7 +631,7 @@ export default function Dashboard() {
                   {(user as any)?.telegramChatId && <span className="absolute inset-0 bg-gradient-to-b from-white/[0.18] to-transparent pointer-events-none rounded-xl" />}
                   <Send className={`w-3.5 h-3.5 relative z-10 ${(user as any)?.telegramChatId ? "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" : "text-white/35"}`} />
                 </div>
-                <span>Telegram</span>
+                <span>{(user as any)?.telegramChatId ? "Telegram Bot • Connected" : "Connect Telegram Bot"}</span>
                 {(user as any)?.telegramChatId && (
                   <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" style={{ boxShadow: "0 0 6px rgba(59,130,246,0.8)" }} />
                 )}
@@ -647,9 +682,9 @@ export default function Dashboard() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-bold tracking-[0.08em] uppercase text-white" style={{ letterSpacing: "0.06em" }}>Telegram Alerts</div>
+                    <div className="text-[13px] font-bold tracking-[0.08em] uppercase text-white" style={{ letterSpacing: "0.06em" }}>Connect Telegram Bot</div>
                     <div className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.38)" }}>
-                      {(user as any)?.telegramChatId ? "@twhosint_bot · Real-time notifications" : "Connect to get instant search alerts"}
+                      {(user as any)?.telegramChatId ? "@twhosint_bot · Real-time notifications" : "Open the bot and send /start"}
                     </div>
                   </div>
 
@@ -900,7 +935,7 @@ export default function Dashboard() {
                             data-testid="link-connect-telegram"
                           >
                             <Send className="w-4 h-4" />
-                            Connect Telegram
+                            Open Telegram Bot & Connect
                           </motion.a>
                         </>
                       ) : (
@@ -1025,7 +1060,7 @@ export default function Dashboard() {
                   transition={{ duration: 0.2 }}
                   className="h-full flex flex-col gap-4 md:gap-5"
                 >
-                  {comingSoon.mobile ? (
+                  {isServiceBlocked("mobile") ? (
                     <ServiceComingSoon emoji="📱" tileClass="t-violet" label="Number Search" reason={serviceReasons.mobile} />
                   ) : (
                     <>
@@ -1075,15 +1110,18 @@ export default function Dashboard() {
                           </form>
                         </Form>
                       </CyberCard>
-                      <TerminalOutput data={mobileMutation.data?.data} title="Mobile Intelligence Results" isLoading={mobileMutation.isPending} className="flex-1" />
                     </>
+                  )}
+                  {/* Show results/errors even if service blocked state changes — prevents result from disappearing mid-session */}
+                  {(mobileMutation.data?.data || mobileMutation.isPending || mobileMutation.error) && (
+                    <TerminalOutput data={mobileMutation.data?.data} title="Mobile Intelligence Results" isLoading={mobileMutation.isPending} error={mobileMutation.error as Error | null} className="flex-1" />
                   )}
                 </motion.div>
               )}
 
               {activeTab === "aadhar" && (
                 <motion.div key="aadhar" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="h-full flex flex-col gap-4 md:gap-5">
-                  {comingSoon.aadhar ? (
+                  {isServiceBlocked("aadhar") ? (
                     <ServiceComingSoon emoji="🪪" tileClass="t-fuchsia" label="Aadhaar Search" reason={serviceReasons.aadhar} />
                   ) : (
                     <>
@@ -1124,15 +1162,17 @@ export default function Dashboard() {
                           </form>
                         </Form>
                       </CyberCard>
-                      <TerminalOutput data={aadharMutation.data?.data} title="Aadhar Intelligence Results" isLoading={aadharMutation.isPending} className="flex-1" />
                     </>
+                  )}
+                  {(aadharMutation.data?.data || aadharMutation.isPending || aadharMutation.error) && (
+                    <TerminalOutput data={aadharMutation.data?.data} title="Aadhar Intelligence Results" isLoading={aadharMutation.isPending} error={aadharMutation.error as Error | null} className="flex-1" />
                   )}
                 </motion.div>
               )}
 
               {activeTab === "vehicle" && (
                 <motion.div key="vehicle" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="h-full flex flex-col gap-4 md:gap-5">
-                  {comingSoon.vehicle ? (
+                  {isServiceBlocked("vehicle") ? (
                     <ServiceComingSoon emoji="🚗" tileClass="t-orange" label="Vehicle Search" reason={serviceReasons.vehicle} />
                   ) : (
                     <>
@@ -1172,15 +1212,17 @@ export default function Dashboard() {
                           </form>
                         </Form>
                       </CyberCard>
-                      <TerminalOutput data={vehicleMutation.data?.data} title="Vehicle Recon Results" isLoading={vehicleMutation.isPending} className="flex-1" />
                     </>
+                  )}
+                  {(vehicleMutation.data?.data || vehicleMutation.isPending || vehicleMutation.error) && (
+                    <TerminalOutput data={vehicleMutation.data?.data} title="Vehicle Recon Results" isLoading={vehicleMutation.isPending} error={vehicleMutation.error as Error | null} className="flex-1" />
                   )}
                 </motion.div>
               )}
 
               {activeTab === "email" && (
                 <motion.div key="email" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="h-full flex flex-col gap-5">
-                  {comingSoon.email !== false ? (
+                  {isServiceBlocked("email") ? (
                     <ServiceComingSoon emoji="📧" tileClass="t-emerald" label="Email Search" reason={serviceReasons.email} />
                   ) : (
                     <>
@@ -1220,15 +1262,17 @@ export default function Dashboard() {
                           </form>
                         </Form>
                       </CyberCard>
-                      <TerminalOutput data={emailMutation.data?.data} title="Email Intelligence Results" isLoading={emailMutation.isPending} className="flex-1" />
                     </>
+                  )}
+                  {(emailMutation.data?.data || emailMutation.isPending || emailMutation.error) && (
+                    <TerminalOutput data={emailMutation.data?.data} title="Email Intelligence Results" isLoading={emailMutation.isPending} error={emailMutation.error as Error | null} className="flex-1" />
                   )}
                 </motion.div>
               )}
 
               {activeTab === "ip" && (
                 <motion.div key="ip" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="h-full flex flex-col gap-4 md:gap-5">
-                  {comingSoon.ip ? (
+                  {isServiceBlocked("ip") ? (
                     <ServiceComingSoon emoji="🌐" tileClass="t-blue" label="IP Trace" reason={serviceReasons.ip} />
                   ) : (
                     <>
@@ -1267,8 +1311,10 @@ export default function Dashboard() {
                           </form>
                         </Form>
                       </CyberCard>
-                      <TerminalOutput data={ipMutation.data?.data} title="Network Probe Results" isLoading={ipMutation.isPending} className="flex-1" />
                     </>
+                  )}
+                  {(ipMutation.data?.data || ipMutation.isPending || ipMutation.error) && (
+                    <TerminalOutput data={ipMutation.data?.data} title="Network Probe Results" isLoading={ipMutation.isPending} error={ipMutation.error as Error | null} className="flex-1" />
                   )}
                 </motion.div>
               )}
