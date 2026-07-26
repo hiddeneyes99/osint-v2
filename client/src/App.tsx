@@ -15,6 +15,7 @@ import HistoryPage from "@/pages/History";
 import TWHPage from "@/pages/TWH";
 import { MatrixBackground } from "@/components/MatrixBackground";
 import { BroadcastNotifications } from "@/components/BroadcastNotifications";
+import { PremiumPopup } from "@/components/PremiumPopup";
 
 function Router() {
   return (
@@ -41,6 +42,7 @@ function App() {
         <MatrixBackground />
         <Toaster />
         <BroadcastNotifications />
+        <PremiumPopup />
         <Router />
       </TooltipProvider>
     </QueryClientProvider>
