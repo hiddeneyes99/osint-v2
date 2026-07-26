@@ -78,19 +78,31 @@ export function PremiumPopup() {
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen]   = useState(false);
 
-  // mount → small delay → trigger enter animation
+  const triggerShow = useCallback(() => {
+    if (mounted) return; // already visible
+    setMounted(true);
+    requestAnimationFrame(() => requestAnimationFrame(() => setIsOpen(true)));
+  }, [mounted]);
+
+  // auto-open after 2 s (respects 24 h cooldown)
   useEffect(() => {
     const last = localStorage.getItem(STORAGE_KEY);
     if (last && Date.now() - parseInt(last, 10) < COOLDOWN_MS) return;
 
-    const mountTimer = setTimeout(() => {
-      setMounted(true);
-      // one rAF so the element is in DOM before class is added
-      requestAnimationFrame(() => requestAnimationFrame(() => setIsOpen(true)));
-    }, DELAY_MS);
-
+    const mountTimer = setTimeout(triggerShow, DELAY_MS);
     return () => clearTimeout(mountTimer);
-  }, []);
+  }, [triggerShow]);
+
+  // also open on login event (always, regardless of cooldown)
+  useEffect(() => {
+    const onLoginShow = () => {
+      // reset cooldown so popup appears fresh after login
+      localStorage.removeItem(STORAGE_KEY);
+      triggerShow();
+    };
+    window.addEventListener("twh:show-premium", onLoginShow);
+    return () => window.removeEventListener("twh:show-premium", onLoginShow);
+  }, [triggerShow]);
 
   // close: play exit animation → unmount → save timestamp
   const close = useCallback(() => {

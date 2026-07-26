@@ -197,6 +197,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       onClose();
       setLocation("/dashboard");
       toast({ title: "Success", description: isLogin ? "Logged in successfully" : "Account created successfully" });
+      setTimeout(() => window.dispatchEvent(new CustomEvent("twh:show-premium")), 600);
     } catch (error: any) {
       toast({ title: "Error", description: "Invalid email or password", variant: "destructive" });
     } finally {
@@ -220,6 +221,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       await googleLogin(hdrs);
       onClose();
       setLocation("/dashboard");
+      setTimeout(() => window.dispatchEvent(new CustomEvent("twh:show-premium")), 600);
     } catch (error: any) {
       if (error.code !== "auth/popup-closed-by-user") {
         toast({ title: "Error", description: "Google login failed", variant: "destructive" });
