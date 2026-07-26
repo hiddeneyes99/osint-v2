@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useLocation } from "wouter";
 import { X } from "lucide-react";
 import { FaTelegram } from "react-icons/fa";
 import { CyberButton } from "@/components/CyberButton";
 import { useQuery } from "@tanstack/react-query";
+import { usePremiumAuth } from "@/hooks/use-premium-auth";
 
 // ─── constants ───────────────────────────────────────────────────────────────
-const STORAGE_KEY   = "twh_premium_popup_last_shown";
-const COOLDOWN_MS   = 24 * 60 * 60 * 1000;
 const DELAY_MS      = 2000;
 const EXIT_DURATION = 360;
 
@@ -19,8 +19,8 @@ const POPUP_STYLES = `
     to   { opacity:1; transform:scale(1)    translateY(0);    }
   }
   @keyframes pp-card-out {
-    from { opacity:1; transform:scale(1)    translateY(0);   }
-    to   { opacity:0; transform:scale(0.93) translateY(10px);}
+    from { opacity:1; transform:scale(1)    translateY(0);    }
+    to   { opacity:0; transform:scale(0.93) translateY(10px); }
   }
   @keyframes pp-border-spin {
     0%   { background-position:0%   50% }
@@ -45,14 +45,13 @@ const POPUP_STYLES = `
   .pp-glow-border > * { position:relative; z-index:1; }
 `;
 
-// ─── sub-components ───────────────────────────────────────────────────────────
+// ─── helpers ─────────────────────────────────────────────────────────────────
 function Feature({ text, bright }: { text: string; bright?: boolean }) {
   return (
     <li className="flex items-center gap-2.5 text-sm">
       <span style={{
         color: bright ? "#C084FC" : "#8B5CF6",
-        fontSize: "10px",
-        flexShrink: 0,
+        fontSize: "10px", flexShrink: 0,
         filter: bright ? "drop-shadow(0 0 4px rgba(192,132,252,0.7))" : undefined,
       }}>✦</span>
       <span className={bright ? "text-white/80" : "text-white/55"}>{text}</span>
@@ -72,62 +71,72 @@ function Divider() {
 
 // ─── main component ───────────────────────────────────────────────────────────
 export function PremiumPopup() {
-  const [mounted, setMounted]   = useState(false);
-  const [isOpen,  setIsOpen]    = useState(false);
-  const [sending, setSending]   = useState<"basic" | "premium" | null>(null);
+  const [location]                    = useLocation();
+  const { isPremium, isLoading: isPremiumLoading } = usePremiumAuth();
 
-  // Ref-based guard — avoids useCallback([mounted]) dependency cascade
-  // that was causing white-screen re-renders.
+  const [mounted,  setMounted]  = useState(false);
+  const [isOpen,   setIsOpen]   = useState(false);
+  const [sending,  setSending]  = useState<"basic" | "premium" | null>(null);
+
+  // ref guard — prevents double-show when multiple effects fire together
   const showingRef = useRef(false);
+  const timerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Read logged-in user from cache (never triggers a new network request)
+  // read cached user for Telegram notification (no extra fetch)
   const { data: user } = useQuery<any>({
     queryKey: ["/api/auth/user"],
     enabled: false,
     staleTime: Infinity,
   });
 
-  // ── show helper (stable — only created once) ────────────────────────────
+  // ── stable show/close helpers ─────────────────────────────────────────────
   const show = useCallback(() => {
     if (showingRef.current) return;
     showingRef.current = true;
     setMounted(true);
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => setIsOpen(true))
-    );
-  }, []); // empty deps: setMounted/setIsOpen are stable React guarantees
+    requestAnimationFrame(() => requestAnimationFrame(() => setIsOpen(true)));
+  }, []);
 
-  // ── auto-open after 2 s — respects 24 h cooldown ────────────────────────
-  useEffect(() => {
-    const last = localStorage.getItem(STORAGE_KEY);
-    if (last && Date.now() - parseInt(last, 10) < COOLDOWN_MS) return;
-    const t = setTimeout(show, DELAY_MS);
-    return () => clearTimeout(t);
-  }, [show]); // show is stable so this runs exactly once
-
-  // ── also open after login (bypasses cooldown) ────────────────────────────
-  useEffect(() => {
-    const onLogin = () => {
-      localStorage.removeItem(STORAGE_KEY);
-      // allow re-show even if already displayed earlier this session
-      showingRef.current = false;
-      show();
-    };
-    window.addEventListener("twh:show-premium", onLogin);
-    return () => window.removeEventListener("twh:show-premium", onLogin);
-  }, [show]); // show is stable so this runs exactly once
-
-  // ── close ────────────────────────────────────────────────────────────────
   const close = useCallback(() => {
     setIsOpen(false);
-    localStorage.setItem(STORAGE_KEY, String(Date.now()));
     setTimeout(() => {
       setMounted(false);
       showingRef.current = false;
     }, EXIT_DURATION);
   }, []);
 
-  // ── ESC key ──────────────────────────────────────────────────────────────
+  // ── show EVERY TIME user is on "/" — skip if premium ─────────────────────
+  useEffect(() => {
+    // clear any pending timer first
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+
+    const blocked = isPremium || isPremiumLoading;
+
+    if (location !== "/" || blocked) {
+      // navigated away or is premium → close popup if it's open
+      if (showingRef.current) close();
+      return;
+    }
+
+    // on homepage, not premium → show after delay
+    timerRef.current = setTimeout(show, DELAY_MS);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [location, isPremium, isPremiumLoading, show, close]);
+
+  // ── show EVERY TIME after login — skip if premium ────────────────────────
+  useEffect(() => {
+    const onLogin = () => {
+      if (isPremium) return;          // premium user logged in — no popup
+      showingRef.current = false;     // reset so show() doesn't skip
+      show();
+    };
+    window.addEventListener("twh:show-premium", onLogin);
+    return () => window.removeEventListener("twh:show-premium", onLogin);
+  }, [isPremium, show]);
+
+  // ── ESC to close ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return;
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
@@ -135,7 +144,7 @@ export function PremiumPopup() {
     return () => window.removeEventListener("keydown", h);
   }, [isOpen, close]);
 
-  // ── plan selection → notify admin via Telegram ───────────────────────────
+  // ── plan button handler ───────────────────────────────────────────────────
   const handlePlan = async (plan: "basic" | "premium") => {
     setSending(plan);
     try {
@@ -144,16 +153,15 @@ export function PremiumPopup() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           plan,
-          userEmail: (user as any)?.email  ?? null,
+          userEmail: (user as any)?.email    ?? null,
           userName:  (user as any)?.username ?? (user as any)?.firstName ?? null,
         }),
       });
-    } catch (_) { /* silent — Telegram config may be missing in dev */ }
+    } catch (_) { /* silent — Telegram may not be configured */ }
     setSending(null);
     window.open("https://t.me/twhosint", "_blank");
   };
 
-  // ── render guard ─────────────────────────────────────────────────────────
   if (!mounted) return null;
 
   const backdropCls = isOpen ? "pp-backdrop-enter" : "pp-backdrop-exit";
@@ -169,7 +177,7 @@ export function PremiumPopup() {
         style={{ background: "rgba(3,1,14,0.82)", backdropFilter: "blur(10px)" }}
         onClick={close}
       >
-        {/* ── modal card ── */}
+        {/* ── card ── */}
         <div
           className={`relative w-full max-w-2xl ${cardCls}`}
           onClick={e => e.stopPropagation()}
@@ -177,12 +185,12 @@ export function PremiumPopup() {
           <div
             className="relative overflow-hidden rounded-2xl"
             style={{
-              background:   "linear-gradient(160deg,#130a2e 0%,#09051A 55%,#0d0521 100%)",
-              border:       "1px solid rgba(139,92,246,0.22)",
-              boxShadow:    "0 0 70px rgba(139,92,246,0.14),0 48px 96px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.065)",
+              background: "linear-gradient(160deg,#130a2e 0%,#09051A 55%,#0d0521 100%)",
+              border: "1px solid rgba(139,92,246,0.22)",
+              boxShadow: "0 0 70px rgba(139,92,246,0.14),0 48px 96px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.065)",
             }}
           >
-            {/* ambient orbs */}
+            {/* orbs */}
             <div className="absolute pointer-events-none" style={{
               top:"-80px",left:"-80px",width:"280px",height:"280px",
               background:"radial-gradient(circle,rgba(139,92,246,0.11) 0%,transparent 70%)",
@@ -194,7 +202,7 @@ export function PremiumPopup() {
 
             <div className="relative z-10 p-5 sm:p-8">
 
-              {/* ── X close button ── */}
+              {/* X */}
               <button
                 onClick={close}
                 aria-label="Close"
@@ -212,7 +220,7 @@ export function PremiumPopup() {
                 <X className="w-4 h-4" />
               </button>
 
-              {/* ── header ── */}
+              {/* header */}
               <div className="text-center mb-6">
                 <div className="text-4xl mb-3" style={{ filter:"drop-shadow(0 0 12px rgba(168,85,247,0.5))" }}>
                   🚀
@@ -221,17 +229,13 @@ export function PremiumPopup() {
                   className="font-display font-bold text-2xl sm:text-3xl tracking-tight mb-3"
                   style={{
                     background:"linear-gradient(135deg,#C084FC,#8B5CF6,#6366F1)",
-                    WebkitBackgroundClip:"text",
-                    WebkitTextFillColor:"transparent",
-                    backgroundClip:"text",
+                    WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text",
                   }}
                 >
                   TWH OSINT IS NOW PREMIUM
                 </h2>
-                <p
-                  className="text-sm sm:text-base leading-relaxed mx-auto"
-                  style={{ color:"rgba(255,255,255,0.48)", maxWidth:"420px" }}
-                >
+                <p className="text-sm sm:text-base leading-relaxed mx-auto"
+                  style={{ color:"rgba(255,255,255,0.48)", maxWidth:"420px" }}>
                   To maintain servers, improve performance and keep adding new
                   OSINT features, we are introducing Premium Plans.
                 </p>
@@ -239,23 +243,18 @@ export function PremiumPopup() {
 
               <Divider />
 
-              {/* ── pricing cards ── */}
+              {/* cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
 
                 {/* Basic */}
-                <div
-                  className="rounded-xl p-5 flex flex-col"
-                  style={{
-                    background: "rgba(255,255,255,0.025)",
-                    border: "1px solid rgba(139,92,246,0.16)",
-                    backdropFilter: "blur(8px)",
-                  }}
-                >
+                <div className="rounded-xl p-5 flex flex-col" style={{
+                  background:"rgba(255,255,255,0.025)",
+                  border:"1px solid rgba(139,92,246,0.16)",
+                  backdropFilter:"blur(8px)",
+                }}>
                   <div className="text-2xl mb-1">🥉</div>
-                  <p
-                    className="text-xs font-bold tracking-widest uppercase mb-1"
-                    style={{ color:"rgba(255,255,255,0.45)", fontFamily:"var(--font-display)" }}
-                  >
+                  <p className="text-xs font-bold tracking-widest uppercase mb-1"
+                    style={{ color:"rgba(255,255,255,0.45)", fontFamily:"var(--font-display)" }}>
                     Basic Plan
                   </p>
                   <p className="font-display font-bold text-2xl text-white mb-4">
@@ -266,43 +265,32 @@ export function PremiumPopup() {
                     {["1000 Searches Daily","Ads Included","Priority Servers","Faster Response"]
                       .map(f => <Feature key={f} text={f} />)}
                   </ul>
-                  <CyberButton
-                    variant="outline"
-                    className="w-full"
-                    isLoading={sending === "basic"}
-                    onClick={() => handlePlan("basic")}
-                  >
+                  <CyberButton variant="outline" className="w-full"
+                    isLoading={sending === "basic"} onClick={() => handlePlan("basic")}>
                     Buy Basic
                   </CyberButton>
                 </div>
 
                 {/* Premium — animated glowing border */}
                 <div className="pp-glow-border rounded-xl flex flex-col">
-                  <div
-                    className="rounded-xl p-5 flex flex-col h-full overflow-hidden relative"
-                    style={{ background:"linear-gradient(145deg,#1e0d45 0%,#130a2e 60%,#0d0521 100%)" }}
-                  >
+                  <div className="rounded-xl p-5 flex flex-col h-full overflow-hidden relative"
+                    style={{ background:"linear-gradient(145deg,#1e0d45 0%,#130a2e 60%,#0d0521 100%)" }}>
                     <div className="absolute inset-0 pointer-events-none rounded-xl" style={{
                       background:"radial-gradient(ellipse at 45% 0%,rgba(168,85,247,0.14) 0%,transparent 65%)",
                     }} />
-                    <span
-                      className="absolute top-3 right-3 text-white font-bold rounded-full px-2 py-0.5"
+                    <span className="absolute top-3 right-3 text-white font-bold rounded-full px-2 py-0.5"
                       style={{
                         background:"linear-gradient(135deg,#8B5CF6,#C084FC)",
-                        fontSize:"10px",
-                        letterSpacing:"0.06em",
+                        fontSize:"10px", letterSpacing:"0.06em",
                         boxShadow:"0 0 10px rgba(168,85,247,0.45)",
-                      }}
-                    >
+                      }}>
                       POPULAR
                     </span>
 
                     <div className="relative z-10 flex flex-col flex-1">
                       <div className="text-2xl mb-1">👑</div>
-                      <p
-                        className="text-xs font-bold tracking-widest uppercase mb-1"
-                        style={{ color:"rgba(192,132,252,0.75)", fontFamily:"var(--font-display)" }}
-                      >
+                      <p className="text-xs font-bold tracking-widest uppercase mb-1"
+                        style={{ color:"rgba(192,132,252,0.75)", fontFamily:"var(--font-display)" }}>
                         Premium Plan
                       </p>
                       <p className="font-display font-bold text-2xl text-white mb-4">
@@ -313,12 +301,8 @@ export function PremiumPopup() {
                         {["Unlimited Searches","Completely Ad-Free","Highest Priority","Premium Support"]
                           .map(f => <Feature key={f} text={f} bright />)}
                       </ul>
-                      <CyberButton
-                        variant="primary"
-                        className="w-full"
-                        isLoading={sending === "premium"}
-                        onClick={() => handlePlan("premium")}
-                      >
+                      <CyberButton variant="primary" className="w-full"
+                        isLoading={sending === "premium"} onClick={() => handlePlan("premium")}>
                         Get Premium
                       </CyberButton>
                     </div>
@@ -326,23 +310,17 @@ export function PremiumPopup() {
                 </div>
               </div>
 
-              {/* ── bottom CTA ── */}
+              {/* bottom CTA */}
               <div className="text-center">
                 <div style={{
                   height:"1px",
                   background:"linear-gradient(90deg,transparent,rgba(139,92,246,0.22),transparent)",
                   marginBottom:"1rem",
                 }} />
-                <p className="text-xs mb-2" style={{ color:"rgba(255,255,255,0.35)" }}>
-                  📩 Contact to Buy
-                </p>
-                <a
-                  href="https://t.me/twhosint"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <p className="text-xs mb-2" style={{ color:"rgba(255,255,255,0.35)" }}>📩 Contact to Buy</p>
+                <a href="https://t.me/twhosint" target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 font-semibold transition-all duration-150 hover:opacity-80"
-                  style={{ color:"#a78bfa" }}
-                >
+                  style={{ color:"#a78bfa" }}>
                   <FaTelegram style={{ color:"#2AABEE", fontSize:"20px" }} />
                   <span>@twhosint</span>
                 </a>
