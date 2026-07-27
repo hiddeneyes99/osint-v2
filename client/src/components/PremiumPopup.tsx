@@ -68,9 +68,9 @@ function Divider() {
 }
 
 // ─── component ────────────────────────────────────────────────────────────────
-interface Props { isPremium: boolean }
+interface Props { isPremium: boolean; currentPath: string }
 
-export function PremiumPopup({ isPremium }: Props) {
+export function PremiumPopup({ isPremium, currentPath }: Props) {
   const [mounted,  setMounted]  = useState(false);
   const [isOpen,   setIsOpen]   = useState(false);
   const [sending,  setSending]  = useState<"basic" | "premium" | null>(null);
@@ -103,41 +103,21 @@ export function PremiumPopup({ isPremium }: Props) {
     }, EXIT_DURATION);
   }, []);
 
-  // ── show every time user lands on "/" ─────────────────────────────────────
+  // ── react to route changes (prop comes from AppInner via wouter useLocation) ─
   useEffect(() => {
-    function handleLocation() {
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
 
-      if (window.location.pathname === "/") {
-        // schedule show; show() itself checks isPremRef
-        timerRef.current = setTimeout(show, DELAY_MS);
-      } else {
-        // navigated away — close if open
-        if (showingRef.current) close();
-      }
+    if (currentPath === "/" && !isPremium) {
+      timerRef.current = setTimeout(show, DELAY_MS);
+    } else {
+      // navigated away or is premium — close if open
+      if (showingRef.current) close();
     }
-
-    // run immediately for initial page load
-    handleLocation();
-
-    // listen to SPA navigations
-    window.addEventListener("popstate",   handleLocation);
-    window.addEventListener("pushstate",  handleLocation);  // custom event
-    window.addEventListener("replacestate", handleLocation); // custom event
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      window.removeEventListener("popstate",    handleLocation);
-      window.removeEventListener("pushstate",   handleLocation);
-      window.removeEventListener("replacestate", handleLocation);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [show, close]);   // show/close are stable — runs once
-
-  // ── close popup when user becomes premium (e.g. mid-session upgrade) ─────
-  useEffect(() => {
-    if (isPremium && showingRef.current) close();
-  }, [isPremium, close]);
+  }, [currentPath, isPremium, show, close]);
 
   // ── show every time after login ───────────────────────────────────────────
   useEffect(() => {
