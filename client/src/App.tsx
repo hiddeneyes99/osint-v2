@@ -16,6 +16,7 @@ import TWHPage from "@/pages/TWH";
 import { MatrixBackground } from "@/components/MatrixBackground";
 import { BroadcastNotifications } from "@/components/BroadcastNotifications";
 import { PremiumPopup } from "@/components/PremiumPopup";
+import { usePremiumAuth } from "@/hooks/use-premium-auth";
 
 function Router() {
   return (
@@ -35,15 +36,24 @@ function Router() {
   );
 }
 
+function AppInner() {
+  const { isPremium } = usePremiumAuth();
+  return (
+    <>
+      <MatrixBackground />
+      <Toaster />
+      <BroadcastNotifications />
+      <PremiumPopup isPremium={isPremium} />
+      <Router />
+    </>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <MatrixBackground />
-        <Toaster />
-        <BroadcastNotifications />
-        <PremiumPopup />
-        <Router />
+        <AppInner />
       </TooltipProvider>
     </QueryClientProvider>
   );

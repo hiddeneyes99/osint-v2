@@ -1,20 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useLocation } from "wouter";
 import { X } from "lucide-react";
 import { FaTelegram } from "react-icons/fa";
 import { CyberButton } from "@/components/CyberButton";
 import { useQuery } from "@tanstack/react-query";
-import { usePremiumAuth } from "@/hooks/use-premium-auth";
 
-// ─── constants ───────────────────────────────────────────────────────────────
+// ─── constants ────────────────────────────────────────────────────────────────
 const DELAY_MS      = 2000;
 const EXIT_DURATION = 360;
 
-// ─── keyframes ───────────────────────────────────────────────────────────────
+// ─── keyframes ────────────────────────────────────────────────────────────────
 const POPUP_STYLES = `
   @keyframes pp-backdrop-in  { from{opacity:0}  to{opacity:1} }
   @keyframes pp-backdrop-out { from{opacity:1}  to{opacity:0} }
-  @keyframes pp-card-in  {
+  @keyframes pp-card-in {
     from { opacity:0; transform:scale(0.86) translateY(18px); }
     to   { opacity:1; transform:scale(1)    translateY(0);    }
   }
@@ -27,10 +25,10 @@ const POPUP_STYLES = `
     50%  { background-position:100% 50% }
     100% { background-position:0%   50% }
   }
-  .pp-backdrop-enter { animation: pp-backdrop-in  0.32s ease         forwards; }
-  .pp-backdrop-exit  { animation: pp-backdrop-out 0.34s ease         forwards; }
+  .pp-backdrop-enter { animation: pp-backdrop-in  0.32s ease forwards; }
+  .pp-backdrop-exit  { animation: pp-backdrop-out 0.34s ease forwards; }
   .pp-card-enter     { animation: pp-card-in  0.38s cubic-bezier(0.34,1.56,0.64,1) forwards; }
-  .pp-card-exit      { animation: pp-card-out 0.32s ease             forwards; }
+  .pp-card-exit      { animation: pp-card-out 0.32s ease forwards; }
   .pp-glow-border { position:relative; }
   .pp-glow-border::before {
     content:'';
@@ -45,7 +43,7 @@ const POPUP_STYLES = `
   .pp-glow-border > * { position:relative; z-index:1; }
 `;
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// ─── helpers ──────────────────────────────────────────────────────────────────
 function Feature({ text, bright }: { text: string; bright?: boolean }) {
   return (
     <li className="flex items-center gap-2.5 text-sm">
@@ -69,29 +67,29 @@ function Divider() {
   );
 }
 
-// ─── main component ───────────────────────────────────────────────────────────
-export function PremiumPopup() {
-  const [location]                    = useLocation();
-  const { isPremium, isLoading: isPremiumLoading } = usePremiumAuth();
+// ─── component ────────────────────────────────────────────────────────────────
+interface Props { isPremium: boolean }
 
+export function PremiumPopup({ isPremium }: Props) {
   const [mounted,  setMounted]  = useState(false);
   const [isOpen,   setIsOpen]   = useState(false);
   const [sending,  setSending]  = useState<"basic" | "premium" | null>(null);
 
-  // ref guard — prevents double-show when multiple effects fire together
-  const showingRef = useRef(false);
-  const timerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showingRef  = useRef(false);
+  const timerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPremRef   = useRef(isPremium);
+  isPremRef.current = isPremium;           // always up-to-date without re-creating callbacks
 
-  // read cached user for Telegram notification (no extra fetch)
+  // read cached Firebase user for Telegram notification (no extra fetch)
   const { data: user } = useQuery<any>({
     queryKey: ["/api/auth/user"],
     enabled: false,
     staleTime: Infinity,
   });
 
-  // ── stable show/close helpers ─────────────────────────────────────────────
+  // ── stable helpers ────────────────────────────────────────────────────────
   const show = useCallback(() => {
-    if (showingRef.current) return;
+    if (showingRef.current || isPremRef.current) return;
     showingRef.current = true;
     setMounted(true);
     requestAnimationFrame(() => requestAnimationFrame(() => setIsOpen(true)));
@@ -105,36 +103,52 @@ export function PremiumPopup() {
     }, EXIT_DURATION);
   }, []);
 
-  // ── show EVERY TIME user is on "/" — skip if premium ─────────────────────
+  // ── show every time user lands on "/" ─────────────────────────────────────
   useEffect(() => {
-    // clear any pending timer first
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    function handleLocation() {
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
 
-    const blocked = isPremium || isPremiumLoading;
-
-    if (location !== "/" || blocked) {
-      // navigated away or is premium → close popup if it's open
-      if (showingRef.current) close();
-      return;
+      if (window.location.pathname === "/") {
+        // schedule show; show() itself checks isPremRef
+        timerRef.current = setTimeout(show, DELAY_MS);
+      } else {
+        // navigated away — close if open
+        if (showingRef.current) close();
+      }
     }
 
-    // on homepage, not premium → show after delay
-    timerRef.current = setTimeout(show, DELAY_MS);
+    // run immediately for initial page load
+    handleLocation();
+
+    // listen to SPA navigations
+    window.addEventListener("popstate",   handleLocation);
+    window.addEventListener("pushstate",  handleLocation);  // custom event
+    window.addEventListener("replacestate", handleLocation); // custom event
+
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      window.removeEventListener("popstate",    handleLocation);
+      window.removeEventListener("pushstate",   handleLocation);
+      window.removeEventListener("replacestate", handleLocation);
     };
-  }, [location, isPremium, isPremiumLoading, show, close]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show, close]);   // show/close are stable — runs once
 
-  // ── show EVERY TIME after login — skip if premium ────────────────────────
+  // ── close popup when user becomes premium (e.g. mid-session upgrade) ─────
+  useEffect(() => {
+    if (isPremium && showingRef.current) close();
+  }, [isPremium, close]);
+
+  // ── show every time after login ───────────────────────────────────────────
   useEffect(() => {
     const onLogin = () => {
-      if (isPremium) return;          // premium user logged in — no popup
-      showingRef.current = false;     // reset so show() doesn't skip
+      if (isPremRef.current) return;
+      showingRef.current = false;   // reset so show() doesn't skip
       show();
     };
     window.addEventListener("twh:show-premium", onLogin);
     return () => window.removeEventListener("twh:show-premium", onLogin);
-  }, [isPremium, show]);
+  }, [show]);
 
   // ── ESC to close ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -157,7 +171,7 @@ export function PremiumPopup() {
           userName:  (user as any)?.username ?? (user as any)?.firstName ?? null,
         }),
       });
-    } catch (_) { /* silent — Telegram may not be configured */ }
+    } catch (_) { /* silent */ }
     setSending(null);
     window.open("https://t.me/twhosint", "_blank");
   };
@@ -171,13 +185,13 @@ export function PremiumPopup() {
     <>
       <style>{POPUP_STYLES}</style>
 
-      {/* ── backdrop ── */}
+      {/* backdrop */}
       <div
         className={`fixed inset-0 z-[999] flex items-center justify-center p-4 sm:p-6 ${backdropCls}`}
         style={{ background: "rgba(3,1,14,0.82)", backdropFilter: "blur(10px)" }}
         onClick={close}
       >
-        {/* ── card ── */}
+        {/* card */}
         <div
           className={`relative w-full max-w-2xl ${cardCls}`}
           onClick={e => e.stopPropagation()}
@@ -187,33 +201,35 @@ export function PremiumPopup() {
             style={{
               background: "linear-gradient(160deg,#130a2e 0%,#09051A 55%,#0d0521 100%)",
               border: "1px solid rgba(139,92,246,0.22)",
-              boxShadow: "0 0 70px rgba(139,92,246,0.14),0 48px 96px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.065)",
+              boxShadow:
+                "0 0 70px rgba(139,92,246,0.14),0 48px 96px rgba(0,0,0,0.65)," +
+                "inset 0 1px 0 rgba(255,255,255,0.065)",
             }}
           >
-            {/* orbs */}
+            {/* bg orbs */}
             <div className="absolute pointer-events-none" style={{
               top:"-80px",left:"-80px",width:"280px",height:"280px",
               background:"radial-gradient(circle,rgba(139,92,246,0.11) 0%,transparent 70%)",
-            }} />
+            }}/>
             <div className="absolute pointer-events-none" style={{
               bottom:"-60px",right:"-60px",width:"220px",height:"220px",
               background:"radial-gradient(circle,rgba(168,85,247,0.09) 0%,transparent 70%)",
-            }} />
+            }}/>
 
             <div className="relative z-10 p-5 sm:p-8">
 
-              {/* X */}
+              {/* close button */}
               <button
                 onClick={close}
                 aria-label="Close"
                 className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150"
                 style={{ color:"rgba(255,255,255,0.35)", background:"transparent" }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.8)";
+                  (e.currentTarget as HTMLButtonElement).style.color      = "rgba(255,255,255,0.8)";
                   (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.06)";
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.35)";
+                  (e.currentTarget as HTMLButtonElement).style.color      = "rgba(255,255,255,0.35)";
                   (e.currentTarget as HTMLButtonElement).style.background = "transparent";
                 }}
               >
@@ -228,14 +244,16 @@ export function PremiumPopup() {
                 <h2
                   className="font-display font-bold text-2xl sm:text-3xl tracking-tight mb-3"
                   style={{
-                    background:"linear-gradient(135deg,#C084FC,#8B5CF6,#6366F1)",
+                    background: "linear-gradient(135deg,#C084FC,#8B5CF6,#6366F1)",
                     WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text",
                   }}
                 >
                   TWH OSINT IS NOW PREMIUM
                 </h2>
-                <p className="text-sm sm:text-base leading-relaxed mx-auto"
-                  style={{ color:"rgba(255,255,255,0.48)", maxWidth:"420px" }}>
+                <p
+                  className="text-sm sm:text-base leading-relaxed mx-auto"
+                  style={{ color:"rgba(255,255,255,0.48)", maxWidth:"420px" }}
+                >
                   To maintain servers, improve performance and keep adding new
                   OSINT features, we are introducing Premium Plans.
                 </p>
@@ -243,7 +261,7 @@ export function PremiumPopup() {
 
               <Divider />
 
-              {/* cards */}
+              {/* plan cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
 
                 {/* Basic */}
@@ -277,7 +295,7 @@ export function PremiumPopup() {
                     style={{ background:"linear-gradient(145deg,#1e0d45 0%,#130a2e 60%,#0d0521 100%)" }}>
                     <div className="absolute inset-0 pointer-events-none rounded-xl" style={{
                       background:"radial-gradient(ellipse at 45% 0%,rgba(168,85,247,0.14) 0%,transparent 65%)",
-                    }} />
+                    }}/>
                     <span className="absolute top-3 right-3 text-white font-bold rounded-full px-2 py-0.5"
                       style={{
                         background:"linear-gradient(135deg,#8B5CF6,#C084FC)",
@@ -308,6 +326,7 @@ export function PremiumPopup() {
                     </div>
                   </div>
                 </div>
+
               </div>
 
               {/* bottom CTA */}
@@ -316,11 +335,15 @@ export function PremiumPopup() {
                   height:"1px",
                   background:"linear-gradient(90deg,transparent,rgba(139,92,246,0.22),transparent)",
                   marginBottom:"1rem",
-                }} />
+                }}/>
                 <p className="text-xs mb-2" style={{ color:"rgba(255,255,255,0.35)" }}>📩 Contact to Buy</p>
-                <a href="https://t.me/twhosint" target="_blank" rel="noopener noreferrer"
+                <a
+                  href="https://t.me/twhosint"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 font-semibold transition-all duration-150 hover:opacity-80"
-                  style={{ color:"#a78bfa" }}>
+                  style={{ color:"#a78bfa" }}
+                >
                   <FaTelegram style={{ color:"#2AABEE", fontSize:"20px" }} />
                   <span>@twhosint</span>
                 </a>
