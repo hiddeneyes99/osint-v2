@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,6 +15,8 @@ import HistoryPage from "@/pages/History";
 import TWHPage from "@/pages/TWH";
 import { MatrixBackground } from "@/components/MatrixBackground";
 import { BroadcastNotifications } from "@/components/BroadcastNotifications";
+import { PremiumPopup } from "@/components/PremiumPopup";
+import { usePremiumAuth } from "@/hooks/use-premium-auth";
 
 function Router() {
   return (
@@ -34,14 +36,25 @@ function Router() {
   );
 }
 
+function AppInner() {
+  const { isPremium } = usePremiumAuth();
+  const [currentPath] = useLocation();
+  return (
+    <>
+      <MatrixBackground />
+      <Toaster />
+      <BroadcastNotifications />
+      <PremiumPopup isPremium={isPremium} currentPath={currentPath} />
+      <Router />
+    </>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <MatrixBackground />
-        <Toaster />
-        <BroadcastNotifications />
-        <Router />
+        <AppInner />
       </TooltipProvider>
     </QueryClientProvider>
   );

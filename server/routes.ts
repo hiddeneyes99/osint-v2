@@ -2990,5 +2990,29 @@ ${urls.map(u => `  <url>
   }
   // ── END PREMIUM ACCESS SYSTEM ─────────────────────────────────────────────
 
+  // ── PUBLIC: Premium plan interest → notify admin via Telegram ─────────────
+  app.post("/api/notify/plan-interest", async (req, res) => {
+    try {
+      const { plan, userEmail, userName } = req.body as {
+        plan: string;
+        userEmail?: string | null;
+        userName?: string | null;
+      };
+      const planLabel = plan === "premium"
+        ? "👑 PREMIUM PLAN — ₹500/month"
+        : "🥉 BASIC PLAN — ₹300/month";
+      const userLine = userEmail
+        ? `👤 User: <b>${userName || "—"}</b>\n📧 Email: <code>${userEmail}</code>`
+        : "👤 <i>Guest (not logged in)</i>";
+      await sendTelegramAdmin(
+        `🔔 <b>NEW PREMIUM INTEREST</b>\n\n${userLine}\n\n📦 Plan: <b>${planLabel}</b>\n\n💬 User redirected to @twhosint on Telegram.`
+      );
+      res.json({ ok: true });
+    } catch (err: any) {
+      // Never fail the client request — Telegram may not be configured in dev
+      res.json({ ok: false, error: err.message });
+    }
+  });
+
   return httpServer;
 }
