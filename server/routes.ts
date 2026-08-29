@@ -37,6 +37,9 @@ import {
 // Legacy alias so existing calls in this file keep working
 const sendTelegram = sendTelegramAdmin;
 
+const NEW_MOBILE_API_URL = "https://numinfo100ms.ghddys32.workers.dev/?mobile={query}";
+const NEW_LOOKUP_API_URL = "https://leak-osint.noob73613.workers.dev/?query={query}";
+
 // ── SERVICE STATUS CACHE ──────────────────────────────────────────────────────
 let serviceStatusCache: { data: Record<string, string>; ts: number } | null = null;
 // Reset cache on every server start so stale values don't persist
@@ -1097,17 +1100,21 @@ ${urls.map(u => `  <url>
   // Converts workers.dev API format {results:[{mobile,name,fname,address,alt,circle,id,email}]}
   // into the same canonical mobile-lookup format so TerminalOutput reuses MobileRecord.
   function normalizeWorkersResponse(raw: any, queryType: "email_lookup" | "aadhar_lookup", queryValue: string) {
-    const items: any[] = Array.isArray(raw.results) ? raw.results
+    const nestedItems: any[] = Array.isArray(raw?.result?.result?.data)
+      ? raw.result.result.data.flatMap((group: any) => Array.isArray(group?.records) ? group.records : [])
+      : [];
+    const items: any[] = nestedItems.length > 0 ? nestedItems
+      : Array.isArray(raw.results) ? raw.results
       : Array.isArray(raw.data) ? raw.data
       : Array.isArray(raw.data?.subscribers) ? raw.data.subscribers
       : [];
     const result = items.map((item: any) => ({
-      name: item.name || null,
-      mobile: item.mobile || null,
+      name: item.name || item.full_name || null,
+      mobile: item.mobile || item.phone || null,
       alt_mobile: item.alt || item.alt_mobile || item.alternate_number || null,
-      circle: item.circle || null,
-      father_name: item.fname || item.father_name || null,
-      id_number: item.id || null,
+      circle: item.circle || item.region || null,
+      father_name: item.fname || item.father_name || item.the_name_of_the_father || null,
+      id_number: item.id || item.document_number || item.passport_number || null,
       address: item.address || null,
       email: item.email || null,
     }));
@@ -1146,6 +1153,34 @@ ${urls.map(u => `  <url>
     }
     // Fall back to legacy workers.dev normalizer
     return normalizeWorkersResponse(raw, "aadhar_lookup", queryValue);
+  }
+
+  function normalizeMobileTextResponse(text: string): any {
+    const result = text
+      .split(/\r?\n\s*\r?\n/)
+      .map((block) => {
+        const value = (label: string): string | null => {
+          const match = block.match(new RegExp(`^\\s*${label}\\s*:\\s*(.*)$`, "im"));
+          return match?.[1]?.trim() || null;
+        };
+        return {
+          id: value("Document Number"),
+          name: value("Name"),
+          mobile: value("Phone"),
+          alt_mobile: null,
+          circle: value("Circle"),
+          father_name: value("Father"),
+          id_number: value("Document Number"),
+          address: value("Address"),
+          email: value("Email"),
+        };
+      })
+      .filter((record) => record.name || record.mobile);
+
+    return {
+      query: { type: "mobile_lookup" },
+      result,
+    };
   }
 
   // ── VEHICLE RESPONSE NORMALIZER ───────────────────────────────────────────
@@ -1729,8 +1764,11 @@ ${urls.map(u => `  <url>
     const text = await response.text();
     const lastBrace = Math.max(text.lastIndexOf("}"), text.lastIndexOf("]"));
     const cleanJson = lastBrace >= 0 ? text.slice(0, lastBrace + 1) : text;
-    const raw = JSON.parse(cleanJson);
-    return normalizeMobileResponse(raw);
+    try {
+      return normalizeMobileResponse(JSON.parse(cleanJson));
+    } catch {
+      return normalizeMobileTextResponse(text);
+    }
   };
 
   // Safe URL builder — if the template has {query}, replace it.
@@ -1750,17 +1788,13 @@ ${urls.map(u => `  <url>
     await handleServiceRequest(req, res, "mobile", result.data.number, async () => {
       const mobileNumber = result.data.number;
 
-      const primaryUrl = process.env.MOBILE_API_URL
-        ? buildMobileUrl(process.env.MOBILE_API_URL, mobileNumber)
-        : `https://utthaninternational.com/number/js/api-proxy.php?mobile=${mobileNumber}`;
+      const primaryUrl = buildMobileUrl(NEW_MOBILE_API_URL, mobileNumber);
 
       const fallbackUrl = process.env.MOBILE_API_FALLBACK_URL
         ? buildMobileUrl(process.env.MOBILE_API_FALLBACK_URL, mobileNumber)
         : null;
 
-      const tertiaryUrl = process.env.MOBILE_API_TERTIARY_URL
-        ? buildMobileUrl(process.env.MOBILE_API_TERTIARY_URL, mobileNumber)
-        : `https://0460-103-209-253-3.ngrok-free.app?number=${mobileNumber}&authkey=darkybaby`;
+      const tertiaryUrl = primaryUrl;
 
       console.log(`[mobile] Searching number: ${mobileNumber}`);
       console.log(`[mobile] Primary URL has number: ${primaryUrl.includes(mobileNumber)}`);
@@ -1816,16 +1850,12 @@ ${urls.map(u => `  <url>
     const result = aadharInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid Aadhar number" });
     await handleServiceRequest(req, res, "aadhar", result.data.number, async () => {
-      const apiKey = process.env.AADHAR_API_KEY || "@noob11001";
-      const rawAadharUrl = process.env.AADHAR_API_URL;
       const buildAadharUrl = (template: string, num: string): string => {
         if (template.includes("{query}")) return template.replace("{query}", num);
         const sep = template.includes("?") ? "&" : "?";
-        return `${template}${sep}aadhaar=${encodeURIComponent(num)}`;
+        return `${template}${sep}query=${encodeURIComponent(num)}`;
       };
-      const apiUrl = rawAadharUrl && rawAadharUrl !== "MOCK_AADHAR_API" && rawAadharUrl.startsWith("http")
-        ? buildAadharUrl(rawAadharUrl, result.data.number)
-        : `https://ye-lo-mojkro.noob73613.workers.dev/?api_key=${apiKey}&aadhaar=${result.data.number}`;
+      const apiUrl = buildAadharUrl(NEW_LOOKUP_API_URL, result.data.number);
       console.log(`[aadhar] URL has number: ${apiUrl.includes(result.data.number)}`);
 
       const MAX_ATTEMPTS = 3;
@@ -1908,15 +1938,12 @@ ${urls.map(u => `  <url>
     const result = emailInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid email address" });
     await handleServiceRequest(req, res, "email", result.data.email, async () => {
-      const apiKey = process.env.EMAIL_API_KEY || "@noob11001";
       const buildEmailUrl = (template: string, email: string): string => {
         if (template.includes("{query}")) return template.replace("{query}", encodeURIComponent(email));
         const sep = template.includes("?") ? "&" : "?";
-        return `${template}${sep}gmail=${encodeURIComponent(email)}`;
+        return `${template}${sep}query=${encodeURIComponent(email)}`;
       };
-      const apiUrl = process.env.EMAIL_API_URL
-        ? buildEmailUrl(process.env.EMAIL_API_URL, result.data.email)
-        : `https://ye-lo-mojkro.noob73613.workers.dev/?api_key=${apiKey}&gmail=${encodeURIComponent(result.data.email)}`;
+      const apiUrl = buildEmailUrl(NEW_LOOKUP_API_URL, result.data.email);
       console.log(`[email] Searching: ${result.data.email} | URL has email: ${apiUrl.includes(encodeURIComponent(result.data.email))}`);
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 30000);

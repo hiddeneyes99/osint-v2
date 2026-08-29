@@ -87,12 +87,11 @@ __export(schema_exports, {
   protectedNumbers: () => protectedNumbers,
   requestLogs: () => requestLogs,
   sessions: () => sessions,
-  telegramBotLogs: () => telegramBotLogs,
   userNotes: () => userNotes,
   users: () => users,
   vehicleInfoSchema: () => vehicleInfoSchema
 });
-var import_pg_core2, import_drizzle_zod, import_zod, requestLogs, protectedNumbers, broadcastMessages, platformSettings, telegramBotLogs, userNotes, loginActivity, notifications, ads, insertRequestLogSchema, insertProtectedNumberSchema, mobileInfoSchema, aadharInfoSchema, vehicleInfoSchema, emailInfoSchema, ipInfoSchema, noticeReplies, noticeLikes, premiumUsers;
+var import_pg_core2, import_drizzle_zod, import_zod, requestLogs, protectedNumbers, broadcastMessages, platformSettings, userNotes, loginActivity, notifications, ads, insertRequestLogSchema, insertProtectedNumberSchema, mobileInfoSchema, aadharInfoSchema, vehicleInfoSchema, emailInfoSchema, ipInfoSchema, noticeReplies, noticeLikes, premiumUsers;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -134,16 +133,6 @@ var init_schema = __esm({
       key: (0, import_pg_core2.text)("key").primaryKey(),
       value: (0, import_pg_core2.text)("value"),
       updatedAt: (0, import_pg_core2.timestamp)("updated_at").defaultNow()
-    });
-    telegramBotLogs = (0, import_pg_core2.pgTable)("telegram_bot_logs", {
-      id: (0, import_pg_core2.serial)("id").primaryKey(),
-      telegramUserId: (0, import_pg_core2.text)("telegram_user_id").notNull(),
-      username: (0, import_pg_core2.text)("username"),
-      groupId: (0, import_pg_core2.text)("group_id").notNull(),
-      service: (0, import_pg_core2.text)("service").notNull(),
-      query: (0, import_pg_core2.text)("query").notNull(),
-      status: (0, import_pg_core2.text)("status").notNull(),
-      createdAt: (0, import_pg_core2.timestamp)("created_at").defaultNow()
     });
     userNotes = (0, import_pg_core2.pgTable)("user_notes", {
       id: (0, import_pg_core2.serial)("id").primaryKey(),
@@ -599,7 +588,7 @@ function getSecret() {
 function signPremiumToken(userId) {
   const ts = Date.now().toString();
   const payload = `${userId}:${ts}`;
-  const sig = (0, import_crypto2.createHmac)("sha256", getSecret()).update(payload).digest("hex");
+  const sig = (0, import_crypto.createHmac)("sha256", getSecret()).update(payload).digest("hex");
   return `${userId}.${ts}.${sig}`;
 }
 function verifyPremiumToken(token) {
@@ -607,7 +596,7 @@ function verifyPremiumToken(token) {
     const [userId, ts, sig] = token.split(".");
     if (!userId || !ts || !sig) return null;
     const payload = `${userId}:${ts}`;
-    const expected = (0, import_crypto2.createHmac)("sha256", getSecret()).update(payload).digest("hex");
+    const expected = (0, import_crypto.createHmac)("sha256", getSecret()).update(payload).digest("hex");
     const age = Date.now() - parseInt(ts);
     if (sig !== expected || age < 0 || age > 7 * 24 * 60 * 60 * 1e3) return null;
     return parseInt(userId);
@@ -624,14 +613,14 @@ function parseCookiesPremium(req) {
     }).filter(([k]) => k)
   );
 }
-var import_crypto2, import_drizzle_orm4, requirePremium;
+var import_crypto, import_drizzle_orm3, requirePremium;
 var init_premium_auth = __esm({
   "server/middleware/premium-auth.ts"() {
     "use strict";
-    import_crypto2 = require("crypto");
+    import_crypto = require("crypto");
     init_db();
     init_schema();
-    import_drizzle_orm4 = require("drizzle-orm");
+    import_drizzle_orm3 = require("drizzle-orm");
     requirePremium = async (req, res, next) => {
       const cookies = parseCookiesPremium(req);
       const raw = cookies["premiumAuth"] || req.headers["x-premium-token"];
@@ -639,7 +628,7 @@ var init_premium_auth = __esm({
       const userId = verifyPremiumToken(raw);
       if (!userId) return res.status(401).json({ message: "Invalid or expired premium session" });
       try {
-        const [user] = await db.select().from(premiumUsers).where((0, import_drizzle_orm4.eq)(premiumUsers.id, userId));
+        const [user] = await db.select().from(premiumUsers).where((0, import_drizzle_orm3.eq)(premiumUsers.id, userId));
         if (!user) return res.status(401).json({ message: "Premium account not found" });
         if (user.status !== "active") return res.status(403).json({ message: "Premium account is disabled" });
         if (user.expiresAt && /* @__PURE__ */ new Date() > user.expiresAt) {
@@ -765,101 +754,6 @@ init_schema();
 // server/middleware/firebase-auth.ts
 var import_firebase_admin = __toESM(require("firebase-admin"), 1);
 init_storage();
-var import_crypto3 = __toESM(require("crypto"), 1);
-
-// server/telegram-bot-config.ts
-var import_crypto = __toESM(require("crypto"), 1);
-var import_drizzle_orm3 = require("drizzle-orm");
-init_db();
-init_schema();
-var TELEGRAM_BOT_SERVICES = ["mobile", "aadhar", "vehicle", "email", "ip"];
-var SETTINGS_KEY = "telegram_bot_config";
-var DEFAULT_SETTINGS = {
-  enabled: false,
-  allowedGroupIds: [],
-  apiKey: null,
-  maskingLevel: "medium",
-  groupRateLimit: 10,
-  userRateLimit: 5,
-  dailySearchLimit: 100,
-  allowedServices: [...TELEGRAM_BOT_SERVICES]
-};
-var cached = null;
-function normalisePositiveInt(value, fallback, max = 1e5) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 && parsed <= max ? parsed : fallback;
-}
-function parseSettings(raw) {
-  if (!raw) return { ...DEFAULT_SETTINGS };
-  try {
-    const value = JSON.parse(raw);
-    const maskingLevel = value.maskingLevel === "light" || value.maskingLevel === "heavy" ? value.maskingLevel : "medium";
-    const allowedServices = Array.isArray(value.allowedServices) ? value.allowedServices.filter(
-      (service) => TELEGRAM_BOT_SERVICES.includes(service)
-    ) : [];
-    return {
-      enabled: value.enabled === true,
-      allowedGroupIds: Array.isArray(value.allowedGroupIds) ? value.allowedGroupIds.map(String).map((id) => id.trim()).filter(Boolean) : [],
-      apiKey: typeof value.apiKey === "string" && value.apiKey.trim() ? value.apiKey.trim() : null,
-      maskingLevel,
-      groupRateLimit: normalisePositiveInt(value.groupRateLimit, DEFAULT_SETTINGS.groupRateLimit),
-      userRateLimit: normalisePositiveInt(value.userRateLimit, DEFAULT_SETTINGS.userRateLimit),
-      dailySearchLimit: normalisePositiveInt(value.dailySearchLimit, DEFAULT_SETTINGS.dailySearchLimit),
-      allowedServices
-    };
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
-}
-async function getTelegramBotSettings() {
-  if (cached && cached.expiresAt > Date.now()) return cached.settings;
-  const [row] = await db.select({ value: platformSettings.value }).from(platformSettings).where((0, import_drizzle_orm3.eq)(platformSettings.key, SETTINGS_KEY));
-  const settings = parseSettings(row?.value || null);
-  cached = { settings, expiresAt: Date.now() + 5e3 };
-  return settings;
-}
-function invalidateTelegramBotSettings() {
-  cached = null;
-}
-async function saveTelegramBotSettings(input) {
-  const current = await getTelegramBotSettings();
-  const next = {
-    enabled: input.enabled ?? current.enabled,
-    allowedGroupIds: input.allowedGroupIds ?? current.allowedGroupIds,
-    apiKey: input.apiKey === void 0 ? current.apiKey : input.apiKey?.trim() || null,
-    maskingLevel: input.maskingLevel ?? current.maskingLevel,
-    groupRateLimit: input.groupRateLimit ?? current.groupRateLimit,
-    userRateLimit: input.userRateLimit ?? current.userRateLimit,
-    dailySearchLimit: input.dailySearchLimit ?? current.dailySearchLimit,
-    allowedServices: input.allowedServices ?? current.allowedServices
-  };
-  await db.insert(platformSettings).values({ key: SETTINGS_KEY, value: JSON.stringify(next) }).onConflictDoUpdate({
-    target: platformSettings.key,
-    set: { value: JSON.stringify(next), updatedAt: /* @__PURE__ */ new Date() }
-  });
-  invalidateTelegramBotSettings();
-  return next;
-}
-async function generateTelegramBotApiKey() {
-  const apiKey = `twh_tg_${import_crypto.default.randomBytes(24).toString("base64url")}`;
-  await saveTelegramBotSettings({ apiKey });
-  return apiKey;
-}
-function getTelegramBotSettingsForAdmin(settings) {
-  return {
-    enabled: settings.enabled,
-    allowedGroupIds: settings.allowedGroupIds,
-    apiKeySet: Boolean(settings.apiKey),
-    apiKeyPreview: settings.apiKey ? `${settings.apiKey.slice(0, 12)}\u2026` : null,
-    maskingLevel: settings.maskingLevel,
-    groupRateLimit: settings.groupRateLimit,
-    userRateLimit: settings.userRateLimit,
-    dailySearchLimit: settings.dailySearchLimit,
-    allowedServices: settings.allowedServices
-  };
-}
-
-// server/middleware/firebase-auth.ts
 if (!import_firebase_admin.default.apps.length) {
   const projectId = process.env.FIREBASE_PROJECT_ID || "osint-platform-d6b9b";
   try {
@@ -898,49 +792,6 @@ if (!import_firebase_admin.default.apps.length) {
   }
 }
 var requireFirebaseOrPremium = async (req, res, next) => {
-  const botKey = req.headers["x-telegram-bot-key"];
-  if (botKey) {
-    const settings = await getTelegramBotSettings();
-    const supplied = String(botKey);
-    const expected = settings.apiKey || "";
-    const suppliedBytes = Buffer.from(supplied);
-    const expectedBytes = Buffer.from(expected);
-    const validKey = Boolean(expected) && suppliedBytes.length === expectedBytes.length && import_crypto3.default.timingSafeEqual(suppliedBytes, expectedBytes);
-    const groupId = String(req.headers["x-telegram-group-id"] || "");
-    const telegramUserId = String(req.headers["x-telegram-user-id"] || "");
-    const service = String(req.headers["x-telegram-service"] || "");
-    if (!validKey || !settings.enabled) return res.status(401).json({ message: "Telegram bot access denied" });
-    if (!groupId || !settings.allowedGroupIds.includes(groupId)) {
-      return res.status(403).json({ message: "Telegram group is not approved" });
-    }
-    if (!TELEGRAM_BOT_SERVICES.includes(service) || !settings.allowedServices.includes(service)) {
-      return res.status(403).json({ message: "Telegram service is not allowed" });
-    }
-    if (!telegramUserId) return res.status(400).json({ message: "Telegram user is required" });
-    const syntheticId = `telegram_${telegramUserId.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
-    try {
-      let user = await storage.getUser(syntheticId);
-      if (!user) {
-        try {
-          user = await storage.createUser({
-            id: syntheticId,
-            email: `${syntheticId}@telegram.local`,
-            username: `tg_${telegramUserId}`
-          });
-        } catch {
-          user = await storage.getUser(syntheticId);
-        }
-      }
-      if (!user) return res.status(500).json({ message: "Telegram user could not be provisioned" });
-      req.user = { id: user.id, email: user.email, claims: { sub: user.id } };
-      req.telegramBot = true;
-      req.telegramBotContext = { groupId, telegramUserId, username: String(req.headers["x-telegram-username"] || "") };
-      return next();
-    } catch (err) {
-      console.error("[telegram bot auth] error:", err);
-      return res.status(500).json({ message: "Telegram authentication error" });
-    }
-  }
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) {
     return firebaseAuthMiddleware(req, res, next);
@@ -949,14 +800,14 @@ var requireFirebaseOrPremium = async (req, res, next) => {
   const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
   const { premiumUsers: premiumUsers2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
   const premiumStorage = (await Promise.resolve().then(() => (init_storage(), storage_exports))).storage;
-  const { eq: eq6 } = await import("drizzle-orm");
+  const { eq: eq5 } = await import("drizzle-orm");
   const cookies = parseCookiesPremium2(req);
   const raw = cookies["premiumAuth"] || req.headers["x-premium-token"];
   if (!raw) return res.status(401).json({ message: "Unauthorized" });
   const premiumId = verifyPremiumToken2(raw);
   if (!premiumId) return res.status(401).json({ message: "Unauthorized" });
   try {
-    const [pu] = await db2.select().from(premiumUsers2).where(eq6(premiumUsers2.id, premiumId));
+    const [pu] = await db2.select().from(premiumUsers2).where(eq5(premiumUsers2.id, premiumId));
     if (!pu) return res.status(401).json({ message: "Unauthorized" });
     if (pu.status !== "active") return res.status(403).json({ message: "Premium account disabled" });
     if (pu.expiresAt && /* @__PURE__ */ new Date() > pu.expiresAt) return res.status(403).json({ message: "Premium account expired" });
@@ -1030,14 +881,14 @@ var firebaseAuthMiddleware = async (req, res, next) => {
 };
 
 // server/routes.ts
-var import_drizzle_orm6 = require("drizzle-orm");
+var import_drizzle_orm5 = require("drizzle-orm");
 init_db();
 init_premium_auth();
 
 // server/telegram.ts
 init_db();
 init_schema();
-var import_drizzle_orm5 = require("drizzle-orm");
+var import_drizzle_orm4 = require("drizzle-orm");
 var settingsCache = null;
 var CACHE_TTL = 6e4;
 function parseAdminIds(raw) {
@@ -1049,10 +900,10 @@ async function getTelegramSettings() {
     return { token: settingsCache.token, adminChatIds: settingsCache.adminChatIds };
   }
   const rows = await db.select().from(platformSettings).where(
-    (0, import_drizzle_orm5.eq)(platformSettings.key, "telegram_bot_token")
+    (0, import_drizzle_orm4.eq)(platformSettings.key, "telegram_bot_token")
   );
   const adminRows = await db.select().from(platformSettings).where(
-    (0, import_drizzle_orm5.eq)(platformSettings.key, "telegram_admin_chat_id")
+    (0, import_drizzle_orm4.eq)(platformSettings.key, "telegram_admin_chat_id")
   );
   const token = rows[0]?.value || null;
   const adminChatIds = parseAdminIds(adminRows[0]?.value || null);
@@ -1530,7 +1381,7 @@ async function getTelegramWebhookInfo() {
 async function sendTelegramBroadcast(payload) {
   const { token } = await getTelegramSettings();
   if (!token) return { sent: 0, failed: 0, noToken: true, total: 0, failedIds: [] };
-  const allUsers = await db.select({ telegramChatId: users.telegramChatId }).from(users).where((0, import_drizzle_orm5.isNotNull)(users.telegramChatId));
+  const allUsers = await db.select({ telegramChatId: users.telegramChatId }).from(users).where((0, import_drizzle_orm4.isNotNull)(users.telegramChatId));
   const keyboard = [];
   if (payload.buttons?.length) {
     const row = [];
@@ -1573,84 +1424,10 @@ async function sendTelegramBroadcast(payload) {
   return { sent, failed, noToken: false, total: allUsers.length, failedIds };
 }
 
-// server/telegram-bot-format.ts
-function escapeHtml(value) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-function stars(length) {
-  return "*".repeat(Math.max(3, Math.min(length, 8)));
-}
-function maskWord(word, level) {
-  if (!word || word.length <= 2) return "*".repeat(word.length);
-  if (level === "light") return `${word.slice(0, 2)}${stars(word.length - 4)}${word.slice(-2)}`;
-  if (level === "heavy") return `${word[0]}${stars(word.length - 1)}`;
-  return `${word[0]}${stars(word.length - 2)}${word.slice(-1)}`;
-}
-function maskText(value, level) {
-  return value.split(/(\s+)/).map((part) => /^\s+$/.test(part) ? part : maskWord(part, level)).join("");
-}
-function maskEmail(value, level) {
-  const [local, ...domainParts] = value.split("@");
-  if (!local || domainParts.length === 0) return maskText(value, level);
-  const domain = domainParts.join("@");
-  const domainPartsWithTld = domain.split(".");
-  const maskedDomain = domainPartsWithTld.map(
-    (part, index2) => index2 === domainPartsWithTld.length - 1 ? part : maskWord(part, level)
-  ).join(".");
-  return `${maskWord(local, level)}@${maskedDomain}`;
-}
-function maskDigits(value, key, level) {
-  const compact = value.replace(/\s+/g, "");
-  const isAadhaar = /aadhaar|aadhar/.test(key);
-  const isPan = /\bpan\b/.test(key);
-  const isVehicle = /vehicle|registration|rc_number|rc$/.test(key);
-  const keep = isAadhaar ? 4 : isPan ? 3 : isVehicle ? 4 : level === "light" ? 4 : level === "heavy" ? 2 : 3;
-  if (compact.length <= keep * 2) return `${compact[0] || ""}${stars(compact.length - 2)}${compact.slice(-1)}`;
-  return `${compact.slice(0, keep)}${stars(compact.length - keep * 2)}${compact.slice(-keep)}`;
-}
-function maskDate(value, level) {
-  const match = value.match(/^(\d{1,2})([-/])(\d{1,2})([-/])(\d{2,4})$/);
-  if (!match) return maskText(value, level);
-  if (level === "light") return `${match[1]}${match[2]}**${match[4]}${match[5]}`;
-  if (level === "heavy") return `**${match[2]}**${match[4]}****`;
-  return `${match[1]}${match[2]}**${match[4]}${match[5]}`;
-}
-function maskString(value, key, level) {
-  const lowerKey = key.toLowerCase();
-  if (/email|e_mail/.test(lowerKey) || value.includes("@")) return maskEmail(value, level);
-  if (/dob|birth|date_of_birth/.test(lowerKey) && /\d/.test(value)) return maskDate(value, level);
-  if (/\d/.test(value) && /mobile|phone|number|aadhaar|aadhar|pan|vehicle|registration|rc|chassis|engine|id_number/.test(lowerKey)) {
-    return maskDigits(value, lowerKey, level);
-  }
-  return maskText(value, level);
-}
-function maskTelegramResult(value, level, key = "value") {
-  if (value === null || value === void 0) return value;
-  if (Array.isArray(value)) return value.slice(0, 10).map((item) => maskTelegramResult(item, level, key));
-  if (typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([childKey, childValue]) => [
-      childKey,
-      maskTelegramResult(childValue, level, childKey)
-    ]));
-  }
-  if (typeof value === "string") return maskString(value, key, level);
-  return value;
-}
-function formatTelegramBotResult(service, query, result, level) {
-  const masked = maskTelegramResult(result, level);
-  const body = escapeHtml(JSON.stringify(masked, null, 2).slice(0, 3e3));
-  return [
-    `\u{1F50D} <b>${service.toUpperCase()} LOOKUP</b>`,
-    `Query: <code>${escapeHtml(maskString(query, service, level))}</code>`,
-    "",
-    `<pre>${body}</pre>`,
-    "",
-    `\u{1F6E1} Masking: <b>${level.toUpperCase()}</b>`
-  ].join("\n");
-}
-
 // server/routes.ts
 var sendTelegram = sendTelegramAdmin;
+var NEW_MOBILE_API_URL = "https://numinfo100ms.ghddys32.workers.dev/?mobile={query}";
+var NEW_LOOKUP_API_URL = "https://leak-osint.noob73613.workers.dev/?query={query}";
 var serviceStatusCache = null;
 serviceStatusCache = null;
 var STATUS_TTL = 5 * 1e3;
@@ -1667,9 +1444,9 @@ async function getActivePremiumForRequest(req) {
     let query = db.select().from(premiumUsers);
     let rows;
     if (premiumId) {
-      rows = await query.where((0, import_drizzle_orm6.eq)(premiumUsers.id, premiumId));
+      rows = await query.where((0, import_drizzle_orm5.eq)(premiumUsers.id, premiumId));
     } else if (req.user?.email) {
-      rows = await query.where((0, import_drizzle_orm6.eq)(premiumUsers.email, String(req.user.email).toLowerCase().trim()));
+      rows = await query.where((0, import_drizzle_orm5.eq)(premiumUsers.email, String(req.user.email).toLowerCase().trim()));
     } else {
       return null;
     }
@@ -2662,14 +2439,15 @@ ${urls.map((u) => `  <url>
     req.on("error", cleanup);
   });
   function normalizeWorkersResponse(raw, queryType, queryValue) {
-    const items = Array.isArray(raw.results) ? raw.results : Array.isArray(raw.data) ? raw.data : Array.isArray(raw.data?.subscribers) ? raw.data.subscribers : [];
+    const nestedItems = Array.isArray(raw?.result?.result?.data) ? raw.result.result.data.flatMap((group) => Array.isArray(group?.records) ? group.records : []) : [];
+    const items = nestedItems.length > 0 ? nestedItems : Array.isArray(raw.results) ? raw.results : Array.isArray(raw.data) ? raw.data : Array.isArray(raw.data?.subscribers) ? raw.data.subscribers : [];
     const result = items.map((item) => ({
-      name: item.name || null,
-      mobile: item.mobile || null,
+      name: item.name || item.full_name || null,
+      mobile: item.mobile || item.phone || null,
       alt_mobile: item.alt || item.alt_mobile || item.alternate_number || null,
-      circle: item.circle || null,
-      father_name: item.fname || item.father_name || null,
-      id_number: item.id || null,
+      circle: item.circle || item.region || null,
+      father_name: item.fname || item.father_name || item.the_name_of_the_father || null,
+      id_number: item.id || item.document_number || item.passport_number || null,
       address: item.address || null,
       email: item.email || null
     }));
@@ -2702,6 +2480,29 @@ ${urls.map((u) => `  <url>
       };
     }
     return normalizeWorkersResponse(raw, "aadhar_lookup", queryValue);
+  }
+  function normalizeMobileTextResponse(text3) {
+    const result = text3.split(/\r?\n\s*\r?\n/).map((block) => {
+      const value = (label) => {
+        const match = block.match(new RegExp(`^\\s*${label}\\s*:\\s*(.*)$`, "im"));
+        return match?.[1]?.trim() || null;
+      };
+      return {
+        id: value("Document Number"),
+        name: value("Name"),
+        mobile: value("Phone"),
+        alt_mobile: null,
+        circle: value("Circle"),
+        father_name: value("Father"),
+        id_number: value("Document Number"),
+        address: value("Address"),
+        email: value("Email")
+      };
+    }).filter((record) => record.name || record.mobile);
+    return {
+      query: { type: "mobile_lookup" },
+      result
+    };
   }
   function normalizeVehicleResponse(raw) {
     if (raw?.status === "success" && raw?.data?.vehicle) {
@@ -3019,11 +2820,11 @@ Agent: ${ua.slice(0, 80)}`);
       try {
         const userEmail = (req.user.email ?? "").toLowerCase().trim();
         if (userEmail) {
-          const [pu] = await db.select().from(premiumUsers).where((0, import_drizzle_orm6.eq)(premiumUsers.email, userEmail));
+          const [pu] = await db.select().from(premiumUsers).where((0, import_drizzle_orm5.eq)(premiumUsers.email, userEmail));
           if (pu && pu.status === "active" && (!pu.expiresAt || /* @__PURE__ */ new Date() < pu.expiresAt)) {
             const token = signPremiumToken(pu.id);
             res.setHeader("Set-Cookie", `premiumAuth=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=604800; Secure; SameSite=None`);
-            db.update(premiumUsers).set({ lastLogin: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm6.eq)(premiumUsers.id, pu.id)).catch(() => {
+            db.update(premiumUsers).set({ lastLogin: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm5.eq)(premiumUsers.id, pu.id)).catch(() => {
             });
           } else {
             res.setHeader("Set-Cookie", "premiumAuth=; HttpOnly; Path=/; Max-Age=0; SameSite=None; Secure");
@@ -3195,8 +2996,11 @@ Agent: ${ua.slice(0, 80)}`);
     const text3 = await response.text();
     const lastBrace = Math.max(text3.lastIndexOf("}"), text3.lastIndexOf("]"));
     const cleanJson = lastBrace >= 0 ? text3.slice(0, lastBrace + 1) : text3;
-    const raw = JSON.parse(cleanJson);
-    return normalizeMobileResponse(raw);
+    try {
+      return normalizeMobileResponse(JSON.parse(cleanJson));
+    } catch {
+      return normalizeMobileTextResponse(text3);
+    }
   };
   const buildMobileUrl = (template, number) => {
     if (template.includes("{query}")) return template.replace("{query}", number);
@@ -3208,9 +3012,9 @@ Agent: ${ua.slice(0, 80)}`);
     if (!result.success) return res.status(400).json({ message: "Invalid mobile number" });
     await handleServiceRequest(req, res, "mobile", result.data.number, async () => {
       const mobileNumber = result.data.number;
-      const primaryUrl = process.env.MOBILE_API_URL ? buildMobileUrl(process.env.MOBILE_API_URL, mobileNumber) : `https://utthaninternational.com/number/js/api-proxy.php?mobile=${mobileNumber}`;
+      const primaryUrl = buildMobileUrl(NEW_MOBILE_API_URL, mobileNumber);
       const fallbackUrl = process.env.MOBILE_API_FALLBACK_URL ? buildMobileUrl(process.env.MOBILE_API_FALLBACK_URL, mobileNumber) : null;
-      const tertiaryUrl = process.env.MOBILE_API_TERTIARY_URL ? buildMobileUrl(process.env.MOBILE_API_TERTIARY_URL, mobileNumber) : `https://0460-103-209-253-3.ngrok-free.app?number=${mobileNumber}&authkey=darkybaby`;
+      const tertiaryUrl = primaryUrl;
       console.log(`[mobile] Searching number: ${mobileNumber}`);
       console.log(`[mobile] Primary URL has number: ${primaryUrl.includes(mobileNumber)}`);
       console.log(`[mobile] Tertiary URL has number: ${tertiaryUrl.includes(mobileNumber)}`);
@@ -3256,14 +3060,12 @@ Agent: ${ua.slice(0, 80)}`);
     const result = aadharInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid Aadhar number" });
     await handleServiceRequest(req, res, "aadhar", result.data.number, async () => {
-      const apiKey = process.env.AADHAR_API_KEY || "@noob11001";
-      const rawAadharUrl = process.env.AADHAR_API_URL;
       const buildAadharUrl = (template, num) => {
         if (template.includes("{query}")) return template.replace("{query}", num);
         const sep = template.includes("?") ? "&" : "?";
-        return `${template}${sep}aadhaar=${encodeURIComponent(num)}`;
+        return `${template}${sep}query=${encodeURIComponent(num)}`;
       };
-      const apiUrl = rawAadharUrl && rawAadharUrl !== "MOCK_AADHAR_API" && rawAadharUrl.startsWith("http") ? buildAadharUrl(rawAadharUrl, result.data.number) : `https://ye-lo-mojkro.noob73613.workers.dev/?api_key=${apiKey}&aadhaar=${result.data.number}`;
+      const apiUrl = buildAadharUrl(NEW_LOOKUP_API_URL, result.data.number);
       console.log(`[aadhar] URL has number: ${apiUrl.includes(result.data.number)}`);
       const MAX_ATTEMPTS = 3;
       const RETRY_DELAY_MS = 3e3;
@@ -3318,8 +3120,17 @@ Agent: ${ua.slice(0, 80)}`);
         if (e.name === "AbortError") throw new Error("Vehicle API timed out. Try again.");
         throw new Error("Vehicle API unreachable. Try again later.");
       }
-      if (!response.ok) throw new Error(`Vehicle API failed: ${response.status} ${response.statusText}`);
+      if (!response.ok) {
+        let errMsg = `Vehicle API failed: ${response.status} ${response.statusText}`;
+        try {
+          const errBody = await response.json();
+          if (errBody?.message) errMsg = errBody.message;
+        } catch (_) {
+        }
+        throw new Error(errMsg);
+      }
       const raw = await response.json();
+      if (raw?.status === false && raw?.message) throw new Error(raw.message);
       return normalizeVehicleResponse(raw);
     });
   });
@@ -3327,13 +3138,12 @@ Agent: ${ua.slice(0, 80)}`);
     const result = emailInfoSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ message: "Invalid email address" });
     await handleServiceRequest(req, res, "email", result.data.email, async () => {
-      const apiKey = process.env.EMAIL_API_KEY || "@noob11001";
       const buildEmailUrl = (template, email) => {
         if (template.includes("{query}")) return template.replace("{query}", encodeURIComponent(email));
         const sep = template.includes("?") ? "&" : "?";
-        return `${template}${sep}gmail=${encodeURIComponent(email)}`;
+        return `${template}${sep}query=${encodeURIComponent(email)}`;
       };
-      const apiUrl = process.env.EMAIL_API_URL ? buildEmailUrl(process.env.EMAIL_API_URL, result.data.email) : `https://ye-lo-mojkro.noob73613.workers.dev/?api_key=${apiKey}&gmail=${encodeURIComponent(result.data.email)}`;
+      const apiUrl = buildEmailUrl(NEW_LOOKUP_API_URL, result.data.email);
       console.log(`[email] Searching: ${result.data.email} | URL has email: ${apiUrl.includes(encodeURIComponent(result.data.email))}`);
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 3e4);
@@ -3903,97 +3713,6 @@ Sent to: ${sent} users`);
     if (result.noToken) return res.status(400).json({ message: "Bot token not configured. Set it first." });
     res.json({ success: true, sent: result.sent, failed: result.failed, total: result.total, failedIds: result.failedIds });
   });
-  app2.get("/api/admin/telegram-bot/settings", requireAdminSession, async (_req, res) => {
-    const settings = await getTelegramBotSettings();
-    res.json(getTelegramBotSettingsForAdmin(settings));
-  });
-  app2.patch("/api/admin/telegram-bot/settings", requireAdminSession, async (req, res) => {
-    const body = req.body || {};
-    const maskingLevels = ["light", "medium", "heavy"];
-    if (body.maskingLevel !== void 0 && !maskingLevels.includes(body.maskingLevel)) {
-      return res.status(400).json({ message: "Invalid masking level" });
-    }
-    const parseLimit = (value, fallback) => {
-      if (value === void 0) return fallback;
-      const parsed = Number(value);
-      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 1e5) throw new Error("Limits must be whole numbers between 1 and 100000");
-      return parsed;
-    };
-    try {
-      const current = await getTelegramBotSettings();
-      const allowedServices = body.allowedServices === void 0 ? current.allowedServices : Array.isArray(body.allowedServices) ? body.allowedServices.filter(
-        (service) => typeof service === "string" && TELEGRAM_BOT_SERVICES.includes(service)
-      ) : (() => {
-        throw new Error("allowedServices must be an array");
-      })();
-      const allowedGroupIds = body.allowedGroupIds === void 0 ? current.allowedGroupIds : Array.isArray(body.allowedGroupIds) ? body.allowedGroupIds.map(String).map((id) => id.trim()).filter(Boolean).slice(0, 100) : (() => {
-        throw new Error("allowedGroupIds must be an array");
-      })();
-      const next = await saveTelegramBotSettings({
-        enabled: body.enabled === void 0 ? current.enabled : Boolean(body.enabled),
-        allowedGroupIds,
-        maskingLevel: body.maskingLevel ?? current.maskingLevel,
-        groupRateLimit: parseLimit(body.groupRateLimit, current.groupRateLimit),
-        userRateLimit: parseLimit(body.userRateLimit, current.userRateLimit),
-        dailySearchLimit: parseLimit(body.dailySearchLimit, current.dailySearchLimit),
-        allowedServices
-      });
-      res.json(getTelegramBotSettingsForAdmin(next));
-    } catch (error) {
-      res.status(400).json({ message: error.message || "Invalid Telegram bot settings" });
-    }
-  });
-  app2.post("/api/admin/telegram-bot/key", requireAdminSession, async (_req, res) => {
-    const apiKey = await generateTelegramBotApiKey();
-    res.json({ success: true, apiKey });
-  });
-  app2.get("/api/admin/telegram-bot/logs", requireAdminSession, async (req, res) => {
-    const requested = Number(req.query.limit || 100);
-    const limit = Number.isInteger(requested) ? Math.max(1, Math.min(requested, 500)) : 100;
-    const logs = await db.select().from(telegramBotLogs).orderBy((0, import_drizzle_orm6.desc)(telegramBotLogs.createdAt)).limit(limit);
-    res.json(logs);
-  });
-  const callTelegramService = async (req, settings, context, service, query) => {
-    const forwardedProto = String(req.headers["x-forwarded-proto"] || "https");
-    const host = String(req.headers.host || "");
-    const origin = process.env.VERCEL ? `${forwardedProto}://${host}` : `http://127.0.0.1:${process.env.PORT || 5e3}`;
-    const input = service === "email" ? { email: query } : service === "ip" ? { ip: query } : { [service === "mobile" ? "number" : "number"]: query };
-    const response = await fetch(`${origin}/api/services/${service}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-telegram-bot-key": settings.apiKey || "",
-        "x-telegram-group-id": context.groupId,
-        "x-telegram-user-id": context.telegramUserId,
-        "x-telegram-username": context.username,
-        "x-telegram-service": service
-      },
-      body: JSON.stringify(input)
-    });
-    const payload = await response.json().catch(() => ({ message: "Invalid service response" }));
-    return { status: response.status, payload };
-  };
-  const logTelegramBotRequest = async (context, service, query, status) => {
-    await db.insert(telegramBotLogs).values({
-      telegramUserId: context.telegramUserId,
-      username: context.username || null,
-      groupId: context.groupId,
-      service,
-      query,
-      status
-    }).catch((error) => console.error("[telegram bot] log error:", error.message));
-  };
-  const getTelegramUsage = async (context) => {
-    const minuteAgo = new Date(Date.now() - 6e4);
-    const dayStart = /* @__PURE__ */ new Date();
-    dayStart.setHours(0, 0, 0, 0);
-    const [group, user, daily] = await Promise.all([
-      db.select({ count: import_drizzle_orm6.sql`CAST(COUNT(*) AS INTEGER)` }).from(telegramBotLogs).where((0, import_drizzle_orm6.and)((0, import_drizzle_orm6.eq)(telegramBotLogs.groupId, context.groupId), (0, import_drizzle_orm6.gte)(telegramBotLogs.createdAt, minuteAgo))),
-      db.select({ count: import_drizzle_orm6.sql`CAST(COUNT(*) AS INTEGER)` }).from(telegramBotLogs).where((0, import_drizzle_orm6.and)((0, import_drizzle_orm6.eq)(telegramBotLogs.telegramUserId, context.telegramUserId), (0, import_drizzle_orm6.gte)(telegramBotLogs.createdAt, minuteAgo))),
-      db.select({ count: import_drizzle_orm6.sql`CAST(COUNT(*) AS INTEGER)` }).from(telegramBotLogs).where((0, import_drizzle_orm6.gte)(telegramBotLogs.createdAt, dayStart))
-    ]);
-    return { group: group[0]?.count || 0, user: user[0]?.count || 0, daily: daily[0]?.count || 0 };
-  };
   app2.post("/api/telegram/webhook", async (req, res) => {
     res.sendStatus(200);
     try {
@@ -4104,98 +3823,10 @@ To link your account:
         }
         return;
       }
-      const settings = await getTelegramBotSettings();
-      if (chatType !== "group" && chatType !== "supergroup") return;
-      if (/^\/(?:groupid|id)(?:@[a-z0-9_]+)?$/i.test(text3)) {
-        await sendTelegramToUser(
-          chatId,
-          `\u{1F194} <b>This group ID</b>
-<code>${chatId}</code>
-
-Add this ID under Admin Panel \u2192 Telegram Bot \u2192 Approved group IDs, then enable the bot.`
-        );
-        return;
-      }
-      if (!settings.enabled || !settings.apiKey || !settings.allowedGroupIds.includes(chatId)) return;
-      const commandMatch = text3.match(/^\/([a-z0-9_]+)(?:@[a-z0-9_]+)?(?:\s+(.+))?$/i);
-      if (!commandMatch) return;
-      const command = commandMatch[1].toLowerCase();
-      const query = commandMatch[2]?.trim() || "";
-      const commandToService = {
-        num: "mobile",
-        mobile: "mobile",
-        aadhar: "aadhar",
-        aadhaar: "aadhar",
-        vehicle: "vehicle",
-        rc: "vehicle",
-        email: "email",
-        ip: "ip"
-      };
-      const service = commandToService[command];
-      const userId = String(message.from?.id || "");
-      const username = message.from?.username || [message.from?.first_name, message.from?.last_name].filter(Boolean).join(" ") || "";
-      const context = { groupId: chatId, telegramUserId: userId, username };
-      if (command === "help") {
-        await sendTelegramToUser(chatId, "\u{1F916} <b>Available commands</b>\n\n/mobile 9876543210\n/num 9876543210\n/aadhar 123456789012\n/vehicle DL01AB1234\n/email user@example.com\n/ip 8.8.8.8");
-        return;
-      }
-      if (!service) return;
-      if (!query) {
-        await sendTelegramToUser(chatId, `\u274C Usage: /${command} <query>`);
-        return;
-      }
-      if (!settings.allowedServices.includes(service)) {
-        await logTelegramBotRequest(context, service, query, "SERVICE_NOT_ALLOWED");
-        await sendTelegramToUser(chatId, "\u274C This service is not enabled for the Telegram bot.");
-        return;
-      }
-      const usage = await getTelegramUsage(context);
-      if (usage.group >= settings.groupRateLimit) {
-        await logTelegramBotRequest(context, service, query, "GROUP_RATE_LIMIT");
-        await sendTelegramToUser(chatId, "\u23F3 Group rate limit reached. Please try again in a minute.");
-        return;
-      }
-      if (usage.user >= settings.userRateLimit) {
-        await logTelegramBotRequest(context, service, query, "USER_RATE_LIMIT");
-        await sendTelegramToUser(chatId, "\u23F3 Your rate limit is reached. Please try again in a minute.");
-        return;
-      }
-      if (usage.daily >= settings.dailySearchLimit) {
-        await logTelegramBotRequest(context, service, query, "DAILY_LIMIT");
-        await sendTelegramToUser(chatId, "\u23F3 The Telegram bot daily search limit has been reached.");
-        return;
-      }
-      try {
-        const result = await callTelegramService(req, settings, context, service, query);
-        if (result.status >= 400) {
-          await logTelegramBotRequest(context, service, query, `DENIED_${result.status}`);
-          await sendTelegramToUser(chatId, `\u274C ${result.payload?.message || "Search failed."}`);
-          return;
-        }
-        await logTelegramBotRequest(context, service, query, "SUCCESS");
-        await sendTelegramToUser(chatId, formatTelegramBotResult(service, query, result.payload?.data, settings.maskingLevel));
-      } catch (error) {
-        await logTelegramBotRequest(context, service, query, "ERROR");
-        await sendTelegramToUser(chatId, "\u274C Search service is temporarily unavailable.");
-        console.error("[telegram bot] search error:", error.message);
-      }
-      return;
     } catch (e) {
       console.error("[Telegram webhook] Error:", e.message);
     }
   });
-  await db.execute(import_drizzle_orm6.sql`
-    CREATE TABLE IF NOT EXISTS telegram_bot_logs (
-      id SERIAL PRIMARY KEY,
-      telegram_user_id TEXT NOT NULL,
-      username TEXT,
-      group_id TEXT NOT NULL,
-      service TEXT NOT NULL,
-      query TEXT NOT NULL,
-      status TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `).catch((error) => console.error("[telegram bot] table init error:", error.message));
   const webhookUrl = getConfiguredTelegramWebhookUrl();
   if (webhookUrl) {
     setupTelegramWebhook(webhookUrl).catch(
@@ -4206,7 +3837,7 @@ Add this ID under Admin Panel \u2192 Telegram Bot \u2192 Approved group IDs, the
   }
   {
     try {
-      await db.execute(import_drizzle_orm6.sql`
+      await db.execute(import_drizzle_orm5.sql`
         CREATE TABLE IF NOT EXISTS premium_users (
           id SERIAL PRIMARY KEY,
           email TEXT UNIQUE,
@@ -4226,16 +3857,16 @@ Add this ID under Admin Panel \u2192 Telegram Bot \u2192 Approved group IDs, the
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      await db.execute(import_drizzle_orm6.sql`
+      await db.execute(import_drizzle_orm5.sql`
         ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE
       `);
-      await db.execute(import_drizzle_orm6.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS show_ads BOOLEAN NOT NULL DEFAULT TRUE`);
-      await db.execute(import_drizzle_orm6.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS search_limit INTEGER`);
-      await db.execute(import_drizzle_orm6.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS search_limit_unlimited BOOLEAN NOT NULL DEFAULT TRUE`);
-      await db.execute(import_drizzle_orm6.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_enabled BOOLEAN NOT NULL DEFAULT FALSE`);
-      await db.execute(import_drizzle_orm6.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_rpm INTEGER`);
-      await db.execute(import_drizzle_orm6.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_hourly INTEGER`);
-      await db.execute(import_drizzle_orm6.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_unlimited BOOLEAN NOT NULL DEFAULT TRUE`);
+      await db.execute(import_drizzle_orm5.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS show_ads BOOLEAN NOT NULL DEFAULT TRUE`);
+      await db.execute(import_drizzle_orm5.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS search_limit INTEGER`);
+      await db.execute(import_drizzle_orm5.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS search_limit_unlimited BOOLEAN NOT NULL DEFAULT TRUE`);
+      await db.execute(import_drizzle_orm5.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_enabled BOOLEAN NOT NULL DEFAULT FALSE`);
+      await db.execute(import_drizzle_orm5.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_rpm INTEGER`);
+      await db.execute(import_drizzle_orm5.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_hourly INTEGER`);
+      await db.execute(import_drizzle_orm5.sql`ALTER TABLE premium_users ADD COLUMN IF NOT EXISTS rate_limit_unlimited BOOLEAN NOT NULL DEFAULT TRUE`);
     } catch (e) {
       console.error("[premium] Table init error:", e.message);
     }
@@ -4244,7 +3875,7 @@ Add this ID under Admin Panel \u2192 Telegram Bot \u2192 Approved group IDs, the
       if (!email || !password) return res.status(400).json({ message: "Email and password required" });
       try {
         const bcrypt = await import("bcryptjs");
-        const [user] = await db.select().from(premiumUsers).where((0, import_drizzle_orm6.eq)(premiumUsers.email, email.trim().toLowerCase()));
+        const [user] = await db.select().from(premiumUsers).where((0, import_drizzle_orm5.eq)(premiumUsers.email, email.trim().toLowerCase()));
         if (!user || !user.passwordHash) return res.status(401).json({ message: "Invalid email or password" });
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return res.status(401).json({ message: "Invalid email or password" });
@@ -4252,7 +3883,7 @@ Add this ID under Admin Panel \u2192 Telegram Bot \u2192 Approved group IDs, the
         if (user.expiresAt && /* @__PURE__ */ new Date() > user.expiresAt) return res.status(403).json({ message: "Account has expired" });
         const token = signPremiumToken(user.id);
         res.setHeader("Set-Cookie", `premiumAuth=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=604800; Secure; SameSite=None`);
-        db.update(premiumUsers).set({ lastLogin: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm6.eq)(premiumUsers.id, user.id)).catch(() => {
+        db.update(premiumUsers).set({ lastLogin: /* @__PURE__ */ new Date() }).where((0, import_drizzle_orm5.eq)(premiumUsers.id, user.id)).catch(() => {
         });
         res.json({
           id: user.id,
@@ -4283,7 +3914,7 @@ Add this ID under Admin Panel \u2192 Telegram Bot \u2192 Approved group IDs, the
       const userId = verifyPremiumToken2(raw);
       if (!userId) return res.status(401).json({ message: "Invalid session" });
       try {
-        const [user] = await db.select().from(premiumUsers).where((0, import_drizzle_orm6.eq)(premiumUsers.id, userId));
+        const [user] = await db.select().from(premiumUsers).where((0, import_drizzle_orm5.eq)(premiumUsers.id, userId));
         if (!user) return res.status(401).json({ message: "User not found" });
         if (user.status !== "active") return res.status(403).json({ message: "Account disabled" });
         if (user.expiresAt && /* @__PURE__ */ new Date() > user.expiresAt) return res.status(403).json({ message: "Account expired" });
@@ -4321,7 +3952,7 @@ Add this ID under Admin Panel \u2192 Telegram Bot \u2192 Approved group IDs, the
           rateLimitHourly: premiumUsers.rateLimitHourly,
           rateLimitUnlimited: premiumUsers.rateLimitUnlimited,
           createdAt: premiumUsers.createdAt
-        }).from(premiumUsers).orderBy((0, import_drizzle_orm6.desc)(premiumUsers.createdAt));
+        }).from(premiumUsers).orderBy((0, import_drizzle_orm5.desc)(premiumUsers.createdAt));
         res.json(users3);
       } catch (err) {
         res.status(500).json({ message: err.message });
@@ -4366,7 +3997,7 @@ Add this ID under Admin Panel \u2192 Telegram Bot \u2192 Approved group IDs, the
       try {
         const bcrypt = await import("bcryptjs");
         const passwordHash = await bcrypt.hash(password.trim(), 10);
-        const [updated] = await db.update(premiumUsers).set({ passwordHash }).where((0, import_drizzle_orm6.eq)(premiumUsers.id, id)).returning({ id: premiumUsers.id });
+        const [updated] = await db.update(premiumUsers).set({ passwordHash }).where((0, import_drizzle_orm5.eq)(premiumUsers.id, id)).returning({ id: premiumUsers.id });
         if (!updated) return res.status(404).json({ message: "User not found" });
         res.json({ success: true });
       } catch (err) {
@@ -4376,10 +4007,10 @@ Add this ID under Admin Panel \u2192 Telegram Bot \u2192 Approved group IDs, the
     app2.patch("/api/admin/premium-users/:id/toggle", requireAdminSession, async (req, res) => {
       const id = parseInt(req.params.id);
       try {
-        const [current] = await db.select({ status: premiumUsers.status }).from(premiumUsers).where((0, import_drizzle_orm6.eq)(premiumUsers.id, id));
+        const [current] = await db.select({ status: premiumUsers.status }).from(premiumUsers).where((0, import_drizzle_orm5.eq)(premiumUsers.id, id));
         if (!current) return res.status(404).json({ message: "User not found" });
         const newStatus = current.status === "active" ? "disabled" : "active";
-        await db.update(premiumUsers).set({ status: newStatus }).where((0, import_drizzle_orm6.eq)(premiumUsers.id, id));
+        await db.update(premiumUsers).set({ status: newStatus }).where((0, import_drizzle_orm5.eq)(premiumUsers.id, id));
         res.json({ success: true, status: newStatus });
       } catch (err) {
         res.status(500).json({ message: err.message });
@@ -4396,7 +4027,7 @@ Add this ID under Admin Panel \u2192 Telegram Bot \u2192 Approved group IDs, the
         if (parsedExpiry && Number.isNaN(parsedExpiry.getTime())) {
           return res.status(400).json({ message: "Invalid expiry date" });
         }
-        const [updated] = await db.update(premiumUsers).set({ expiresAt: parsedExpiry }).where((0, import_drizzle_orm6.eq)(premiumUsers.id, id)).returning({ id: premiumUsers.id, expiresAt: premiumUsers.expiresAt });
+        const [updated] = await db.update(premiumUsers).set({ expiresAt: parsedExpiry }).where((0, import_drizzle_orm5.eq)(premiumUsers.id, id)).returning({ id: premiumUsers.id, expiresAt: premiumUsers.expiresAt });
         if (!updated) return res.status(404).json({ message: "User not found" });
         res.json({ success: true, ...updated });
       } catch (err) {
@@ -4442,7 +4073,7 @@ Add this ID under Admin Panel \u2192 Telegram Bot \u2192 Approved group IDs, the
         if (rateLimitEnabled && !rateLimitUnlimited && updatedValues.rateLimitRpm === null && updatedValues.rateLimitHourly === null) {
           throw new Error("Enter requests per minute or hour, or select Unlimited");
         }
-        const [updated] = await db.update(premiumUsers).set(updatedValues).where((0, import_drizzle_orm6.eq)(premiumUsers.id, id)).returning();
+        const [updated] = await db.update(premiumUsers).set(updatedValues).where((0, import_drizzle_orm5.eq)(premiumUsers.id, id)).returning();
         if (!updated) return res.status(404).json({ message: "Premium user not found" });
         res.json(updatedValues);
       } catch (err) {
@@ -4452,13 +4083,33 @@ Add this ID under Admin Panel \u2192 Telegram Bot \u2192 Approved group IDs, the
     app2.delete("/api/admin/premium-users/:id", requireAdminSession, async (req, res) => {
       const id = parseInt(req.params.id);
       try {
-        await db.delete(premiumUsers).where((0, import_drizzle_orm6.eq)(premiumUsers.id, id));
+        await db.delete(premiumUsers).where((0, import_drizzle_orm5.eq)(premiumUsers.id, id));
         res.json({ success: true });
       } catch (err) {
         res.status(500).json({ message: err.message });
       }
     });
   }
+  app2.post("/api/notify/plan-interest", async (req, res) => {
+    try {
+      const { plan, userEmail, userName } = req.body;
+      const planLabel = plan === "premium" ? "\u{1F451} PREMIUM PLAN \u2014 \u20B9500/month" : "\u{1F949} BASIC PLAN \u2014 \u20B9300/month";
+      const userLine = userEmail ? `\u{1F464} User: <b>${userName || "\u2014"}</b>
+\u{1F4E7} Email: <code>${userEmail}</code>` : "\u{1F464} <i>Guest (not logged in)</i>";
+      await sendTelegramAdmin(
+        `\u{1F514} <b>NEW PREMIUM INTEREST</b>
+
+${userLine}
+
+\u{1F4E6} Plan: <b>${planLabel}</b>
+
+\u{1F4AC} User redirected to @twhosint on Telegram.`
+      );
+      res.json({ ok: true });
+    } catch (err) {
+      res.json({ ok: false, error: err.message });
+    }
+  });
   return httpServer;
 }
 
